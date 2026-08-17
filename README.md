@@ -1,240 +1,150 @@
-<h1 align="center">
-  <br>
-  <a href="http://theboring.name"><img src="https://framerusercontent.com/images/RFK4vs0kn8pRMuOO58JeyoemXA.png?scale-down-to=256" alt="Boring Notch" width="150"></a>
-  <br>
-  Boring Notch
-  <br>
-</h1>
+<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="160"></p>
+<h1 align="center">Nodebay</h1>
+<p align="center"><strong>The utility bay in your Mac's notch.</strong></p>
 
+Nodebay is a native, local-first macOS utility bay for MacBook displays with a physical notch and external displays with a virtual top-center notch. It combines media controls, a persistent file shelf, safe file stacks, document conversion, local media downloads, image-copy compression, calendar tools, system HUD replacement, and display-aware placement.
 
-<p align="center">
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/boring-notch"><img src="https://badges.crowdin.net/boring-notch/localized.svg"></a>
-  <img src="https://github.com/TheBoredTeam/boring.notch/actions/workflows/cicd.yml/badge.svg" alt="TheBoringNotch Build & Test" style="margin-right: 10px;" />
-  <a href="https://discord.gg/c8JXA7qrPm">
-    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/c8JXA7qrPm?style=flat" alt="Discord Badge" />
-  </a>
-  <a href="https://www.ko-fi.com/alexander5015">
-    <img src="https://srv-cdn.himpfen.io/badges/kofi/kofi-flat.svg" alt="Ko-Fi" />
-  </a>
-</p>
+Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch) at exact commit [`44dd999f70493da48209c99e9f873c47f2e55c83`](https://github.com/TheBoredTeam/boring.notch/commit/44dd999f70493da48209c99e9f873c47f2e55c83). The original project and contributors remain credited. Nodebay is GPL-3.0 software and is not affiliated with or endorsed by Microsoft, YouTube, ImageOptim, Spotify, Apple, or the other service and engine providers it can work with.
 
-<!--Welcome to **Boring.Notch**, the coolest way to make your MacBook's notch the star of the show! Forget about those boring status bars—our notch turns into a dynamic music control center, complete with a snazzy visualizer and all the music controls you need. It's like having a mini concert right at the top of your screen! -->
+## Current release status
 
-Say hello to **Boring Notch**, the coolest way to make your MacBook’s notch the star of the show! Say goodbye to boring status bars: with Boring Notch, your notch transforms into a dynamic music control center, complete with a vibrant visualizer and all the essential music controls you need. But that’s just the start! Boring Notch also offers calendar integration, a handy file shelf with sharing support, a complete MacOS OSD replacement and more!
+Nodebay is under release preparation. No public Nodebay release, Homebrew tap, update feed, browser bridge, or pull request has been published from this branch. Reproducible build and cask templates are included, but publication requires explicit final approval after review of the artifact, checksum, screenshots, notices, and verification report.
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/2d5f69c1-6e7b-4bc2-a6f1-bb9e27cf88a8" alt="Demo GIF" />
-</p>
+## Features
 
-<!--https://github.com/user-attachments/assets/19b87973-4b3a-4853-b532-7e82d1d6b040-->
----
-<!--## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Roadmap](#-roadmap)
-- [Building from Source](#building-from-source)
-- [Contributing](#-contributing)
-- [Join our Discord Server](#join-our-discord-server)
-- [Star History](#star-history)
-- [Buy us a coffee!](#buy-us-a-coffee)
-- [Acknowledgments](#-acknowledgments)-->
+- Native notch UI on the built-in display and a virtual notch on external displays
+- Explicit built-in, selected, main, pointer-active, and all-display placement modes
+- Persistent shelf references with security-scoped bookmarks
+- Persistent named File Stacks with reorder, preview, dissolve, and multi-file Finder drag
+- Local conversion through unmodified Microsoft MarkItDown 0.1.7
+- Batch conversion into a separate Markdown result stack with progress, cancellation, partial success, and aggregate errors
+- Local yt-dlp downloads with explicit MP4, MP3, or best-original selection and optional FFmpeg processing
+- Copy-first ImageOptim integration that never sends an original file to ImageOptim
+- Independent Apple Music, Spotify, YouTube Music, and system Now Playing source state with an explicit active control target
+- Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, and license links
+- XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
+
+## File safety
+
+Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
+
+- Removing a tile removes only Nodebay's reference and supports Undo.
+- Dissolving a stack preserves every member reference.
+- Markdown conversion creates a collision-safe `.md` copy.
+- Image compression first creates a collision-safe copy and passes only that copy to ImageOptim.
+- Downloaded media remains in the configured download directory while Nodebay stores a reference.
+- Generated files remain regular file URLs that can be dragged into Finder or another app.
+
+## Privacy model
+
+Document conversion, image compression, file and stack management, and media processing run locally. Nodebay has no analytics endpoint, proxy, download server, or Nodebay cloud account.
+
+Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional browser bridge is not shipped yet, so Nodebay does not claim individual browser-tab enumeration in this source state.
+
+See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure.
+
+## Engines and companions
+
+| Integration | Version or status | Packaging | Local | Network |
+|---|---:|---|---:|---:|
+| [Microsoft MarkItDown](https://github.com/microsoft/markitdown) | 0.1.7 | Bundled, unmodified runtime | Yes | No |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.7.4 | Separate Homebrew companion | Yes | Yes, direct to source |
+| [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
+| [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
+| Browser media bridge | Not shipped | Optional future extension and native bridge | Intended | No server |
+
+Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES_NODEBAY.md](THIRD_PARTY_NOTICES_NODEBAY), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
+
+## Requirements
+
+- Apple Silicon Mac
+- macOS 14 Sonoma or later
+- ImageOptim installed separately for image compression
+- yt-dlp and FFmpeg installed separately for media downloads and conversion
+
+Companion installation for development:
+
+```bash
+brew install yt-dlp ffmpeg
+```
+
+Download ImageOptim from its [official website](https://imageoptim.com/mac).
 
 ## Installation
 
-**System Requirements:**
-- macOS **14 Sonoma** or later
-- Apple Silicon or Intel Mac
+There is no approved public Nodebay binary yet. Build the current branch from source or use the locally produced artifact after reviewing it.
 
----
-
-### Option 1: Download and Install Manually
-
-<a href="https://github.com/TheBoredTeam/boring.notch/releases/latest/download/boringNotch.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
-
-Once downloaded, open the `.dmg` and move **Boring Notch** to your `/Applications` folder.
-
-> [!IMPORTANT]
-> We don't have an Apple Developer account (yet 👀), so macOS will warn you that Boring Notch is from an unidentified developer on first launch. This is expected behavior.
->
-> You'll need to bypass this before the app will open. You only need to do this once. Use one of the methods below.
-
----
-
-#### Recommended: Terminal (Always Works)
-
-This is the quickest and easiest method. It only requires a single command and works consistently for all users. System Settings can sometimes fail and won't work for non-admin users.
-
-After moving Boring Notch to your Applications folder, run:
+The proposed public Homebrew command, after a release and tap are approved and published, is:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/boringNotch.app
+brew install --cask Kian-hdr/nodebay/nodebay
 ```
 
-Then open the app normally.
+See [Homebrew distribution](docs/homebrew-nodebay.md). This command is intentionally documented as proposed and will not work until the approved public tap exists.
 
----
+## Build from source
 
-#### Alternative: System Settings
-
-> [!NOTE]
-> This method doesn't work for all users. If this doesn't work, use the Terminal method above.
-
-1. Try to open the app — you'll see a security warning.
-2. Click **OK** to dismiss it.
-3. Open **System Settings** > **Privacy & Security**.
-4. Scroll to the bottom and click **Open Anyway** next to the Boring Notch warning.
-5. Confirm if prompted.
-
----
-
-### Option 2: Install via Homebrew
-
-You can also install using [Homebrew](https://brew.sh). The Homebrew installation automatically bypasses the macOS security warning described above.
+Prerequisites: Xcode 26 or later, Homebrew Python 3.13, and Apple Silicon.
 
 ```bash
-brew install --cask TheBoredTeam/boring-notch/boring-notch
+git clone https://github.com/Kian-hdr/boring.notch.git
+cd boring.notch
+git switch feature/nodebay
+brew install python@3.13
+./scripts/build_markitdown_runtime.sh
+./scripts/test_markitdown_runtime.sh
+xcodebuild \
+  -project boringNotch.xcodeproj \
+  -scheme boringNotch \
+  -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' \
+  build
 ```
 
-### Apple Silicon MarkItDown edition
+The bundled MarkItDown runtime is generated and excluded from Git. Its full dependency lock and notices are reproducible from the checked-in scripts and requirements.
 
-This fixed community build adds local shelf document-to-Markdown conversion and
-is distributed separately while the feature is under upstream review:
+## Reproducible Apple Silicon package
 
 ```bash
-brew install --cask Kian-hdr/boring-notch-markitdown/boring-notch-markitdown
+./scripts/package_homebrew_arm64.sh
 ```
 
-It supports Apple Silicon Macs only. The in-app updater is disabled so an
-official build cannot replace this edition before MarkItDown support is merged.
-See [Homebrew MarkItDown Edition](docs/homebrew-markitdown.md) for verification,
-source, licensing, and uninstall instructions.
+The script builds the runtime, executes real PDF and DOCX fixtures, performs a clean Release build, stages `Nodebay.app`, installs license and privacy records, verifies arm64 executables and the staged signature, and produces a ZIP plus SHA-256 under `build/nodebay-homebrew-arm64-release/`.
 
-## Usage
+Public distribution still requires Developer ID signing and notarization. An ad-hoc signature is suitable only for local verification.
 
-- Launch the app, and voilà—your notch is now the coolest part of your screen.
-- Hover over the notch to see it expand and reveal all its secrets.
-- Use the controls to manage your music like a rockstar.
-- Click the star in your menu bar to customize your notch to your heart's content.
+## Permissions
 
-### Local document-to-Markdown conversion
+- Files and folders: persistent shelf references and chosen output locations
+- Accessibility: optional system HUD replacement and related controls
+- Apple Events: Apple Music and Spotify control
+- Calendar: optional calendar and reminders features
+- Camera and microphone or audio capture: optional mirror, camera, and waveform features
+- Network client: direct downloads, optional lyrics, artwork, and local media companions
+- Local networking: the existing local YouTube Music companion integration
 
-The shelf can create a separate Markdown copy of supported local documents. Add
-a PDF, Word document, presentation, spreadsheet, HTML/XML document, ebook,
-Outlook message, archive, or text file to the shelf, then choose **Convert to
-MD**. The source file is preserved, and the generated `.md` file can be dragged
-to Finder like any other shelf item.
+Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the first migration-safe build so existing preferences, bookmarks, saved shelf state, and Accessibility authorization remain usable. The user-visible product and release artifacts are Nodebay. A future bundle-identifier change must ship with a signed, tested migration.
 
-Conversion runs in a bundled, local-only [Microsoft
-MarkItDown](https://github.com/microsoft/markitdown) runtime. Plugins and remote
-URLs are disabled, Python socket connections are blocked, and no cloud or AI API
-dependency is included in the runtime lock. This guarantee applies to the
-document conversion path; other Boring Notch features retain their existing
-network behavior.
+## Known limitations
 
-## 📋 Roadmap
-- [x] Playback live activity 🎧
-- [x] Calendar integration 📆
-- [x] Reminders integration ☑️
-- [x] Mirror 📷
-- [x] Charging indicator and current percentage 🔋
-- [x] Customizable gesture control 👆🏻
-- [x] Shelf functionality with AirDrop 📚
-- [x] Notch sizing customization, finetuning on different display sizes 🖥️
-- [x] System OSD replacements (volume, brightness, backlight) 🎚️💡⌨️
-- [ ] Bluetooth Live Activity (connect/disconnect for bluetooth devices) 
-- [ ] Weather integration ⛅️
-- [ ] Customizable Layout options 🛠️
-- [ ] Lock Screen Widgets 🔒
-- [ ] Extension system 🧩
-- [ ] Notifications (under consideration) 🔔
-<!-- - [ ] Clipboard history manager 📌 `Extension` -->
-<!-- - [ ] Download indicator of different browsers (Safari, Chromium browsers, Firefox) 🌍 `Extension`-->
-<!-- - [ ] Customizable function buttons 🎛️ -->
-<!-- - [ ] App switcher 🪄 -->
+- Individual browser-tab media control is unavailable until an optional local native-messaging bridge has been implemented, permissioned, and tested in a named browser.
+- Public macOS media APIs do not reliably enumerate every third-party app or browser tab. Nodebay falls back to system Now Playing where appropriate.
+- ImageOptim behavior follows the installed app's preferences. Nodebay reports that status and always protects the source through a copy-first workflow.
+- Physical multi-monitor, clamshell, Spaces, full-screen, Mission Control, and Stage Manager regression checks require the final manual hardware test pass.
+- The update feed is intentionally absent in this unpublished build.
 
-<!-- ## 🧩 Extensions
-> [!NOTE]
-> We’re hard at work on some awesome extensions! Stay tuned, and we’ll keep you updated as soon as they’re released. -->
+## Icon source
 
-## Building from Source
+The original Nodebay icon was authored as layered artwork and assembled in Apple Icon Composer. Editable source and all exported appearances are under [`Design/NodebayIcon`](Design/NodebayIcon). Production sizes are generated by `scripts/generate_nodebay_appicon_assets.sh`.
 
-### Prerequisites
+## Licensing and attribution
 
-- **macOS 15.6 or later**
-- **Xcode 26 or later**
-- **Homebrew CPython 3.13.15** for the optional local MarkItDown runtime
+Nodebay is licensed under [GPL-3.0](LICENSE). Modified binary distributions must preserve notices and provide corresponding source and reproducible build instructions as required by the license.
 
-### Installation
+- Based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch), GPL-3.0
+- Document conversion by [Microsoft MarkItDown](https://github.com/microsoft/markitdown), MIT
+- Download integration for [yt-dlp](https://github.com/yt-dlp/yt-dlp), distribution-dependent licensing documented in notices
+- Media processing through [FFmpeg](https://ffmpeg.org), exact build-license result documented in notices
+- Optional compression through separately installed [ImageOptim](https://imageoptim.com/mac)
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/TheBoredTeam/boring.notch.git
-   cd boring.notch
-   ```
-
-2. **Build the local MarkItDown runtime**:
-   ```bash
-   brew install python@3.13
-   ./scripts/build_markitdown_runtime.sh
-   ./scripts/test_markitdown_runtime.sh
-   ```
-
-   The generated runtime is architecture-specific and intentionally excluded
-   from Git. Its exact dependency versions are recorded in
-   `requirements/markitdown-runtime.txt`.
-
-3. **Open the Project in Xcode**:
-   ```bash
-   open boringNotch.xcodeproj
-   ```
-
-4. **Build and Run**:
-    - Click the "Run" button or press `Cmd + R`. Watch the magic unfold!
-
-See [Local MarkItDown Runtime](docs/markitdown-local.md) for the architecture,
-supported formats, reproducible Release build, tests, and distribution notes.
-
-## 🤝 Contributing
-
-We’re all about good vibes and awesome contributions! Read [CONTRIBUTING.md](CONTRIBUTING.md) to learn how you can join the fun!
-
-## Join our Discord Server
-
-<a href="https://discord.gg/GvYcYpAKTu" target="_blank"><img src="https://iili.io/28m3GHv.png" alt="Join The Boring Server!" style="height: 60px !important;width: 217px !important;" ></a>
-
-## Star History
-
-<a href="https://www.star-history.com/#TheBoredTeam/boring.notch&Timeline">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=TheBoredTeam/boring.notch&type=Timeline" />
- </picture>
-</a>
-
-## Support us on Ko-fi!
-<!-- <a href="https://www.buymeacoffee.com/jfxh67wvfxq" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a> -->
-<a href="https://www.ko-fi.com/alexander5015" target="_blank"><img src="https://github.com/user-attachments/assets//a76175ef-7e93-475a-8b67-4922ba5964c2" alt="Support us on Ko-fi" style="height: 70px !important;width: 346px !important;" ></a>
-
-## 🎉 Acknowledgments
-
-We would like to express our gratitude to the authors and maintainers of the open-source projects that made this possible. 
-
-## Notable Projects
-- **[MediaRemoteAdapter](https://github.com/ungive/mediaremote-adapter)** –  An open-source project that allowed us to use the Now Playing source in macOS 15.4+
-- **[NotchDrop](https://github.com/Lakr233/NotchDrop)** – An open-source project that has been instrumental in developing the first version of the "Shelf" feature in Boring Notch.
-- **[Microsoft MarkItDown](https://github.com/microsoft/markitdown)** – MIT-licensed local document-to-Markdown conversion used by the shelf.
-
-For licenses and attributions, see the existing [Third-Party Licenses](./THIRD_PARTY_LICENSES)
-and the generated [MarkItDown Runtime Notices](./THIRD_PARTY_LICENSES_MARKITDOWN).
-MarkItDown remains unmodified and is not forked by this project.
-
-Boring Notch remains licensed under [GPL-3.0](./LICENSE). Distributors of a
-modified binary must retain the notices and provide the corresponding source
-and build instructions as required by GPL-3.0.
-
-### Icon credits: [@maxtron95](https://github.com/maxtron95)
-### Website credits: [@himanshhhhuv](https://github.com/himanshhhhuv)
-
-- **SwiftUI**: For making us look like coding wizards.
-- **You**: For being awesome and checking out **boring.notch**!
+Nodebay does not fork or modify MarkItDown, yt-dlp, FFmpeg, or ImageOptim.

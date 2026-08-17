@@ -3,13 +3,13 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-release_version=${RELEASE_VERSION:-2.8-beta.0-markitdown.1}
-release_tag=${RELEASE_TAG:-markitdown-v$release_version}
-build_root="$project_root/build/homebrew-arm64-release"
+release_version=${RELEASE_VERSION:-0.1.0}
+release_tag=${RELEASE_TAG:-nodebay-v$release_version}
+build_root="$project_root/build/nodebay-homebrew-arm64-release"
 derived_data="$build_root/DerivedData"
-artifact_name="boringNotch-MarkItDown-$release_version-arm64.zip"
+artifact_name="Nodebay-$release_version-arm64.zip"
 artifact_path="$build_root/$artifact_name"
-app_source="$derived_data/Build/Products/Release/boringNotch.app"
+app_source="$derived_data/Build/Products/Release/Nodebay.app"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
     print -u2 "This distribution script must run on Apple Silicon."
@@ -25,9 +25,9 @@ mkdir -p "$build_root"
 
 # Stage outside File Provider-managed folders. Those folders can immediately
 # restore FinderInfo attributes that invalidate nested code signatures.
-stage_root=$(mktemp -d "${TMPDIR:-/tmp}/boringnotch-homebrew-stage.XXXXXX")
+stage_root=$(mktemp -d "${TMPDIR:-/tmp}/nodebay-homebrew-stage.XXXXXX")
 trap 'rm -rf "$stage_root"' EXIT
-app_stage="$stage_root/boringNotch.app"
+app_stage="$stage_root/Nodebay.app"
 
 xcodebuild \
     -project "$project_root/boringNotch.xcodeproj" \
@@ -41,26 +41,29 @@ xcodebuild \
 ditto "$app_source" "$app_stage"
 licenses_root="$app_stage/Contents/Resources/Licenses"
 mkdir -p "$licenses_root"
-cp "$project_root/LICENSE" "$licenses_root/BoringNotch-GPL-3.0.txt"
-cp "$project_root/THIRD_PARTY_LICENSES" "$licenses_root/BoringNotch-Third-Party-Licenses.txt"
+cp "$project_root/LICENSE" "$licenses_root/Nodebay-GPL-3.0.txt"
+cp "$project_root/THIRD_PARTY_LICENSES" "$licenses_root/Boring-Notch-Foundation-Notices.txt"
 cp "$project_root/THIRD_PARTY_LICENSES_MARKITDOWN" "$licenses_root/MarkItDown-Runtime-Notices.txt"
+cp "$project_root/THIRD_PARTY_NOTICES_NODEBAY.md" "$licenses_root/Nodebay-Third-Party-Notices.md"
+cp "$project_root/PRIVACY.md" "$licenses_root/Nodebay-Privacy.md"
 
 cat > "$licenses_root/SOURCE_AND_LICENSES.txt" <<EOF
-Boring Notch MarkItDown Edition $release_version
+Nodebay $release_version
 
 Corresponding source and build instructions:
 https://github.com/Kian-hdr/boring.notch/tree/$release_tag
 
-Boring Notch is distributed under GPL-3.0. Microsoft MarkItDown 0.1.7 is
-bundled unmodified under the MIT License. Complete notices are included in this
-directory and in the bundled MarkItDown runtime.
+Nodebay is distributed under GPL-3.0 and is based on Boring Notch commit
+44dd999f70493da48209c99e9f873c47f2e55c83. Microsoft MarkItDown 0.1.7 is
+bundled unmodified under the MIT License. Companion yt-dlp, FFmpeg, and
+ImageOptim installations are not bundled. Complete notices are included here.
 EOF
 
 xattr -cr "$app_stage"
 codesign --force --deep --sign - "$app_stage"
 codesign --verify --deep --strict "$app_stage"
 
-main_arch=$(file "$app_stage/Contents/MacOS/boringNotch")
+main_arch=$(file "$app_stage/Contents/MacOS/Nodebay")
 helper_arch=$(file "$app_stage/Contents/Resources/markitdown-runtime/markitdown-local")
 if [[ "$main_arch" != *"arm64"* || "$helper_arch" != *"arm64"* ]]; then
     print -u2 "The app or MarkItDown helper is not an arm64 executable."

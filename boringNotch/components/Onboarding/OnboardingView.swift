@@ -215,9 +215,6 @@ struct SoftwareUpdatePermissionView: View {
     let updater: SPUUpdater?
     let onContinue: () -> Void
 
-    @State private var automaticallyChecksForUpdates = true
-    @State private var automaticallyDownloadsUpdates = false
-
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
@@ -236,24 +233,10 @@ struct SoftwareUpdatePermissionView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 34)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle("Check for updates automatically", isOn: $automaticallyChecksForUpdates)
-
-                Toggle("Download and install updates automatically", isOn: $automaticallyDownloadsUpdates)
-                    .disabled(!automaticallyChecksForUpdates)
-                    .opacity(automaticallyChecksForUpdates ? 1 : 0.45)
-            }
-            .toggleStyle(.checkbox)
-            .padding(.horizontal, 44)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
             Spacer()
 
             Button("Continue") {
-                applyUpdatePreference(
-                    checksAutomatically: automaticallyChecksForUpdates,
-                    downloadsAutomatically: automaticallyChecksForUpdates && automaticallyDownloadsUpdates
-                )
+                disableUnconfiguredUpdates()
                 onContinue()
             }
             .buttonStyle(.borderedProminent)
@@ -266,21 +249,12 @@ struct SoftwareUpdatePermissionView: View {
             VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
                 .ignoresSafeArea()
         )
-        .onChange(of: automaticallyChecksForUpdates) { _, enabled in
-            if !enabled {
-                automaticallyDownloadsUpdates = false
-            }
-        }
     }
 
-    private func applyUpdatePreference(checksAutomatically: Bool, downloadsAutomatically: Bool) {
-        guard let updater else {
-            UserDefaults.standard.set(checksAutomatically, forKey: "SUEnableAutomaticChecks")
-            UserDefaults.standard.set(downloadsAutomatically, forKey: "SUAutomaticallyUpdate")
-            return
-        }
-
-        updater.automaticallyChecksForUpdates = checksAutomatically
-        updater.automaticallyDownloadsUpdates = downloadsAutomatically
+    private func disableUnconfiguredUpdates() {
+        updater?.automaticallyChecksForUpdates = false
+        updater?.automaticallyDownloadsUpdates = false
+        UserDefaults.standard.set(false, forKey: "SUEnableAutomaticChecks")
+        UserDefaults.standard.set(false, forKey: "SUAutomaticallyUpdate")
     }
 }

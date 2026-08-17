@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import argparse
+import hashlib
 import pathlib
 import urllib.request
 
@@ -12,6 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "third_party/nodebay-components.json"
 RESOLVED = ROOT / "boringNotch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 OUTPUT = ROOT / "THIRD_PARTY_NOTICES_NODEBAY.md"
+CHECKSUM = ROOT / "third_party/nodebay-notices.sha256"
 
 
 def load_json(path: pathlib.Path):
@@ -23,7 +26,7 @@ def raw_license_url(component: dict) -> str:
     return f"{source}/raw/{component['revision']}/{component['licensePath']}"
 
 
-def main() -> None:
+def verify_lock(manifest: dict, resolved: dict) -> dict:
     manifest = load_json(MANIFEST)
     resolved = load_json(RESOLVED)
     components = {item["id"]: item for item in manifest["components"]}
@@ -38,6 +41,41 @@ def main() -> None:
         state = pin["state"]
         if state.get("version") != expected["version"] or state.get("revision") != expected["revision"]:
             raise SystemExit(f"Pinned dependency drift for {identity}")
+    return components
+
+
+def check_offline(manifest: dict, components: dict) -> None:
+    if not OUTPUT.exists() or not CHECKSUM.exists():
+        raise SystemExit("Generated notices or their checksum are missing")
+    data = OUTPUT.read_bytes()
+    expected_hash = CHECKSUM.read_text(encoding="utf-8").strip().split()[0]
+    actual_hash = hashlib.sha256(data).hexdigest()
+    if actual_hash != expected_hash:
+        raise SystemExit("Generated notices changed. Regenerate and review the full license texts")
+    text = data.decode("utf-8")
+    for companion in manifest["companions"]:
+        heading = f"## {companion['name']} {companion['version']} (companion, not bundled)"
+        if heading not in text or companion["licenseURL"] not in text:
+            raise SystemExit(f"Missing companion notice for {companion['id']}")
+    for component in components.values():
+        heading = f"## {component['name']} {component['version']}"
+        if heading not in text or raw_license_url(component) not in text:
+            raise SystemExit(f"Missing locked package notice for {component['id']}")
+    if text.count("```text") < len(manifest["companions"]) + len(components):
+        raise SystemExit("One or more full license text blocks are missing")
+    print(f"Verified {OUTPUT.relative_to(ROOT)} offline ({actual_hash})")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="verify checked-in notices without network access")
+    args = parser.parse_args()
+    manifest = load_json(MANIFEST)
+    resolved = load_json(RESOLVED)
+    components = verify_lock(manifest, resolved)
+    if args.check:
+        check_offline(manifest, components)
+        return
 
     sections = [
         "# Nodebay Third-Party Notices",
@@ -84,6 +122,8 @@ def main() -> None:
             "",
         ])
     OUTPUT.write_text("\n".join(sections), encoding="utf-8")
+    digest = hashlib.sha256(OUTPUT.read_bytes()).hexdigest()
+    CHECKSUM.write_text(f"{digest}  {OUTPUT.name}\n", encoding="utf-8")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} with {len(components)} locked package notices")
 
 

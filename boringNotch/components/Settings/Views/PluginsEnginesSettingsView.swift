@@ -205,7 +205,7 @@ struct DownloaderSettingsView: View {
             }
 
             Section("Download Location") {
-                LabeledContent("Directory", value: FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ?? "~/Downloads")
+                LabeledContent("Directory", value: displayPath(configuredDirectory()))
                 Button("Choose Custom Directory…") { chooseDirectory() }
                 Text("Custom folders use a persistent security-scoped bookmark. Nodebay never writes outside the selected directory.")
                     .font(.caption)
@@ -348,6 +348,13 @@ struct DownloaderSettingsView: View {
             ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
     }
 
+    private func displayPath(_ url: URL) -> String {
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = url.standardizedFileURL.path
+        guard path == homePath || path.hasPrefix(homePath + "/") else { return path }
+        return "~" + path.dropFirst(homePath.count)
+    }
+
     private func chooseDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -407,7 +414,7 @@ private struct EngineProviderSection: View {
             HStack {
                 Link("Official project", destination: descriptor.officialURL)
                 Spacer()
-                Link("Third-party notices", destination: NodebayBrand.sourceURL.appending(path: "blob/feature/nodebay/THIRD_PARTY_NOTICES_NODEBAY.md"))
+                Link("Third-party notices", destination: NodebayBrand.sourceURL.appending(path: "blob/dev/THIRD_PARTY_NOTICES_NODEBAY.md"))
             }
         } header: {
             Text(descriptor.name)

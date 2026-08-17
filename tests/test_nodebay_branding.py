@@ -16,6 +16,8 @@ class NodebayBrandingTests(unittest.TestCase):
             "Casks/nodebay.rb.template",
             "scripts/package_homebrew_arm64.sh",
             "boringNotch/extensions/BundleInfos.swift",
+            "boringNotch/components/Settings/Views/AboutView.swift",
+            "boringNotch/components/Settings/Views/PluginsEnginesSettingsView.swift",
         ]
         for relative_path in operational_files:
             content = (ROOT / relative_path).read_text(encoding="utf-8")
@@ -23,6 +25,11 @@ class NodebayBrandingTests(unittest.TestCase):
                 "Kian-hdr/boring.notch",
                 content,
                 f"stale owned-repository URL in {relative_path}",
+            )
+            self.assertNotIn(
+                "blob/feature/nodebay",
+                content,
+                f"stale implementation-branch URL in {relative_path}",
             )
 
     def test_inherited_publish_destinations_are_absent(self) -> None:
@@ -68,6 +75,23 @@ class NodebayBrandingTests(unittest.TestCase):
         self.assertIn("workflow_dispatch", workflow)
         self.assertIn("inputs.confirmation == 'RELEASE'", workflow)
         self.assertNotIn("issue_comment", workflow)
+
+    def test_media_controller_default_does_not_reenter_music_manager(self) -> None:
+        constants = (ROOT / "boringNotch/models/Constants.swift").read_text(
+            encoding="utf-8"
+        )
+        declaration = next(
+            line for line in constants.splitlines() if "static let mediaController =" in line
+        )
+        self.assertIn("default: .nowPlaying", declaration)
+        self.assertNotIn("MusicManager.shared", declaration)
+
+    def test_native_settings_command_is_available(self) -> None:
+        app_source = (ROOT / "boringNotch/boringNotchApp.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("CommandGroup(replacing: .appSettings)", app_source)
+        self.assertIn('Button("Settings…")', app_source)
 
 
 if __name__ == "__main__":

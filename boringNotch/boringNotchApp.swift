@@ -50,6 +50,16 @@ struct DynamicNotchApp: App {
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    DispatchQueue.main.async {
+                        SettingsWindowController.shared.showWindow()
+                    }
+                }
+                .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
+            }
+        }
     }
 }
 

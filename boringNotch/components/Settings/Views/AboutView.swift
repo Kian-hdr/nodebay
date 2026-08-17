@@ -58,9 +58,9 @@ struct About: View {
             Section("Links") {
                 aboutLink("Nodebay source", systemImage: "chevron.left.forwardslash.chevron.right", url: NodebayBrand.sourceURL)
                 aboutLink("Boring Notch upstream", systemImage: "arrow.up.right.square", url: NodebayBrand.upstreamURL)
-                aboutLink("GPL-3.0 license", systemImage: "doc.text", relativePath: "blob/feature/nodebay/LICENSE")
-                aboutLink("Acknowledgements", systemImage: "person.3", relativePath: "blob/feature/nodebay/THIRD_PARTY_NOTICES_NODEBAY.md")
-                aboutLink("Privacy", systemImage: "hand.raised", relativePath: "blob/feature/nodebay/docs/privacy.md")
+                aboutLink("GPL-3.0 license", systemImage: "doc.text", relativePath: "blob/dev/LICENSE")
+                aboutLink("Acknowledgements", systemImage: "person.3", relativePath: "blob/dev/THIRD_PARTY_NOTICES_NODEBAY.md")
+                aboutLink("Privacy", systemImage: "hand.raised", relativePath: "blob/dev/PRIVACY.md")
             }
 
             Section {

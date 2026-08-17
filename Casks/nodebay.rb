@@ -2,7 +2,7 @@ cask "nodebay" do
   arch arm: "arm64"
 
   version "0.1.0"
-  sha256 arm: "56f7b9e493b680cad06fca4225781d9c4a2dbeda65587e47b4722cd5dae8efe7"
+  sha256 arm: "55ef257f293e77f680b75483c998e334d8061606203f6dc436a01038a5b63c29"
 
   url "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v#{version}/Nodebay-#{version}-#{arch}.zip"
   name "Nodebay"

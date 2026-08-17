@@ -90,7 +90,7 @@ The proposed Nodebay release workflow preserves the three existing signing secre
 - Architecture: Apple Silicon only
 - Valid local signing identities: Developer ID Application and Apple Distribution for team `HZWY8HT54D`
 - Current candidate: Developer ID signed, not notarized
-- Current pre-notarization SHA-256: `56f7b9e493b680cad06fca4225781d9c4a2dbeda65587e47b4722cd5dae8efe7`
+- Current pre-notarization SHA-256: `55ef257f293e77f680b75483c998e334d8061606203f6dc436a01038a5b63c29`
 - Gatekeeper result: rejected as `Unnotarized Developer ID`, expected before Apple submission
 - No notary credentials or stored notary profile are referenced by the repository
 - No active Nodebay Sparkle feed is configured

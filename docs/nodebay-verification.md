@@ -34,7 +34,7 @@ This record separates completed checks from checks that still require hardware, 
 - The release archive includes GPL-3.0, foundation attribution, runtime notices, privacy information, and corresponding-source instructions.
 - Developer ID deep signature and hardened-runtime verification.
 - Release artifact excludes the debug `get-task-allow` entitlement from the application and XPC helper.
-- Pre-notarization artifact SHA-256: `56f7b9e493b680cad06fca4225781d9c4a2dbeda65587e47b4722cd5dae8efe7`.
+- Pre-notarization artifact SHA-256: `55ef257f293e77f680b75483c998e334d8061606203f6dc436a01038a5b63c29`.
 
 ## Passed UI checks
 

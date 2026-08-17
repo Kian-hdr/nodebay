@@ -10,8 +10,8 @@ import SwiftUI
 enum NodebayBrand {
     static let name = "Nodebay"
     static let tagline = "The utility bay in your Mac’s notch."
-    static let creator = "Kian"
-    static let copyright = "Copyright © 2026 Kian."
+    static let creator = "Kian Konrad Tajbakhsh"
+    static let copyright = "Copyright © 2026 Kian Konrad Tajbakhsh."
     static let sourceURL = URL(string: "https://github.com/Kian-hdr/nodebay")!
     static let upstreamURL = URL(string: "https://github.com/TheBoredTeam/boring.notch")!
     static let foundationCommit = "44dd999f70493da48209c99e9f873c47f2e55c83"

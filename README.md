@@ -115,6 +115,24 @@ The script builds the runtime, executes real PDF and DOCX fixtures, performs a c
 
 Public distribution still requires Developer ID signing and notarization. An ad-hoc signature is suitable only for local verification.
 
+For a Developer ID package, use the exact identity and team already installed in the signing keychain:
+
+```bash
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+DEVELOPMENT_TEAM="TEAMID" \
+./scripts/package_homebrew_arm64.sh
+```
+
+The script asks Xcode to sign the app and XPC service with their target entitlements, signs every bundled MarkItDown Mach-O component with the same Developer ID and hardened runtime, then reseals the final app after installing notices. Notarization is a separate explicit release step.
+
+Verify the resulting archive before notarization:
+
+```bash
+./scripts/verify_release_artifact.sh
+```
+
+After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and staple validation.
+
 ## Permissions
 
 - Files and folders: persistent shelf references and chosen output locations

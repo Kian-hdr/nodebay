@@ -18,9 +18,19 @@ The cask installs `Nodebay.app` into `/Applications` and verifies the release ar
 ./scripts/package_homebrew_arm64.sh
 ```
 
-The script rebuilds and tests the pinned MarkItDown 0.1.7 runtime, performs a clean Release build, stages Nodebay outside file-provider storage, applies an ad-hoc signature for local testing, validates both arm64 executables, and produces a ZIP plus SHA-256 file under `build/nodebay-homebrew-arm64-release/`.
+The script rebuilds and tests the pinned MarkItDown 0.1.7 runtime, performs a clean Release build outside file-provider storage, validates both arm64 executables, and produces a ZIP plus SHA-256 file under `build/nodebay-homebrew-arm64-release/`. It uses an ad-hoc signature by default for local verification.
 
-Before public distribution, replace `VERSION` and `SHA256` in `Casks/nodebay.rb.template`, verify the final download URL, sign and notarize the app, and rerun the complete release checklist. Publication requires the repository owner's explicit final approval.
+For a public candidate, provide the installed Developer ID identity and team:
+
+```bash
+SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+DEVELOPMENT_TEAM="TEAMID" \
+./scripts/package_homebrew_arm64.sh
+```
+
+This signs the application, XPC service, and bundled MarkItDown Mach-O components with the hardened runtime. Notarization and stapling remain separate approval-gated release steps.
+
+Before public distribution, verify the final cask checksum and download URL, notarize and staple the app, and rerun the complete release checklist. Publication requires the repository owner's explicit final approval.
 
 ## Dependencies
 

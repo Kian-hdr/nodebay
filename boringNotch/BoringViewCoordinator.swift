@@ -101,6 +101,7 @@ class BoringViewCoordinator: ObservableObject {
     private var osdReplacementCancellable: AnyCancellable?
     private var boringShelfCancellable: AnyCancellable?
     private var osdSourceCancellables: [AnyCancellable] = []
+    private var hudLifecycleObservers: [NSObjectProtocol] = []
 
     private init() {
         Self.migrateLegacyOSDPreferencesIfNeeded()
@@ -144,6 +145,29 @@ class BoringViewCoordinator: ObservableObject {
         // Nodebay installation appear unauthorized and prevented HUD startup.
         MediaKeyInterceptor.shared.startMonitoringAccessibilityAuthorization()
 
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        hudLifecycleObservers.append(workspaceCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.recoverHUD() }
+        })
+        hudLifecycleObservers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.recoverHUD() }
+        })
+        hudLifecycleObservers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.recoverHUD() }
+        })
+
         // Observe changes to osdReplacement
         osdReplacementCancellable = Defaults.publisher(.osdReplacement)
             .sink { [weak self] change in
@@ -185,6 +209,14 @@ class BoringViewCoordinator: ObservableObject {
             if Defaults[.osdReplacement] {
                 await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
             }
+            self.applyOSDSources()
+        }
+    }
+
+    private func recoverHUD() {
+        guard Defaults[.osdReplacement] else { return }
+        Task { @MainActor in
+            await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
             self.applyOSDSources()
         }
     }
@@ -290,8 +322,14 @@ class BoringViewCoordinator: ObservableObject {
                 }
             }
             
-            if let targetUUID = targetScreenUUID {
-                // Update specific screen
+            let isHUD = type == .brightness || type == .volume || type == .backlight
+            if isHUD {
+                let targets = self.hudTargetScreenUUIDs(explicitTarget: targetScreenUUID)
+                for uuid in targets {
+                    updateState(for: uuid)
+                }
+                HUDDiagnostics.shared.updateActiveDisplay(self.hudDisplayDescription(for: targets))
+            } else if let targetUUID = targetScreenUUID {
                 updateState(for: targetUUID)
             } else {
                 // Update ALL connected screens + the main screen as fallback
@@ -315,15 +353,44 @@ class BoringViewCoordinator: ObservableObject {
         }
     }
 
-     func applyOSDSources() {
-        if NotchSpaceManager.shared.notchSpace.windows.isEmpty {
-            BetterDisplayManager.shared.stopObserving()
-            LunarManager.shared.stopListening()
-            LunarManager.shared.configureLunarOSD(hide: false)
-            MediaKeyInterceptor.shared.stop()
-            return
-        }
+    /// Resolve HUD presentation using the same persistent display policy as
+    /// the Nodebay window. The affected hardware display is used only in
+    /// follow-active mode; explicit user placement remains authoritative.
+    func hudTargetScreenUUIDs(explicitTarget: String? = nil) -> [String] {
+        let screens = NSScreen.screens
+        let fallback = (NSScreen.main ?? screens.first)?.displayUUID
 
+        switch Defaults[.displayPlacementMode] {
+        case .all:
+            return screens.compactMap(\.displayUUID)
+        case .builtIn:
+            return [screens.first(where: { $0.safeAreaInsets.top > 0 })?.displayUUID ?? fallback].compactMap { $0 }
+        case .specific:
+            let selected = preferredScreenUUID.flatMap { NSScreen.screen(withUUID: $0)?.displayUUID }
+            return [selected ?? fallback].compactMap { $0 }
+        case .main:
+            return [fallback].compactMap { $0 }
+        case .followActive:
+            if let explicitTarget, NSScreen.screen(withUUID: explicitTarget) != nil {
+                return [explicitTarget]
+            }
+            if NSScreen.screen(withUUID: selectedScreenUUID) != nil {
+                return [selectedScreenUUID]
+            }
+            let pointer = NSEvent.mouseLocation
+            let pointerTarget = screens.first(where: { $0.frame.contains(pointer) })?.displayUUID
+            return [pointerTarget ?? fallback].compactMap { $0 }
+        }
+    }
+
+    private func hudDisplayDescription(for targets: [String]) -> String {
+        guard !targets.isEmpty else { return "Unavailable" }
+        if targets.count > 1 { return "All displays (\(targets.count))" }
+        guard let screen = NSScreen.screen(withUUID: targets[0]) else { return "Unavailable" }
+        return "\(screen.localizedName) (\(targets[0].prefix(8)))"
+    }
+
+     func applyOSDSources() {
         guard Defaults[.osdReplacement] else {
             BetterDisplayManager.shared.stopObserving()
             LunarManager.shared.stopListening()
@@ -338,6 +405,18 @@ class BoringViewCoordinator: ObservableObject {
         Task { @MainActor in
             await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
         }
+
+        // Keep built-in media-key interception alive while notch windows are
+        // being recreated. Stopping it during the short window-less interval
+        // made the HUD remain disabled after launch, wake, or display changes.
+        // External OSD providers still wait until a visible notch exists.
+        if NotchSpaceManager.shared.notchSpace.windows.isEmpty {
+            BetterDisplayManager.shared.stopObserving()
+            LunarManager.shared.stopListening()
+            LunarManager.shared.configureLunarOSD(hide: false)
+            return
+        }
+
         // BetterDisplay is used when either brightness or volume is set to it
         if brightness == .betterDisplay || volume == .betterDisplay {
             BetterDisplayManager.shared.startObserving()

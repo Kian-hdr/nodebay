@@ -10,6 +10,7 @@ import Defaults
 import CoreGraphics
 
 struct OSDSettings: View {
+    @StateObject private var diagnostics = HUDDiagnostics.shared
     // Defaults-backed storage
     @Default(.osdReplacement) private var osdReplacementDefault
     @Default(.showOpenNotchOSD) private var showOpenNotchOSDDefault
@@ -94,6 +95,9 @@ struct OSDSettings: View {
                                     let granted = await MediaKeyInterceptor.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
                                     await MainActor.run {
                                         isAccessibilityAuthorized = granted
+                                        if !granted {
+                                            MediaKeyInterceptor.shared.openAccessibilitySettings()
+                                        }
                                     }
                                 }
                             }
@@ -140,6 +144,32 @@ struct OSDSettings: View {
                         .pickerStyle(.menu)
                     }
                     HelpText("Define what happens when you hold the Option key while pressing media keys.")
+                }
+
+                Section(header: Text("Diagnostics"), footer: Text("Diagnostics contain no key history, file contents, or private media metadata.")) {
+                    LabeledContent("HUD", value: diagnostics.hudEnabled ? "Enabled" : "Disabled")
+                    LabeledContent("Accessibility", value: diagnostics.accessibilityStatus)
+                    LabeledContent("Event tap", value: diagnostics.eventTapStatus)
+                    LabeledContent("Volume provider", value: diagnostics.volumeProvider)
+                    LabeledContent("Brightness provider", value: diagnostics.brightnessProvider)
+                    LabeledContent("Active HUD display", value: diagnostics.activeDisplay)
+                    if let error = diagnostics.lastRecoverableError {
+                        LabeledContent("Last recoverable error") {
+                            Text(error)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack {
+                        Button("Retry HUD") {
+                            Task {
+                                await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
+                            }
+                        }
+                        Button("Open Accessibility Settings") {
+                            MediaKeyInterceptor.shared.openAccessibilitySettings()
+                        }
+                    }
                 }
             }
 

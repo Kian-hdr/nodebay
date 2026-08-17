@@ -42,6 +42,22 @@ class NodebayHUDAccessibilityTests(unittest.TestCase):
         self.assertIn("let authorized = AXIsProcessTrusted()", start_method)
         self.assertNotIn("XPCHelperClient.shared", start_method)
 
+    def test_accessibility_monitor_recovers_a_missing_event_tap(self):
+        monitor = INTERCEPTOR.split(
+            "func startMonitoringAccessibilityAuthorization", 1
+        )[1].split("func stopMonitoringAccessibilityAuthorization", 1)[0]
+        self.assertIn("authorized && Defaults[.osdReplacement] && !isTapActive", monitor)
+        self.assertIn("await start(promptIfNeeded: false)", monitor)
+
+    def test_window_recreation_does_not_stop_media_key_interception(self):
+        method = COORDINATOR.split("func applyOSDSources()", 1)[1].split(
+            "func shouldShowSneakPeek", 1
+        )[0]
+        window_guard = method.index("notchSpace.windows.isEmpty")
+        start = method.index("MediaKeyInterceptor.shared.start")
+        self.assertLess(start, window_guard)
+        self.assertNotIn("MediaKeyInterceptor.shared.stop()", method[window_guard:])
+
 
 if __name__ == "__main__":
     unittest.main()

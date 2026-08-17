@@ -7,10 +7,55 @@
 import Foundation
 import AppKit
 import ApplicationServices
+import Combine
 import Defaults
 import AVFoundation
 
 private let kSystemDefinedEventType = CGEventType(rawValue: 14)!
+
+@MainActor
+final class HUDDiagnostics: ObservableObject {
+    static let shared = HUDDiagnostics()
+
+    @Published private(set) var hudEnabled = false
+    @Published private(set) var accessibilityStatus = "Unauthorized"
+    @Published private(set) var eventTapStatus = "Inactive"
+    @Published private(set) var volumeProvider = "Built-in"
+    @Published private(set) var brightnessProvider = "Built-in"
+    @Published private(set) var activeDisplay = "Unavailable"
+    @Published private(set) var lastRecoverableError: String?
+
+    private init() {}
+
+    func updateConfiguration() {
+        hudEnabled = Defaults[.osdReplacement]
+        volumeProvider = Defaults[.osdVolumeSource].localizedString
+        brightnessProvider = Defaults[.osdBrightnessSource].localizedString
+    }
+
+    func updateAuthorization(_ authorized: Bool, previouslyAuthorized: Bool) {
+        accessibilityStatus = authorized
+            ? "Authorized for this signed app"
+            : previouslyAuthorized
+                ? "Authorization changed; reauthorization required"
+                : "Unauthorized"
+    }
+
+    func updateEventTap(_ status: String, error: String? = nil) {
+        eventTapStatus = status
+        if let error {
+            lastRecoverableError = error
+        }
+    }
+
+    func updateActiveDisplay(_ display: String) {
+        activeDisplay = display
+    }
+
+    func clearError() {
+        lastRecoverableError = nil
+    }
+}
 
 final class MediaKeyInterceptor {
     static let shared = MediaKeyInterceptor()
@@ -29,13 +74,16 @@ final class MediaKeyInterceptor {
     private var runLoopSource: CFRunLoopSource?
     private var accessibilityMonitorTask: Task<Void, Never>?
     private var lastKnownAccessibilityAuthorization: Bool?
+    private var brightnessSupported = false
+    private var keyboardBacklightSupported = false
     private let step: Float = 1.0 / 16.0
     private var audioPlayer: AVAudioPlayer?
     
     private init() {}
 
     private var isTapActive: Bool {
-        eventTap != nil && runLoopSource != nil
+        guard let eventTap, runLoopSource != nil else { return false }
+        return CGEvent.tapIsEnabled(tap: eventTap)
     }
 
     // MARK: - Accessibility
@@ -46,6 +94,19 @@ final class MediaKeyInterceptor {
             kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
         ] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+    }
+
+    @MainActor
+    func openAccessibilitySettings() {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility",
+        ]
+        for candidate in candidates {
+            if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
+                break
+            }
+        }
     }
 
     @MainActor
@@ -67,7 +128,16 @@ final class MediaKeyInterceptor {
         accessibilityMonitorTask = Task { @MainActor [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                publishAccessibilityAuthorization(AXIsProcessTrusted())
+                let authorized = AXIsProcessTrusted()
+                publishAccessibilityAuthorization(authorized)
+
+                // Accessibility can already be granted when Nodebay launches,
+                // and the notch window can be recreated after display, Space,
+                // lock-screen, or wake changes. Recover the media-key tap here
+                // instead of relying on a one-time startup callback.
+                if authorized && Defaults[.osdReplacement] && !isTapActive {
+                    await start(promptIfNeeded: false)
+                }
                 do {
                     try await Task.sleep(for: .seconds(interval))
                 } catch {
@@ -85,6 +155,14 @@ final class MediaKeyInterceptor {
 
     @MainActor
     private func publishAccessibilityAuthorization(_ authorized: Bool) {
+        let marker = "nodebayAccessibilityWasAuthorized"
+        if authorized {
+            UserDefaults.standard.set(true, forKey: marker)
+        }
+        HUDDiagnostics.shared.updateAuthorization(
+            authorized,
+            previouslyAuthorized: UserDefaults.standard.bool(forKey: marker)
+        )
         guard lastKnownAccessibilityAuthorization != authorized else { return }
         lastKnownAccessibilityAuthorization = authorized
         NSLog("Nodebay HUD Accessibility authorization: %@", authorized ? "granted" : "denied")
@@ -99,29 +177,41 @@ final class MediaKeyInterceptor {
     
     @MainActor
     func start(promptIfNeeded: Bool = false) async {
+        HUDDiagnostics.shared.updateConfiguration()
         // Ensure OSD replacement is enabled
         guard Defaults[.osdReplacement] else {
             stop()
             return
         }
 
-        // Only require Accessibility if any selected source uses the built-in controls
-        let needsAccessibility = Defaults[.osdBrightnessSource] == .builtin || Defaults[.osdVolumeSource] == .builtin
-        if needsAccessibility {
-            let authorized = AXIsProcessTrusted()
-            publishAccessibilityAuthorization(authorized)
-            if !authorized {
-                if promptIfNeeded {
-                    let granted = await ensureAccessibilityAuthorization(promptIfNeeded: true)
-                    guard granted else { return }
-                } else {
-                    return
-                }
+        // A modifying event tap can suppress the native OSD only when the
+        // currently running, signed Nodebay executable is trusted. External
+        // providers can still publish their own notifications without this tap.
+        let authorized = AXIsProcessTrusted()
+        publishAccessibilityAuthorization(authorized)
+        if !authorized {
+            if promptIfNeeded {
+                let granted = await ensureAccessibilityAuthorization(promptIfNeeded: true)
+                guard granted else { return }
+            } else {
+                HUDDiagnostics.shared.updateEventTap(
+                    "Inactive",
+                    error: "Accessibility is not authorized for the running Nodebay executable."
+                )
+                return
             }
         }
 
+        if Defaults[.osdBrightnessSource] == .builtin {
+            brightnessSupported = await BrightnessManager.shared.refreshSupport()
+        } else {
+            brightnessSupported = false
+        }
+        keyboardBacklightSupported = await KeyboardBacklightManager.shared.refreshSupport()
+
         if let eventTap, isTapActive {
             CGEvent.tapEnable(tap: eventTap, enable: true)
+            HUDDiagnostics.shared.updateEventTap("Active")
             return
         }
 
@@ -136,7 +226,7 @@ final class MediaKeyInterceptor {
             options: .defaultTap,
             eventsOfInterest: mask,
             callback: { _, type, cgEvent, userInfo in
-                guard let userInfo else { return Unmanaged.passRetained(cgEvent) }
+                guard let userInfo else { return Unmanaged.passUnretained(cgEvent) }
                 let interceptor = Unmanaged<MediaKeyInterceptor>.fromOpaque(userInfo).takeUnretainedValue()
 
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -156,8 +246,14 @@ final class MediaKeyInterceptor {
             }
             CGEvent.tapEnable(tap: eventTap, enable: true)
             NSLog("Nodebay HUD media-key event tap started")
+            HUDDiagnostics.shared.updateEventTap("Active")
+            HUDDiagnostics.shared.clearError()
         } else {
             NSLog("Nodebay HUD media-key event tap failed to start")
+            HUDDiagnostics.shared.updateEventTap(
+                "Failed",
+                error: "The media-key event tap could not be created. Check Accessibility access, then retry."
+            )
         }
     }
 
@@ -172,6 +268,9 @@ final class MediaKeyInterceptor {
 
         runLoopSource = nil
         eventTap = nil
+        Task { @MainActor in
+            HUDDiagnostics.shared.updateEventTap("Inactive")
+        }
     }
 
     private func reenableEventTap(after type: CGEventType) {
@@ -188,7 +287,14 @@ final class MediaKeyInterceptor {
             reason = "unknown reason"
         }
 
-        print("ℹ️ [MediaKeyInterceptor] Re-enabled media-key event tap after \(reason)")
+        let enabled = CGEvent.tapIsEnabled(tap: eventTap)
+        Task { @MainActor in
+            HUDDiagnostics.shared.updateEventTap(
+                enabled ? "Active" : "Recovering",
+                error: enabled ? nil : "The event tap was disabled after \(reason) and is being recovered."
+            )
+        }
+        NSLog("Nodebay HUD event tap %@ after %@", enabled ? "re-enabled" : "failed to re-enable", reason)
     }
 
     // MARK: - Event Handling
@@ -209,8 +315,8 @@ final class MediaKeyInterceptor {
         let keyCode = (data1 & 0xFFFF_0000) >> 16
         let stateByte = ((data1 & 0xFF00) >> 8)
 
-        // 0xA = key down, 0xB = key up. Only handle key down.
-        guard stateByte == 0xA,
+        // 0xA = key down, 0xB = key up. Preserve unrelated system events.
+        guard (stateByte == 0xA || stateByte == 0xB),
               let keyType = NXKeyType(rawValue: keyCode) else {
             return Unmanaged.passUnretained(cgEvent)
         }
@@ -241,6 +347,7 @@ final class MediaKeyInterceptor {
                 }
                 return Unmanaged.passUnretained(cgEvent)
             }
+            return Unmanaged.passUnretained(cgEvent)
         case .lunar:
             if LunarManager.shared.isLunarAvailable {
                 if (keyType == .brightnessUp || keyType == .brightnessDown) && command {
@@ -248,9 +355,23 @@ final class MediaKeyInterceptor {
                 }
                 return Unmanaged.passUnretained(cgEvent)
             }
+            return Unmanaged.passUnretained(cgEvent)
         case .builtin:
             break
         }
+
+        guard canHandle(keyType, command: command) else {
+            Task { @MainActor in
+                HUDDiagnostics.shared.updateEventTap(
+                    "Active",
+                    error: "The selected built-in provider cannot control this device; the key was passed to macOS."
+                )
+            }
+            return Unmanaged.passUnretained(cgEvent)
+        }
+
+        // Consume the matching key-up only when Nodebay owns the key-down.
+        guard stateByte == 0xA else { return nil }
 
         // Handle option key action (without shift)
         if option && !shift {
@@ -262,6 +383,19 @@ final class MediaKeyInterceptor {
         // Handle normal key press
         handleKeyPress(keyType: keyType, option: option, shift: shift, command: command)
         return nil
+    }
+
+    private func canHandle(_ keyType: NXKeyType, command: Bool) -> Bool {
+        switch keyType {
+        case .soundUp, .soundDown:
+            return VolumeManager.shared.canControlVolume
+        case .mute:
+            return VolumeManager.shared.canControlMute
+        case .brightnessUp, .brightnessDown:
+            return command ? keyboardBacklightSupported : brightnessSupported
+        case .keyboardBrightnessUp, .keyboardBrightnessDown:
+            return keyboardBacklightSupported
+        }
     }
 
     private func handleOptionAction(for keyType: NXKeyType, command: Bool) -> Bool {

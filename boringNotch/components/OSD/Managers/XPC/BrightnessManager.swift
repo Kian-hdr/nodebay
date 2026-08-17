@@ -11,6 +11,7 @@ final class BrightnessManager: ObservableObject {
 	@Published private(set) var rawBrightness: Float = 0
 	@Published private(set) var animatedBrightness: Float = 0
 	@Published private(set) var lastChangeAt: Date = .distantPast
+	@Published private(set) var isSupported = false
 
 	private let visibleDuration: TimeInterval = 1.2
 	private let client = XPCHelperClient.shared
@@ -32,8 +33,16 @@ final class BrightnessManager: ObservableObject {
 
 	var shouldShowOverlay: Bool { Date().timeIntervalSince(lastChangeAt) < visibleDuration }
 
+	@MainActor
+	@discardableResult
+	func refreshSupport() async -> Bool {
+		isSupported = await client.displayIDForBrightness() != nil
+		return isSupported
+	}
+
 	func refresh() {
 		Task { @MainActor in
+			_ = await refreshSupport()
 			if let current = await client.currentScreenBrightness() {
 				publish(brightness: current, touchDate: false)
 			}
@@ -41,6 +50,7 @@ final class BrightnessManager: ObservableObject {
 	}
 
 	@MainActor func setRelative(delta: Float) {
+		guard isSupported else { return }
 		Task { @MainActor in
             let ok = await client.adjustScreenBrightness(by: delta)
 			if ok {
@@ -89,6 +99,7 @@ final class KeyboardBacklightManager: ObservableObject {
 
 	@Published private(set) var rawBrightness: Float = 0
 	@Published private(set) var lastChangeAt: Date = .distantPast
+	@Published private(set) var isSupported = false
 
 	private let visibleDuration: TimeInterval = 1.2
 	private let client = XPCHelperClient.shared
@@ -97,8 +108,16 @@ final class KeyboardBacklightManager: ObservableObject {
 
 	var shouldShowOverlay: Bool { Date().timeIntervalSince(lastChangeAt) < visibleDuration }
 
+	@MainActor
+	@discardableResult
+	func refreshSupport() async -> Bool {
+		isSupported = await client.currentKeyboardBrightness() != nil
+		return isSupported
+	}
+
 	func refresh() {
 		Task { @MainActor in
+			_ = await refreshSupport()
 			if let current = await client.currentKeyboardBrightness() {
 				publish(brightness: current, touchDate: false)
 			}
@@ -106,6 +125,7 @@ final class KeyboardBacklightManager: ObservableObject {
 	}
 
 	@MainActor func setRelative(delta: Float) {
+		guard isSupported else { return }
 		Task { @MainActor in
 			let starting = await client.currentKeyboardBrightness() ?? rawBrightness
 			let target = max(0, min(1, starting + delta))
@@ -115,11 +135,13 @@ final class KeyboardBacklightManager: ObservableObject {
 			} else {
 				refresh()
 			}
-			BoringViewCoordinator.shared.toggleSneakPeek(
-				status: true,
-				type: .backlight,
-				value: CGFloat(target)
-			)
+			if ok {
+				BoringViewCoordinator.shared.toggleSneakPeek(
+					status: true,
+					type: .backlight,
+					value: CGFloat(target)
+				)
+			}
 		}
 	}
 

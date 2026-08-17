@@ -103,6 +103,8 @@ class BoringViewCoordinator: ObservableObject {
     private var osdSourceCancellables: [AnyCancellable] = []
 
     private init() {
+        Self.migrateLegacyOSDPreferencesIfNeeded()
+
         // Perform migration from name-based to UUID-based storage
         if preferredScreenUUID == nil, let legacyName = legacyPreferredScreenName {
             // Try to find screen by name and migrate to UUID
@@ -136,7 +138,11 @@ class BoringViewCoordinator: ObservableObject {
             }
         }
 
-        XPCHelperClient.shared.startMonitoringAccessibilityAuthorization()
+        // The media-key event tap lives in the main Nodebay process, so its
+        // Accessibility grant must be checked here rather than in the XPC
+        // processing helper. Checking the helper made an already-authorized
+        // Nodebay installation appear unauthorized and prevented HUD startup.
+        MediaKeyInterceptor.shared.startMonitoringAccessibilityAuthorization()
 
         // Observe changes to osdReplacement
         osdReplacementCancellable = Defaults.publisher(.osdReplacement)
@@ -181,6 +187,30 @@ class BoringViewCoordinator: ObservableObject {
             }
             self.applyOSDSources()
         }
+    }
+
+    /// The upstream HUD-to-OSD rename changed persisted key names without
+    /// migrating existing installations. Preserve the user's previous HUD
+    /// choices once, before the OSD controller reads them.
+    private static func migrateLegacyOSDPreferencesIfNeeded() {
+        let defaults = UserDefaults.standard
+        let migrationKey = "nodebayDidMigrateLegacyOSDPreferences"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+
+        let mappings = [
+            (legacy: "hudReplacement", current: "osdReplacement"),
+            (legacy: "inlineHUD", current: "inlineOSD"),
+            (legacy: "showOpenNotchHUD", current: "showOpenNotchOSD"),
+            (legacy: "showOpenNotchHUDPercentage", current: "showOpenNotchOSDPercentage"),
+            (legacy: "showClosedNotchHUDPercentage", current: "showClosedNotchOSDPercentage"),
+        ]
+
+        for mapping in mappings where defaults.object(forKey: mapping.current) == nil {
+            if let legacyValue = defaults.object(forKey: mapping.legacy) {
+                defaults.set(legacyValue, forKey: mapping.current)
+            }
+        }
+        defaults.set(true, forKey: migrationKey)
     }
     
     @objc func sneakPeekEvent(_ notification: Notification) {

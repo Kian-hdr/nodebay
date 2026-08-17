@@ -12,6 +12,7 @@
 		D0DEB0030000000000000003 /* ImageOptimCompressionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0130000000000000003 /* ImageOptimCompressionService.swift */; };
 		D0DEB0040000000000000004 /* MediaDownloaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0140000000000000004 /* MediaDownloaderService.swift */; };
 		D0DEB0050000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0150000000000000005 /* PrivacyInfo.xcprivacy */; };
+		D0DEB0060000000000000006 /* Nodebay.icon in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0160000000000000006 /* Nodebay.icon */; };
 		C0D3A001A816202600000001 /* markitdown-runtime in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A002A816202600000001 /* markitdown-runtime */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
@@ -290,6 +291,7 @@
 		1443E7F22C609DCE0027C1FC /* matters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = matters.swift; sourceTree = "<group>"; };
 		1443E7F42C609E650027C1FC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D0DEB0150000000000000005 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D0DEB0160000000000000006 /* Nodebay.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = Nodebay.icon; path = Design/NodebayIcon/Nodebay.icon; sourceTree = SOURCE_ROOT; };
 		147163972C5D35B70068B555 /* MusicVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicVisualizer.swift; sourceTree = "<group>"; };
 		147163992C5D35FF0068B555 /* MusicManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicManager.swift; sourceTree = "<group>"; };
 		1471A8582C6281BD0058408D /* BoringNotchWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoringNotchWindow.swift; sourceTree = "<group>"; };
@@ -653,6 +655,7 @@
 		14CEF4092C5CAED200855D72 = {
 			isa = PBXGroup;
 			children = (
+				D0DEB0160000000000000006 /* Nodebay.icon */,
 				112B0EB62E30DD0F00562D6C /* mediaremote-adapter */,
 				14CEF4142C5CAED300855D72 /* boringNotch */,
 				11F748502EC9AABA00F841DB /* BoringNotchXPCHelper */,
@@ -985,6 +988,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0DEB0060000000000000006 /* Nodebay.icon in Resources */,
 				C0D3A001A816202600000001 /* markitdown-runtime in Resources */,
 				D0DEB0050000000000000005 /* PrivacyInfo.xcprivacy in Resources */,
 				14CEF41D2C5CAED400855D72 /* Preview Assets.xcassets in Resources */,
@@ -1335,7 +1339,7 @@
 		14CEF4222C5CAED400855D72 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Nodebay;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
@@ -1402,7 +1406,7 @@
 		14CEF4232C5CAED400855D72 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Nodebay;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;

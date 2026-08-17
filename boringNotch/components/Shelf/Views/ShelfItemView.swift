@@ -24,6 +24,8 @@ struct ShelfItemView: View {
 
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
+    private let selectionBackgroundVerticalInset: CGFloat = 6
+    private let removalControlOffset = CGSize(width: 42, height: -50)
     private var conversionTint: Color { Color(red: 0.24, green: 0.56, blue: 0.96) }
     private var showsActionButton: Bool {
         viewModel.canConvertToMarkdown || viewModel.canCompressImage || viewModel.canDownloadMedia
@@ -59,7 +61,8 @@ struct ShelfItemView: View {
                                    event.modifierFlags.intersection([.shift, .command, .control]).isEmpty {
                                     showStack = true
                                 }
-                            }
+                            },
+                            onQuickLook: showQuickLookForSelection
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -76,7 +79,10 @@ struct ShelfItemView: View {
                 .frame(width: 105, height: 114, alignment: .top)
                 .padding(.vertical, 10)
                 .padding(.horizontal, 5)
-                .background(backgroundView)
+                .background {
+                    backgroundView
+                        .padding(.vertical, selectionBackgroundVerticalInset)
+                }
                 .contentShape(Rectangle())
                 .animation(.easeInOut(duration: 0.1), value: debouncedDropTarget)
                 .animation(.easeInOut(duration: 0.1), value: isSelected)
@@ -92,7 +98,10 @@ struct ShelfItemView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
-                .offset(x: 48, y: -56)
+                .offset(
+                    x: removalControlOffset.width,
+                    y: removalControlOffset.height
+                )
                 .help("Remove from Nodebay. The file stays on disk.")
                 .accessibilityLabel("Remove \(item.displayName) from Nodebay")
             } else {
@@ -130,6 +139,18 @@ struct ShelfItemView: View {
                 quickLookService.show(urls: urls, selectFirst: true)
             }
         }
+    }
+
+    private func showQuickLookForSelection() {
+        let selectedItems = selection.selectedItems(in: shelfState.items)
+        let previewItems = selectedItems.contains(where: { $0.id == item.id })
+            ? selectedItems
+            : [item]
+        let urls = previewItems
+            .flatMap(\.flattenedItems)
+            .compactMap(\.fileURL)
+        guard !urls.isEmpty else { return }
+        quickLookService.show(urls: urls, selectFirst: true)
     }
 
     // MARK: - View Components
@@ -406,6 +427,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
     @ViewBuilder let dragPreviewContent: () -> Content
     let onRightClick: (NSEvent, NSView) -> Void
     let onClick: (NSEvent, NSView) -> Void
+    let onQuickLook: () -> Void
     
     func makeNSView(context: Context) -> DraggableClickView {
         let view = DraggableClickView()
@@ -416,6 +438,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         }
         view.onRightClick = onRightClick
         view.onClick = onClick
+        view.onQuickLook = onQuickLook
         return view
     }
     
@@ -428,6 +451,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         }
         nsView.onRightClick = onRightClick
         nsView.onClick = onClick
+        nsView.onQuickLook = onQuickLook
     }
     
     private func renderDragPreview() -> NSImage {
@@ -449,6 +473,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         var getDragPreview: (() -> NSImage)?
         var onRightClick: ((NSEvent, NSView) -> Void)?
         var onClick: ((NSEvent, NSView) -> Void)?
+        var onQuickLook: (() -> Void)?
 
         private var mouseDownEvent: NSEvent?
         private let dragThreshold: CGFloat = 3.0
@@ -456,14 +481,38 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private var draggedItems: [ShelfItem] = []
         private var promisedItemIDs: Set<ShelfItem.ID> = []
         private var filePromiseDelegates: [TemporaryFilePromiseDelegate] = []
+
+        override var acceptsFirstResponder: Bool { true }
+
+        private func becomeShelfFirstResponder() {
+            if let notchWindow = window as? BoringNotchWindow {
+                notchWindow.makeShelfItemFirstResponder(self)
+            } else if let notchWindow = window as? BoringNotchSkyLightWindow {
+                notchWindow.makeShelfItemFirstResponder(self)
+            } else {
+                window?.makeFirstResponder(self)
+            }
+        }
         
         override func rightMouseDown(with event: NSEvent) {
+            becomeShelfFirstResponder()
             onRightClick?(event, self)
         }
         
         override func mouseDown(with event: NSEvent) {
+            becomeShelfFirstResponder()
             mouseDownEvent = event
             onClick?(event, self)
+        }
+
+        override func keyDown(with event: NSEvent) {
+            let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+            if event.keyCode == 49,
+               event.modifierFlags.intersection(disallowedModifiers).isEmpty {
+                onQuickLook?()
+                return
+            }
+            super.keyDown(with: event)
         }
         
         override func mouseDragged(with event: NSEvent) {

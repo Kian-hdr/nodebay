@@ -69,5 +69,10 @@ final class BNLunarBrightnessEvent: NSObject, NSSecureCoding {
         maximumLogBytes: Int,
         with reply: @escaping (NSNumber, String, String, String?) -> Void
     )
+    func firstAvailableApprovedExecutable(
+        _ engine: String,
+        candidatePaths: [String],
+        with reply: @escaping (String?) -> Void
+    )
     func cancelApprovedProcess(_ jobID: String)
 }

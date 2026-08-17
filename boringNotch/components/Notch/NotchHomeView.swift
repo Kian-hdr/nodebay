@@ -22,8 +22,6 @@ struct MusicPlayerView: View {
         HStack {
             AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).frame(width: 120).padding(.all, 5 * (vm.notchSize.height / 190))
             MusicControlsView(horizontalMediaGestureFeedback: horizontalMediaGestureFeedback)
-                .drawingGroup()
-                .compositingGroup()
         }
         .contentShape(Rectangle())
         .onHover { hovering in

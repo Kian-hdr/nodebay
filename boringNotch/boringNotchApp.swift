@@ -118,7 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         BetterDisplayManager.shared.stopObserving()
         LunarManager.shared.stopListening()
         LunarManager.shared.configureLunarOSD(hide: false)
-        XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
+        MediaKeyInterceptor.shared.stopMonitoringAccessibilityAuthorization()
         
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()

@@ -68,6 +68,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private var process: Process?
     private var pipeHandler: JSONLinesPipeHandler?
     private var streamTask: Task<Void, Never>?
+    private let lifecycleLock = NSLock()
+    private var isShuttingDown = false
 
     // MARK: - Initialization
     init?() {
@@ -100,22 +102,34 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     deinit {
-        streamTask?.cancel()
-        
-        if let pipeHandler = self.pipeHandler {
-            Task { await pipeHandler.close()
-            }
-        }
-        
-        if let process = self.process {
-            if process.isRunning {
-                process.terminate()
-                process.waitUntilExit()
-            }
-        }
+        shutdown()
+    }
 
-        self.process = nil
-        self.pipeHandler = nil
+    /// Stops the adapter explicitly instead of relying on deinitialization at
+    /// application termination. The stream task intentionally does not retain
+    /// this controller, so clearing the media registry can release everything.
+    func shutdown() {
+        lifecycleLock.lock()
+        guard !isShuttingDown else {
+            lifecycleLock.unlock()
+            return
+        }
+        isShuttingDown = true
+        let task = streamTask
+        let handler = pipeHandler
+        let childProcess = process
+        streamTask = nil
+        pipeHandler = nil
+        process = nil
+        lifecycleLock.unlock()
+
+        task?.cancel()
+        if childProcess?.isRunning == true {
+            childProcess?.terminate()
+        }
+        if let handler {
+            Task { await handler.close() }
+        }
     }
 
     // MARK: - Protocol Implementation
@@ -203,26 +217,30 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         let pipeHandler = JSONLinesPipeHandler()
         process.standardOutput = await pipeHandler.getPipe()
         
-        self.process = process
-        self.pipeHandler = pipeHandler
-
+        lifecycleLock.lock()
+        guard !isShuttingDown else {
+            lifecycleLock.unlock()
+            Task { await pipeHandler.close() }
+            return
+        }
         do {
             try process.run()
-            streamTask = Task { [weak self] in
-                await self?.processJSONStream()
-            }
         } catch {
+            lifecycleLock.unlock()
             assertionFailure("Failed to launch mediaremote-adapter.pl: \(error)")
+            Task { await pipeHandler.close() }
+            return
         }
-    }
 
-    // MARK: - Async Stream Processing
-    private func processJSONStream() async {
-        guard let pipeHandler = self.pipeHandler else { return }
-        
-        await pipeHandler.readJSONLines(as: NowPlayingUpdate.self) { [weak self] update in
-            await self?.handleAdapterUpdate(update)
+        self.process = process
+        self.pipeHandler = pipeHandler
+        let task = Task { [weak self, pipeHandler] in
+            await pipeHandler.readJSONLines(as: NowPlayingUpdate.self) { [weak self] update in
+                await self?.handleAdapterUpdate(update)
+            }
         }
+        streamTask = task
+        lifecycleLock.unlock()
     }
 
     // MARK: - Update Methods

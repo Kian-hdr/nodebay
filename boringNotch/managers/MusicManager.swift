@@ -121,7 +121,12 @@ class MusicManager: ObservableObject {
         flipWorkItem?.cancel()
         transitionWorkItem?.cancel()
 
-        // Release active controller
+        // Stop child processes before releasing controller ownership. Waiting
+        // for deinit is insufficient when an asynchronous stream is active.
+        for controller in controllers.values {
+            (controller as? NowPlayingController)?.shutdown()
+        }
+
         activeController = nil
         controllers.removeAll()
     }
@@ -203,7 +208,12 @@ class MusicManager: ObservableObject {
                 isPlaying: false,
                 isAvailable: controller.isActive()
             )
-            Task { await controller.updatePlaybackInfo() }
+            // Do not query inactive app-specific controllers during startup.
+            // AppleScript can otherwise ask the user to locate an application
+            // (notably Spotify) even when that application is not installed.
+            if controller.isActive() {
+                Task { await controller.updatePlaybackInfo() }
+            }
         }
     }
 

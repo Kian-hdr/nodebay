@@ -198,6 +198,7 @@ class BoringViewModel: NSObject, ObservableObject {
     func open() -> Bool {
         guard !coordinator.firstLaunch else { return false }
 
+        ShelfStateViewModel.shared.dismissRemovalNotice()
         self.notchSize = openNotchSize
         self.notchState = .open
         
@@ -212,6 +213,7 @@ class BoringViewModel: NSObject, ObservableObject {
         if SharingStateManager.shared.preventNotchClose {
             return
         }
+        ShelfStateViewModel.shared.dismissRemovalNotice()
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize
         self.notchState = .closed

@@ -8,6 +8,8 @@
 import Cocoa
 
 class BoringNotchWindow: NSPanel {
+    private var allowsShelfKeyboardFocus = false
+
     override init(
         contentRect: NSRect,
         styleMask: NSWindow.StyleMask,
@@ -41,10 +43,21 @@ class BoringNotchWindow: NSPanel {
     }
     
     override var canBecomeKey: Bool {
-        false
+        allowsShelfKeyboardFocus
     }
     
     override var canBecomeMain: Bool {
         false
+    }
+
+    func makeShelfItemFirstResponder(_ responder: NSResponder) {
+        allowsShelfKeyboardFocus = true
+        makeKey()
+        makeFirstResponder(responder)
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        allowsShelfKeyboardFocus = false
     }
 }

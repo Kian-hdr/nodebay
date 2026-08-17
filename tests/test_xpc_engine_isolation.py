@@ -20,6 +20,8 @@ class XPCEngineIsolationTests(unittest.TestCase):
         self.assertIn('arguments.count <= 256', HELPER)
         self.assertIn('maximumLogBytes', HELPER)
         self.assertIn('cancelApprovedProcess', HELPER)
+        self.assertIn('firstAvailableApprovedExecutable', HELPER)
+        self.assertIn('candidatePaths.count <= 4', HELPER)
 
     def test_all_processing_services_use_the_xpc_path(self):
         self.assertIn('runApproved(\n            engine: "yt-dlp"', DOWNLOADER)

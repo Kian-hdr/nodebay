@@ -64,14 +64,6 @@ actor MediaDownloaderService {
         URL(fileURLWithPath: "/usr/local/bin/ffmpeg")
     ]
 
-    nonisolated static var executableURL: URL? {
-        candidateExecutables.first { FileManager.default.isExecutableFile(atPath: $0.path) }
-    }
-
-    nonisolated static var ffmpegURL: URL? {
-        ffmpegCandidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
-    }
-
     nonisolated static func validatedURL(from rawValue: String) throws -> URL {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.utf8.count <= 8_192,
@@ -87,7 +79,7 @@ actor MediaDownloaderService {
     }
 
     func inspect(_ url: URL) async throws -> MediaInspection {
-        let executable = try requiredExecutable()
+        let executable = try await requiredExecutable()
         let result = try await SafeProcessRunner.runApproved(
             engine: "yt-dlp",
             executable: executable,
@@ -126,7 +118,11 @@ actor MediaDownloaderService {
         if inspection.isPlaylist && !playlistConfirmed {
             throw MediaDownloaderError.playlistConfirmationRequired(inspection.itemCount)
         }
-        let executable = try requiredExecutable()
+        let executable = try await requiredExecutable()
+        let ffmpeg = await XPCHelperClient.shared.firstAvailableApprovedExecutable(
+            engine: "ffmpeg",
+            candidates: Self.ffmpegCandidates
+        )
         let destination = destination.standardizedFileURL
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -142,7 +138,7 @@ actor MediaDownloaderService {
             "--paths", destination.path,
             "--output", "\(prefix)%(title).180B-[%(id)s].%(ext)s"
         ]
-        if let ffmpeg = Self.ffmpegURL {
+        if let ffmpeg {
             arguments += ["--ffmpeg-location", ffmpeg.deletingLastPathComponent().path]
         }
         switch format {
@@ -151,7 +147,7 @@ actor MediaDownloaderService {
         case .mp4:
             arguments += ["--format", "bestvideo*[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best", "--merge-output-format", "mp4"]
         case .mp3:
-            guard Self.ffmpegURL != nil else { throw MediaDownloaderError.unavailable }
+            guard ffmpeg != nil else { throw MediaDownloaderError.unavailable }
             arguments += ["--extract-audio", "--audio-format", "mp3"]
         }
         arguments.append(preserveMetadata ? "--embed-metadata" : "--no-embed-metadata")
@@ -193,8 +189,11 @@ actor MediaDownloaderService {
         ["--ignore-config", "--no-config-locations", "--no-plugin-dirs", "--no-cookies-from-browser"]
     }
 
-    private func requiredExecutable() throws -> URL {
-        guard let executable = Self.executableURL else { throw MediaDownloaderError.unavailable }
+    private func requiredExecutable() async throws -> URL {
+        guard let executable = await XPCHelperClient.shared.firstAvailableApprovedExecutable(
+            engine: "yt-dlp",
+            candidates: Self.candidateExecutables
+        ) else { throw MediaDownloaderError.unavailable }
         return executable
     }
 

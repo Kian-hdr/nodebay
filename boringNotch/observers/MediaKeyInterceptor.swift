@@ -27,6 +27,8 @@ final class MediaKeyInterceptor {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var accessibilityMonitorTask: Task<Void, Never>?
+    private var lastKnownAccessibilityAuthorization: Bool?
     private let step: Float = 1.0 / 16.0
     private var audioPlayer: AVAudioPlayer?
     
@@ -36,18 +38,66 @@ final class MediaKeyInterceptor {
         eventTap != nil && runLoopSource != nil
     }
 
-    // MARK: - Accessibility (via XPC)
+    // MARK: - Accessibility
 
+    @MainActor
     func requestAccessibilityAuthorization() {
-        XPCHelperClient.shared.requestAccessibilityAuthorization()
+        let options = [
+            kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
+        ] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
     }
 
+    @MainActor
     func ensureAccessibilityAuthorization(promptIfNeeded: Bool = false) async -> Bool {
-        await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: promptIfNeeded)
+        var authorized = AXIsProcessTrusted()
+        publishAccessibilityAuthorization(authorized)
+
+        guard !authorized, promptIfNeeded else { return authorized }
+        requestAccessibilityAuthorization()
+        try? await Task.sleep(for: .milliseconds(500))
+        authorized = AXIsProcessTrusted()
+        publishAccessibilityAuthorization(authorized)
+        return authorized
+    }
+
+    @MainActor
+    func startMonitoringAccessibilityAuthorization(every interval: TimeInterval = 3.0) {
+        stopMonitoringAccessibilityAuthorization()
+        accessibilityMonitorTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                publishAccessibilityAuthorization(AXIsProcessTrusted())
+                do {
+                    try await Task.sleep(for: .seconds(interval))
+                } catch {
+                    break
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func stopMonitoringAccessibilityAuthorization() {
+        accessibilityMonitorTask?.cancel()
+        accessibilityMonitorTask = nil
+    }
+
+    @MainActor
+    private func publishAccessibilityAuthorization(_ authorized: Bool) {
+        guard lastKnownAccessibilityAuthorization != authorized else { return }
+        lastKnownAccessibilityAuthorization = authorized
+        NSLog("Nodebay HUD Accessibility authorization: %@", authorized ? "granted" : "denied")
+        NotificationCenter.default.post(
+            name: .accessibilityAuthorizationChanged,
+            object: nil,
+            userInfo: ["granted": authorized]
+        )
     }
 
     // MARK: - Event Tap
     
+    @MainActor
     func start(promptIfNeeded: Bool = false) async {
         // Ensure OSD replacement is enabled
         guard Defaults[.osdReplacement] else {
@@ -58,7 +108,8 @@ final class MediaKeyInterceptor {
         // Only require Accessibility if any selected source uses the built-in controls
         let needsAccessibility = Defaults[.osdBrightnessSource] == .builtin || Defaults[.osdVolumeSource] == .builtin
         if needsAccessibility {
-            let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
+            let authorized = AXIsProcessTrusted()
+            publishAccessibilityAuthorization(authorized)
             if !authorized {
                 if promptIfNeeded {
                     let granted = await ensureAccessibilityAuthorization(promptIfNeeded: true)
@@ -104,8 +155,9 @@ final class MediaKeyInterceptor {
                 CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             }
             CGEvent.tapEnable(tap: eventTap, enable: true)
+            NSLog("Nodebay HUD media-key event tap started")
         } else {
-            print("⚠️ [MediaKeyInterceptor] Failed to create media-key event tap")
+            NSLog("Nodebay HUD media-key event tap failed to start")
         }
     }
 

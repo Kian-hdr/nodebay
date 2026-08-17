@@ -18,8 +18,6 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case battery
     case shelf
     case plugins
-    case converters
-    case imageCompressor
     case downloader
     case mirror
     case shortcuts
@@ -38,8 +36,6 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .battery: "Battery"
         case .shelf: "Shelf"
         case .plugins: "Plugins & Engines"
-        case .converters: "Converters"
-        case .imageCompressor: "Image Compressor"
         case .downloader: "Downloader"
         case .mirror: "Mirror"
         case .shortcuts: "Shortcuts"
@@ -58,8 +54,6 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .battery: "battery.100.bolt"
         case .shelf: "books.vertical"
         case .plugins: "puzzlepiece.extension"
-        case .converters: "arrow.triangle.2.circlepath"
-        case .imageCompressor: "photo.badge.arrow.down"
         case .downloader: "arrow.down.circle"
         case .mirror: "camera"
         case .shortcuts: "keyboard"
@@ -110,10 +104,6 @@ struct SettingsView: View {
                     Shelf()
                 case .plugins:
                     PluginsEnginesSettingsView()
-                case .converters:
-                    ConvertersSettingsView()
-                case .imageCompressor:
-                    ImageCompressionSettingsView()
                 case .downloader:
                     DownloaderSettingsView()
                 case .mirror:

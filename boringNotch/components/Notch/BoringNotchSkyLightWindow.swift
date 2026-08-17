@@ -33,6 +33,7 @@ extension SkyLightOperator {
 
 class BoringNotchSkyLightWindow: NSPanel {
     private var isSkyLightEnabled: Bool = false
+    private var allowsShelfKeyboardFocus = false
     
     override init(
         contentRect: NSRect,
@@ -146,6 +147,17 @@ class BoringNotchSkyLightWindow: NSPanel {
         }
     }
     
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { allowsShelfKeyboardFocus }
     override var canBecomeMain: Bool { false }
+
+    func makeShelfItemFirstResponder(_ responder: NSResponder) {
+        allowsShelfKeyboardFocus = true
+        makeKey()
+        makeFirstResponder(responder)
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        allowsShelfKeyboardFocus = false
+    }
 }

@@ -32,6 +32,71 @@ class DownloaderSecurityContractTests(unittest.TestCase):
         self.assertIn("MediaDownloaderError.unsafeOutput", self.source)
         self.assertIn("collisionSafeURL", self.source)
 
+    def test_homebrew_detection_is_delegated_outside_the_app_sandbox(self):
+        registry = (
+            ROOT / "boringNotch/Providers/ProcessingProviderRegistry.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("for executable in candidateURLs", registry)
+        self.assertIn("firstAvailableApprovedExecutable", self.source)
+
+    def test_dropped_links_download_into_the_persistent_shelf(self):
+        shelf_state = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfStateViewModel.swift"
+        ).read_text(encoding="utf-8")
+        item_view_model = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfItemViewModel.swift"
+        ).read_text(encoding="utf-8")
+        settings = (
+            ROOT / "boringNotch/components/Settings/Views/PluginsEnginesSettingsView.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("droppedMediaLinks", shelf_state)
+        self.assertIn("downloadMediaAndWait()", shelf_state)
+        self.assertIn("replaceReference(item, with: [completedItem])", item_view_model)
+        self.assertIn('LabeledContent("Completed downloads", value: "Always added to Nodebay")', settings)
+        self.assertNotIn('nodebay.downloader.addResults', settings)
+
+    def test_compressed_copy_is_inserted_beside_its_source(self):
+        item_view_model = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfItemViewModel.swift"
+        ).read_text(encoding="utf-8")
+        settings = (
+            ROOT / "boringNotch/components/Settings/Views/PluginsEnginesSettingsView.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("insertResult(outputItem, beside: item)", item_view_model)
+        self.assertIn('LabeledContent("Completed results", value: "Always added to Nodebay")', settings)
+        self.assertNotIn('nodebay.imageOptim.addResults', settings)
+
+    def test_dropped_links_download_into_the_persistent_shelf(self):
+        shelf_state = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfStateViewModel.swift"
+        ).read_text(encoding="utf-8")
+        item_view_model = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfItemViewModel.swift"
+        ).read_text(encoding="utf-8")
+        settings = (
+            ROOT / "boringNotch/components/Settings/Views/PluginsEnginesSettingsView.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("droppedMediaLinks", shelf_state)
+        self.assertIn("downloadMediaAndWait()", shelf_state)
+        self.assertIn("replaceReference(item, with: [completedItem])", item_view_model)
+        self.assertIn('LabeledContent("Completed downloads", value: "Always added to Nodebay")', settings)
+        self.assertNotIn('nodebay.downloader.addResults', settings)
+
+    def test_compressed_copy_is_inserted_beside_its_source(self):
+        item_view_model = (
+            ROOT / "boringNotch/components/Shelf/ViewModels/ShelfItemViewModel.swift"
+        ).read_text(encoding="utf-8")
+        settings = (
+            ROOT / "boringNotch/components/Settings/Views/PluginsEnginesSettingsView.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("insertResult(outputItem, beside: item)", item_view_model)
+        self.assertIn('LabeledContent("Completed results", value: "Always added to Nodebay")', settings)
+        self.assertNotIn('nodebay.imageOptim.addResults', settings)
+
 
 if __name__ == "__main__":
     unittest.main()

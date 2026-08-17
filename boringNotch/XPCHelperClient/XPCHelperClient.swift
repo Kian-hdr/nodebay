@@ -407,4 +407,24 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
             }
         }
     }
+
+    nonisolated func firstAvailableApprovedExecutable(
+        engine: String,
+        candidates: [URL]
+    ) async -> URL? {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            let path: String? = try await service.withContinuation { service, continuation in
+                service.firstAvailableApprovedExecutable(
+                    engine,
+                    candidatePaths: candidates.map(\.path)
+                ) { path in
+                    continuation.resume(returning: path)
+                }
+            }
+            return path.map { URL(fileURLWithPath: $0) }
+        } catch {
+            return nil
+        }
+    }
 }

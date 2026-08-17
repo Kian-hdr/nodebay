@@ -21,6 +21,8 @@ final class ShelfStateViewModel: ObservableObject {
     @Published private(set) var canUndoRemoval = false
 
     private var lastRemoval: (item: ShelfItem, index: Int)?
+    private var removalNoticeDismissTask: Task<Void, Never>?
+    private let removalNoticeDuration: Duration = .seconds(4)
 
     var isEmpty: Bool { items.isEmpty }
 
@@ -79,14 +81,38 @@ final class ShelfStateViewModel: ObservableObject {
         lastRemoval = (item, index)
         items.removeAll { $0.id == item.id }
         canUndoRemoval = true
+        scheduleRemovalNoticeDismissal()
     }
 
     func undoLastRemoval() {
         guard let removal = lastRemoval else { return }
+        removalNoticeDismissTask?.cancel()
+        removalNoticeDismissTask = nil
         let index = min(removal.index, items.count)
         items.insert(removal.item, at: index)
         lastRemoval = nil
         canUndoRemoval = false
+    }
+
+    func dismissRemovalNotice() {
+        removalNoticeDismissTask?.cancel()
+        removalNoticeDismissTask = nil
+        lastRemoval = nil
+        canUndoRemoval = false
+    }
+
+    private func scheduleRemovalNoticeDismissal() {
+        removalNoticeDismissTask?.cancel()
+        removalNoticeDismissTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(for: self.removalNoticeDuration)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self.dismissRemovalNotice()
+        }
     }
 
     @discardableResult
@@ -172,11 +198,32 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     func insertResultStack(_ result: ShelfItem, beside source: ShelfItem) {
+        insertResult(result, beside: source)
+    }
+
+    func insertResult(_ result: ShelfItem, beside source: ShelfItem) {
         guard let index = items.firstIndex(where: { $0.id == source.id }) else {
             add([result])
             return
         }
         items.insert(result, at: min(index + 1, items.count))
+    }
+
+    /// Replaces only the shelf reference. Files on disk are never moved or deleted.
+    func replaceReference(_ source: ShelfItem, with replacements: [ShelfItem]) {
+        guard !replacements.isEmpty,
+              let sourceIndex = items.firstIndex(where: { $0.id == source.id }) else {
+            add(replacements)
+            return
+        }
+
+        var seen = Set(items.enumerated().compactMap { index, item in
+            index == sourceIndex ? nil : item.identityKey
+        })
+        let uniqueReplacements = replacements.filter { replacement in
+            seen.insert(replacement.identityKey).inserted
+        }
+        items.replaceSubrange(sourceIndex...sourceIndex, with: uniqueReplacements)
     }
 
     func updateBookmark(for item: ShelfItem, bookmark: Data) {
@@ -192,9 +239,19 @@ final class ShelfStateViewModel: ObservableObject {
         isLoading = true
         Task { [weak self] in
             let dropped = await ShelfDropService.items(from: providers)
-            await MainActor.run {
-                self?.add(dropped)
-                self?.isLoading = false
+            guard let self else { return }
+            self.add(dropped)
+            self.isLoading = false
+
+            // A dropped HTTP(S) link is a download request. Keep its tile as the
+            // visible progress/retry state, then replace that shelf reference with
+            // the completed local file or result stack.
+            let droppedMediaLinks = dropped.filter { item in
+                guard case .link(let url) = item.kind else { return false }
+                return ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            }
+            for link in droppedMediaLinks {
+                await ShelfItemViewModel(item: link).downloadMediaAndWait()
             }
         }
     }

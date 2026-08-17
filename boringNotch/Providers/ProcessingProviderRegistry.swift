@@ -84,9 +84,9 @@ enum SafeProcessRunner {
         timeout: Duration = .seconds(15),
         maximumLogBytes: Int = 32_768
     ) async throws -> ProcessResult {
-        guard FileManager.default.isExecutableFile(atPath: executable.path) else {
-            throw SafeProcessError.executableMissing
-        }
+        // The sandboxed app cannot reliably inspect Homebrew symlinks. The
+        // unsandboxed XPC helper resolves and validates this exact allowlisted
+        // path before launching it.
         return try await XPCHelperClient.shared.runApprovedProcess(
             engine: engine,
             executable: executable,
@@ -213,20 +213,25 @@ struct ExecutableProvider: ProcessingProvider {
     let engineID: String
 
     func diagnose() async -> EngineDiagnostic {
-        guard let executable = candidateURLs.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
-            return .unavailable("Install or bundle this engine to enable its features.")
-        }
-        do {
-            let result = try await SafeProcessRunner.runApproved(engine: engineID, executable: executable, arguments: versionArguments, timeout: .seconds(8))
-            let firstLine = (result.standardOutput.isEmpty ? result.standardError : result.standardOutput)
-                .components(separatedBy: .newlines).first ?? "Unknown"
-            guard result.exitCode == 0 else {
-                return .init(availability: .error, version: "Unknown", location: executable.path, message: "Version check exited with status \(result.exitCode).")
+        var lastFailure: EngineDiagnostic?
+        for executable in candidateURLs {
+            do {
+                let result = try await SafeProcessRunner.runApproved(engine: engineID, executable: executable, arguments: versionArguments, timeout: .seconds(8))
+                if result.exitCode == -1 {
+                    continue
+                }
+                let firstLine = (result.standardOutput.isEmpty ? result.standardError : result.standardOutput)
+                    .components(separatedBy: .newlines).first ?? "Unknown"
+                guard result.exitCode == 0 else {
+                    lastFailure = .init(availability: .error, version: "Unknown", location: executable.path, message: "Version check exited with status \(result.exitCode).")
+                    continue
+                }
+                return .init(availability: bundled ? .bundled : .installed, version: firstLine, location: executable.path, message: "Runtime check passed.")
+            } catch {
+                lastFailure = .init(availability: .error, version: "Unknown", location: executable.path, message: error.localizedDescription)
             }
-            return .init(availability: bundled ? .bundled : .installed, version: firstLine, location: executable.path, message: "Runtime check passed.")
-        } catch {
-            return .init(availability: .error, version: "Unknown", location: executable.path, message: error.localizedDescription)
         }
+        return lastFailure ?? .unavailable("Install or bundle this engine to enable its features.")
     }
 }
 

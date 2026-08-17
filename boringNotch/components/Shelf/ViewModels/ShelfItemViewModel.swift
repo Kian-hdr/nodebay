@@ -171,51 +171,47 @@ final class ShelfItemViewModel: ObservableObject {
     var canDownloadMedia: Bool {
         guard case .link(let url) = item.kind else { return false }
         return ["http", "https"].contains(url.scheme?.lowercased() ?? "")
-            && MediaDownloaderService.executableURL != nil
     }
 
     func downloadMedia() {
+        Task { await downloadMediaAndWait() }
+    }
+
+    func downloadMediaAndWait() async {
         guard case .link(let url) = item.kind else { return }
         ShelfStateViewModel.shared.beginConverting([item])
         ShelfStateViewModel.shared.setConversionProgress("Inspecting…", for: item)
-        Task {
-            do {
-                let validatedURL = try MediaDownloaderService.validatedURL(from: url.absoluteString)
-                let inspection = try await MediaDownloaderService.shared.inspect(validatedURL)
-                let format = chooseDownloadFormat(for: inspection)
-                guard let format else {
-                    ShelfStateViewModel.shared.finishConverting([item])
-                    return
-                }
-                ShelfStateViewModel.shared.setConversionProgress("Downloading…", for: item)
-                let destination = configuredDownloadDirectory()
-                let accessed = destination.startAccessingSecurityScopedResource()
-                defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
-                let result = try await MediaDownloaderService.shared.download(
-                    inspection,
-                    format: format,
-                    destination: destination,
-                    playlistConfirmed: true,
-                    preserveMetadata: UserDefaults.standard.object(forKey: "nodebay.downloader.preserveMetadata") as? Bool ?? true,
-                    preserveThumbnail: UserDefaults.standard.bool(forKey: "nodebay.downloader.preserveThumbnail")
-                )
-                let outputItems = try result.files.map { fileURL in
-                    ShelfItem(kind: .file(bookmark: try Bookmark(url: fileURL).data), isTemporary: false)
-                }
-                if UserDefaults.standard.object(forKey: "nodebay.downloader.addResults") as? Bool ?? true {
-                    if outputItems.count == 1 {
-                        ShelfStateViewModel.shared.add(outputItems)
-                    } else {
-                        ShelfStateViewModel.shared.add([
-                            ShelfItem(kind: .stack(name: "\(inspection.title) Downloads", members: outputItems))
-                        ])
-                    }
-                }
-            } catch {
-                presentProcessingError(title: "Media Download Failed", error: error)
+        do {
+            let validatedURL = try MediaDownloaderService.validatedURL(from: url.absoluteString)
+            let inspection = try await MediaDownloaderService.shared.inspect(validatedURL)
+            let format = chooseDownloadFormat(for: inspection)
+            guard let format else {
+                ShelfStateViewModel.shared.finishConverting([item])
+                return
             }
-            ShelfStateViewModel.shared.finishConverting([item])
+            ShelfStateViewModel.shared.setConversionProgress("Downloading…", for: item)
+            let destination = configuredDownloadDirectory()
+            let accessed = destination.startAccessingSecurityScopedResource()
+            defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
+            let result = try await MediaDownloaderService.shared.download(
+                inspection,
+                format: format,
+                destination: destination,
+                playlistConfirmed: true,
+                preserveMetadata: UserDefaults.standard.object(forKey: "nodebay.downloader.preserveMetadata") as? Bool ?? true,
+                preserveThumbnail: UserDefaults.standard.bool(forKey: "nodebay.downloader.preserveThumbnail")
+            )
+            let outputItems = try result.files.map { fileURL in
+                ShelfItem(kind: .file(bookmark: try Bookmark(url: fileURL).data), isTemporary: false)
+            }
+            let completedItem = outputItems.count == 1
+                ? outputItems[0]
+                : ShelfItem(kind: .stack(name: "\(inspection.title) Downloads", members: outputItems))
+            ShelfStateViewModel.shared.replaceReference(item, with: [completedItem])
+        } catch {
+            presentProcessingError(title: "Media Download Failed", error: error)
         }
+        ShelfStateViewModel.shared.finishConverting([item])
     }
 
     private func chooseDownloadFormat(for inspection: MediaInspection) -> MediaDownloadFormat? {
@@ -295,7 +291,7 @@ final class ShelfItemViewModel: ObservableObject {
                 }
 
                 if keepCopy {
-                    ShelfStateViewModel.shared.add([outputItem])
+                    ShelfStateViewModel.shared.insertResult(outputItem, beside: item)
                 } else {
                     try? FileManager.default.removeItem(at: result.outputURL)
                 }

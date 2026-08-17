@@ -103,6 +103,31 @@ class NodebayBrandingTests(unittest.TestCase):
             bundle_info,
         )
 
+    def test_icon_composer_source_drives_adaptive_app_icon(self) -> None:
+        project = (ROOT / "boringNotch.xcodeproj/project.pbxproj").read_text(
+            encoding="utf-8"
+        )
+        icon_source = ROOT / "Design/NodebayIcon/Nodebay.icon/icon.json"
+
+        self.assertTrue(icon_source.is_file())
+        self.assertIn("folder.iconcomposer.icon", project)
+        self.assertIn("Nodebay.icon in Resources", project)
+        self.assertEqual(
+            project.count("ASSETCATALOG_COMPILER_APPICON_NAME = Nodebay;"),
+            2,
+        )
+
+    def test_media_source_menu_is_not_forced_into_a_drawing_group(self) -> None:
+        source = (ROOT / "boringNotch/components/Notch/NotchHomeView.swift").read_text(
+            encoding="utf-8"
+        )
+        player_body = source.split("struct MusicPlayerView", 1)[1].split(
+            "struct AlbumArtView", 1
+        )[0]
+        self.assertIn("MusicControlsView", player_body)
+        self.assertNotIn(".drawingGroup()", player_body)
+        self.assertNotIn(".compositingGroup()", player_body)
+
 
 if __name__ == "__main__":
     unittest.main()

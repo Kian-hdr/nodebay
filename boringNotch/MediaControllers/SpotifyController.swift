@@ -97,6 +97,10 @@ class SpotifyController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        // Never resolve or launch Spotify implicitly. Sending AppleScript to a
+        // missing application can display a connection/application picker on
+        // every Nodebay launch.
+        guard isActive() else { return }
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
         guard descriptor.numberOfItems >= 10 else { return }
         
@@ -163,6 +167,7 @@ class SpotifyController: MediaControllerProtocol {
 // MARK: - Private Methods
     
     private func executeCommand(_ command: String) async {
+        guard isActive() else { return }
         let script = "tell application \"Spotify\" to \(command)"
         try? await AppleScriptHelper.executeVoid(script)
     }

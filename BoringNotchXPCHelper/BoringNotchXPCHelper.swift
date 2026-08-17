@@ -449,6 +449,19 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
         }
     }
 
+    @objc func firstAvailableApprovedExecutable(
+        _ engine: String,
+        candidatePaths: [String],
+        with reply: @escaping (String?) -> Void
+    ) {
+        guard candidatePaths.count <= 4,
+              candidatePaths.allSatisfy({ $0.hasPrefix("/") && $0.utf8.count <= 1_024 }) else {
+            reply(nil)
+            return
+        }
+        reply(candidatePaths.lazy.compactMap { self.approvedExecutable(engine: engine, path: $0)?.path }.first)
+    }
+
     @objc func cancelApprovedProcess(_ jobID: String) {
         processStateQueue.sync {
             if let process = approvedProcesses[jobID], process.isRunning { process.terminate() }

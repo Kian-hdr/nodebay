@@ -32,6 +32,17 @@ struct ShelfView: View {
                     Text("Removed from Nodebay")
                     Button("Undo") { tvm.undoLastRemoval() }
                         .keyboardShortcut("z", modifiers: .command)
+                    Button {
+                        dismissRemovalNotice()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+                    .help("Dismiss")
+                    .accessibilityLabel("Dismiss removal notification")
                 }
                 .font(.caption)
                 .padding(.horizontal, 12)
@@ -39,14 +50,35 @@ struct ShelfView: View {
                 .background(.regularMaterial, in: Capsule())
                 .overlay(Capsule().stroke(.white.opacity(0.14), lineWidth: 0.5))
                 .padding(.bottom, 6)
+                .contentShape(Capsule())
+                .gesture(
+                    DragGesture(minimumDistance: 12)
+                        .onEnded { value in
+                            let distance = hypot(value.translation.width, value.translation.height)
+                            if distance >= 24 {
+                                dismissRemovalNotice()
+                            }
+                        }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
                 .accessibilityElement(children: .contain)
             }
+        }
+        .animation(.easeOut(duration: 0.18), value: tvm.canUndoRemoval)
+        .onChange(of: vm.notchState) { _, _ in
+            tvm.dismissRemovalNotice()
         }
         // Bind Quick Look to shelf selection
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
         }
         .quickLookPresenter(using: quickLookService)
+    }
+
+    private func dismissRemovalNotice() {
+        withAnimation(.easeOut(duration: 0.18)) {
+            tvm.dismissRemovalNotice()
+        }
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {

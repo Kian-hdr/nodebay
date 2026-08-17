@@ -1,61 +1,93 @@
 import AppKit
 import SwiftUI
 
+private enum EngineSettingsArea: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case documents = "Documents"
+    case images = "Images"
+
+    var id: Self { self }
+}
+
 struct PluginsEnginesSettingsView: View {
     @StateObject private var registry = ProcessingProviderRegistry.shared
+    @State private var selectedArea: EngineSettingsArea = .overview
 
     var body: some View {
         Form {
             Section {
-                Text("Processing integrations are registered providers with explicit privacy, network, version, and licensing metadata.")
+                Picker("Engine settings", selection: $selectedArea) {
+                    ForEach(EngineSettingsArea.allCases) { area in
+                        Text(area.rawValue).tag(area)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Text(areaDescription)
                     .foregroundStyle(.secondary)
             }
 
-            ForEach(registry.providers) { provider in
-                EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id])
-            }
-
-            Section {
-                HStack {
-                    if let lastRefresh = registry.lastRefresh {
-                        Text("Last checked \(lastRefresh.formatted(date: .omitted, time: .standard))")
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Run Diagnostics") {
-                        Task { await registry.refresh() }
-                    }
-                    .disabled(registry.isRefreshing)
+            switch selectedArea {
+            case .overview:
+                ForEach(registry.providers) { provider in
+                    EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id])
                 }
+
+                Section {
+                    HStack {
+                        if let lastRefresh = registry.lastRefresh {
+                            Text("Last checked \(lastRefresh.formatted(date: .omitted, time: .standard))")
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Run Diagnostics") {
+                            Task { await registry.refresh() }
+                        }
+                        .disabled(registry.isRefreshing)
+                    }
+                }
+            case .documents:
+                MarkItDownConfigurationSections()
+            case .images:
+                ImageCompressionConfigurationSections()
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Plugins & Engines")
         .task { await registry.refresh() }
     }
+
+    private var areaDescription: String {
+        switch selectedArea {
+        case .overview:
+            "Review every processing engine, its health, version, privacy behavior, and license."
+        case .documents:
+            "Configure and test local document-to-Markdown conversion. Originals are never modified."
+        case .images:
+            "Configure ImageOptim safe-copy compression. Original images are never passed to ImageOptim."
+        }
+    }
 }
 
-struct ConvertersSettingsView: View {
+private struct MarkItDownConfigurationSections: View {
     @StateObject private var registry = ProcessingProviderRegistry.shared
     @State private var testState = "Not tested"
     @State private var isTesting = false
 
-    private var converters: [AnyProcessingProvider] {
-        registry.providers.filter { $0.id == "markitdown" }
-    }
+    private var diagnostic: EngineDiagnostic? { registry.diagnostics["markitdown"] }
 
     var body: some View {
-        Form {
-            Section {
-                Text("Converters create new collision-safe output files. Nodebay never modifies or replaces an original input file.")
-                    .foregroundStyle(.secondary)
+        Group {
+            Section("Microsoft MarkItDown") {
+                LabeledContent("Status", value: diagnostic?.availability.rawValue ?? "Checking")
+                LabeledContent("Version", value: diagnostic?.version ?? "Checking")
+                LabeledContent("Processing", value: "Local only")
+                LabeledContent("Output", value: "Separate collision-safe Markdown copy")
+                Link("Official project", destination: URL(string: "https://github.com/microsoft/markitdown")!)
             }
 
-            ForEach(converters) { provider in
-                EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id])
-            }
-
-            Section("Microsoft MarkItDown Test") {
+            Section("Test Conversion") {
                 LabeledContent("Test conversion", value: testState)
                 Button(isTesting ? "Testing…" : "Run Local Test Conversion") {
                     runTestConversion()
@@ -66,9 +98,6 @@ struct ConvertersSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle("Converters")
-        .task { await registry.refresh() }
     }
 
     private func runTestConversion() {
@@ -96,18 +125,17 @@ struct ConvertersSettingsView: View {
     }
 }
 
-struct ImageCompressionSettingsView: View {
+private struct ImageCompressionConfigurationSections: View {
     @StateObject private var registry = ProcessingProviderRegistry.shared
     @AppStorage("nodebay.imageOptim.automaticEnabled") private var automaticEnabled = false
     @AppStorage("nodebay.imageOptim.thresholdMB") private var thresholdMB = 10.0
     @AppStorage("nodebay.imageOptim.askBeforeCompression") private var askBeforeCompression = true
     @AppStorage("nodebay.imageOptim.resultSuffix") private var resultSuffix = "optimized"
-    @AppStorage("nodebay.imageOptim.addResults") private var addResults = true
 
     private var diagnostic: EngineDiagnostic? { registry.diagnostics["imageoptim"] }
 
     var body: some View {
-        Form {
+        Group {
             Section("ImageOptim Companion") {
                 LabeledContent("Status", value: diagnostic?.availability.rawValue ?? "Checking")
                 LabeledContent("Version", value: diagnostic?.version ?? "Checking")
@@ -129,7 +157,7 @@ struct ImageCompressionSettingsView: View {
                 Toggle("Ask before compression", isOn: $askBeforeCompression)
                 TextField("Result filename suffix", text: $resultSuffix)
                 LabeledContent("Result location", value: "Beside the original")
-                Toggle("Automatically add results to Nodebay", isOn: $addResults)
+                LabeledContent("Completed results", value: "Always added to Nodebay")
                 LabeledContent("Metadata preservation", value: "Controlled in ImageOptim")
             }
 
@@ -153,9 +181,6 @@ struct ImageCompressionSettingsView: View {
                 Button("Run Diagnostics") { Task { await registry.refresh() } }
             }
         }
-        .formStyle(.grouped)
-        .navigationTitle("Image Compressor")
-        .task { await registry.refresh() }
     }
 }
 
@@ -169,7 +194,6 @@ struct DownloaderSettingsView: View {
     @AppStorage("nodebay.downloader.filenameTemplate") private var filenameTemplate = "Title and media ID"
     @AppStorage("nodebay.downloader.preserveMetadata") private var preserveMetadata = true
     @AppStorage("nodebay.downloader.preserveThumbnail") private var preserveThumbnail = false
-    @AppStorage("nodebay.downloader.addResults") private var addResults = true
     @AppStorage("nodebay.downloader.askPlaylist") private var askPlaylist = true
     @State private var input = ""
     @State private var status = "Ready"
@@ -232,7 +256,7 @@ struct DownloaderSettingsView: View {
                 }
                 Toggle("Preserve metadata", isOn: $preserveMetadata)
                 Toggle("Preserve thumbnail", isOn: $preserveThumbnail)
-                Toggle("Automatically add completed downloads to Nodebay", isOn: $addResults)
+                LabeledContent("Completed downloads", value: "Always added to Nodebay")
                 Toggle("Ask before downloading a playlist", isOn: $askPlaylist)
             }
 
@@ -320,7 +344,7 @@ struct DownloaderSettingsView: View {
                     failures.append("\(inspection.title): \(error.localizedDescription)")
                 }
             }
-            if addResults, !files.isEmpty {
+            if !files.isEmpty {
                 do {
                     let shelfItems = try files.map { ShelfItem(kind: .file(bookmark: try Bookmark(url: $0).data)) }
                     if shelfItems.count == 1 {
@@ -414,7 +438,7 @@ private struct EngineProviderSection: View {
             HStack {
                 Link("Official project", destination: descriptor.officialURL)
                 Spacer()
-                Link("Third-party notices", destination: NodebayBrand.sourceURL.appending(path: "blob/dev/THIRD_PARTY_NOTICES_NODEBAY.md"))
+                Link("Third-party notices", destination: NodebayBrand.sourceURL.appending(path: "blob/dev/THIRD_PARTY_NOTICES.md"))
             }
         } header: {
             Text(descriptor.name)

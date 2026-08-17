@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "companions": [
+    {"id":"yt-dlp","name":"yt-dlp","version":"2026.07.04","source":"https://github.com/yt-dlp/yt-dlp","license":"Unlicense core; distribution-dependent third-party licenses; PyInstaller builds are GPLv3+","licenseURL":"https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.07.04/LICENSE","bundled":false},
+    {"id":"ffmpeg","name":"FFmpeg","version":"9.0.1 Homebrew build","source":"https://ffmpeg.org","license":"GPLv3+ for the detected Homebrew build because --enable-gpl and --enable-version3 are active","licenseURL":"https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.1/COPYING.GPLv3","bundled":false},
+    {"id":"imageoptim","name":"ImageOptim","version":"1.9.3","source":"https://imageoptim.com/mac","license":"GPL-2.0-or-later","licenseURL":"https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt","bundled":false}
+  ],
+  "components": [
+    {"id":"asyncxpcconnection","name":"AsyncXPCConnection","version":"1.3.0","revision":"da31dbcaa1b57949e46dcc19360b17d1a8de06bd","source":"https://github.com/ChimeHQ/AsyncXPCConnection","license":"BSD-3-Clause","licensePath":"LICENSE"},
+    {"id":"defaults","name":"Defaults","version":"9.0.9","revision":"00a7465a0668a87fa159e779b9d80f1f9652357e","source":"https://github.com/sindresorhus/Defaults","license":"MIT","licensePath":"license"},
+    {"id":"keyboardshortcuts","name":"KeyboardShortcuts","version":"3.0.1","revision":"49c3fc04ea827f816df67843bfcc57286b47ff06","source":"https://github.com/sindresorhus/KeyboardShortcuts","license":"MIT","licensePath":"license"},
+    {"id":"launchatlogin-modern","name":"LaunchAtLogin-Modern","version":"1.1.0","revision":"a04ec1c363be3627734f6dad757d82f5d4fa8fcc","source":"https://github.com/sindresorhus/LaunchAtLogin-Modern","license":"MIT","licensePath":"license"},
+    {"id":"lottie-spm","name":"Lottie","version":"4.6.1","revision":"0aff16288f8dc1e3dab35cbf5cf45979673fd3df","source":"https://github.com/airbnb/lottie-spm","license":"Apache-2.0","licensePath":"LICENSE"},
+    {"id":"macrovisionkit","name":"MacroVisionKit","version":"0.2.0","revision":"da481a6be8d8b1bf7fcb218507a72428bbcae7b0","source":"https://github.com/TheBoredTeam/MacroVisionKit","license":"MIT","licensePath":"LICENSE"},
+    {"id":"pow","name":"Pow","version":"1.0.6","revision":"1b4b1dda28c50b95f0872927ee2226fe8b58950e","source":"https://github.com/EmergeTools/Pow","license":"MIT","licensePath":"LICENSE"},
+    {"id":"skylightwindow","name":"SkyLightWindow","version":"1.0.0","revision":"b7bd99f62a0673a99bed4bfd31098ca1dcdd10eb","source":"https://github.com/Lakr233/SkyLightWindow","license":"MIT","licensePath":"LICENSE"},
+    {"id":"sparkle","name":"Sparkle","version":"2.9.5","revision":"79bc9e872948e47877e76f194cb0c8e0412b0b90","source":"https://github.com/sparkle-project/Sparkle","license":"Sparkle permissive license","licensePath":"LICENSE"},
+    {"id":"swift-collections","name":"Swift Collections","version":"1.6.0","revision":"a0cb0954ecb21e4e31b0070e6ed5674e8556685a","source":"https://github.com/apple/swift-collections","license":"Apache-2.0","licensePath":"LICENSE.txt"},
+    {"id":"swift-syntax","name":"Swift Syntax","version":"603.0.2","revision":"79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1","source":"https://github.com/swiftlang/swift-syntax","license":"Apache-2.0 with Runtime Library Exception","licensePath":"LICENSE.txt"},
+    {"id":"swiftui-introspect","name":"SwiftUI Introspect","version":"1.3.0","revision":"807f73ce09a9b9723f12385e592b4e0aaebd3336","source":"https://github.com/siteline/swiftui-introspect","license":"MIT","licensePath":"LICENSE"}
+  ]
+}

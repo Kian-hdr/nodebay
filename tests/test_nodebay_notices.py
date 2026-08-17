@@ -22,7 +22,7 @@ class NodebayNoticeTests(unittest.TestCase):
         self.assertTrue(all(item["bundled"] is False for item in companions.values()))
 
     def test_all_processing_integrations_are_declared_in_notices(self):
-        notices = (ROOT / "THIRD_PARTY_NOTICES_NODEBAY.md").read_text(encoding="utf-8")
+        notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
         for name in ("Boring Notch", "MarkItDown", "yt-dlp", "FFmpeg", "ImageOptim", "MediaRemoteAdapter"):
             self.assertIn(name, notices)
 

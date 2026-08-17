@@ -9,6 +9,8 @@
 *.xcplayground
 *.xcuserdatad
 *.xctest
+*.xcresult
+*.xcarchive
 *.xcuserdata
 *.xcodeproj/xcshareddata/WorkspaceSettings.xcsettings
 
@@ -37,6 +39,11 @@ build/
 /dist/
 /.venv/
 venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 *.spec
 
 # Python bytecode and caches
@@ -51,6 +58,10 @@ __pycache__/
 
 # Other
 *.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
 *.vscode/
 *.idea/
 

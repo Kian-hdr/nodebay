@@ -31,8 +31,9 @@ jobs:
 
       - name: Validate repository and notices
         run: |
-          python3 -m unittest discover -s Tests -p 'test_*.py' -v
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
           python3 scripts/generate_nodebay_notices.py --check
+          python3 scripts/verify_repository.py
           zsh -n scripts/*.sh
           ruby -c Casks/nodebay.rb
           git status --short
@@ -62,4 +63,3 @@ jobs:
             echo "Generated build artifact is visible to Git"
             exit 1
           fi
-

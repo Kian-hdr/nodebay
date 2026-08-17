@@ -13,7 +13,7 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "third_party/nodebay-components.json"
 RESOLVED = ROOT / "boringNotch.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
-OUTPUT = ROOT / "THIRD_PARTY_NOTICES_NODEBAY.md"
+OUTPUT = ROOT / "THIRD_PARTY_NOTICES.md"
 CHECKSUM = ROOT / "third_party/nodebay-notices.sha256"
 
 

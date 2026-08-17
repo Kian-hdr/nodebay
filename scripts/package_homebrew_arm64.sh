@@ -64,7 +64,7 @@ mkdir -p "$licenses_root"
 cp "$project_root/LICENSE" "$licenses_root/Nodebay-GPL-3.0.txt"
 cp "$project_root/THIRD_PARTY_LICENSES" "$licenses_root/Boring-Notch-Foundation-Notices.txt"
 cp "$project_root/THIRD_PARTY_LICENSES_MARKITDOWN" "$licenses_root/MarkItDown-Runtime-Notices.txt"
-cp "$project_root/THIRD_PARTY_NOTICES_NODEBAY.md" "$licenses_root/Nodebay-Third-Party-Notices.md"
+cp "$project_root/THIRD_PARTY_NOTICES.md" "$licenses_root/Nodebay-Third-Party-Notices.md"
 cp "$project_root/PRIVACY.md" "$licenses_root/Nodebay-Privacy.md"
 
 cat > "$licenses_root/SOURCE_AND_LICENSES.txt" <<EOF

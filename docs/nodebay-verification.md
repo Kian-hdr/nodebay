@@ -39,6 +39,7 @@ This record separates completed checks from checks that still require hardware, 
 - Release artifact excludes the debug `get-task-allow` entitlement from the application and XPC helper.
 - Icon Composer is the primary app-icon source, and the compiled asset contains light, dark, and tintable icon-stack renditions.
 - The earlier pre-browser artifact SHA-256 was `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`; it is superseded and must not be published.
+- Current browser-enabled Developer ID candidate SHA-256: `94a49fe621eaf1d1b9fa5dedabeca56d17dd3e294b2308d2ff71f44593c3ce47`. This is pre-notarization and must be replaced after stapling and re-zipping.
 - Release ZIP has one top-level entry, `Nodebay.app`, and no `__MACOSX` metadata directory.
 - Exactly one matching application bundle is installed: `/Applications/Nodebay.app`.
 - The active app has one XPC helper and one media-adapter child after three verified orphan processes from earlier builds were stopped.

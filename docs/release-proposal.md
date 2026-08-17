@@ -28,6 +28,8 @@ Publish the reviewed browser-media feature commits to `dev`, open a release pull
 
 The exact Developer ID candidate must be submitted to Apple, notarized, stapled, re-zipped, and verified before its final SHA-256 can be placed in the Homebrew cask. No unnotarized archive should be advertised as the public Homebrew release.
 
+Current pre-notarization candidate SHA-256: `94a49fe621eaf1d1b9fa5dedabeca56d17dd3e294b2308d2ff71f44593c3ce47`. This value will change after stapling and re-zipping.
+
 ## Proposed Homebrew publication
 
 Create public `Kian-hdr/homebrew-nodebay` with the reviewed `Casks/nodebay.rb` and README. The cask must install exactly `Nodebay.app`, use the final notarized archive checksum, require Apple Silicon and macOS 15, and preserve normal quarantine behavior.

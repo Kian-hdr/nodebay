@@ -35,4 +35,4 @@ Checked on 2026-08-17 on Apple Silicon, macOS 26.6.1, and Xcode 26.6. `Passed` m
 | Accessibility audit | Not run | VoiceOver, focus, hit-target, and reduced-motion manual pass pending |
 | Large-batch memory/crash test | Not run | Requires dedicated stress fixtures and Instruments pass |
 
-The earlier pre-browser archive, SHA-256 `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`, is superseded. A new Developer ID candidate must be built from the browser-media feature commit, then notarized, stapled, re-zipped, and assigned a final Homebrew checksum before publication.
+The earlier pre-browser archive, SHA-256 `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`, is superseded. The browser-enabled Developer ID candidate has SHA-256 `94a49fe621eaf1d1b9fa5dedabeca56d17dd3e294b2308d2ff71f44593c3ce47`. It passes local release verification but is rejected by Gatekeeper as `Unnotarized Developer ID`, so this checksum is not final for Homebrew.

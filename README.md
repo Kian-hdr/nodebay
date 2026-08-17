@@ -12,7 +12,17 @@ Nodebay is under release preparation. No public Nodebay release, Homebrew tap, u
 
 ## Screenshots
 
-Sanitized screenshots from the final signed build will be added before publication. The release will not use inherited Boring Notch screenshots or advertise interfaces that have not completed the final UI pass.
+These privacy-safe dark-mode screenshots come from an ad-hoc signed Release QA copy built from the same source as the Developer ID candidate. The repository does not use inherited Boring Notch screenshots or advertise the optional browser bridge as available.
+
+| Local engines and conversion | Downloads and safe image copies |
+|---|---|
+| ![Nodebay Plugins and Engines settings showing local runtime status](docs/screenshots/nodebay-plugins-engines-dark.png) | ![Nodebay Downloader settings showing local processing and format controls](docs/screenshots/nodebay-downloader-dark.png) |
+| ![Nodebay MarkItDown converter test reporting Passed](docs/screenshots/nodebay-converter-test-passed-dark.png) | ![Nodebay Image Compressor settings showing ImageOptim copy-first integration](docs/screenshots/nodebay-image-compressor-dark.png) |
+
+| Displays, media, shelf, and attribution | |
+|---|---|
+| ![Nodebay General settings showing display placement and virtual notch fallback](docs/screenshots/nodebay-settings-general-dark.png) | ![Nodebay media settings showing independent source availability](docs/screenshots/nodebay-media-sources-dark.png) |
+| ![Nodebay empty file shelf with AirDrop and local drop targets](docs/screenshots/nodebay-shelf-empty-dark.png) | ![About Nodebay with Boring Notch foundation attribution](docs/screenshots/nodebay-about-dark.png) |
 
 ## Features
 

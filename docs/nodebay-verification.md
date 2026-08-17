@@ -1,6 +1,6 @@
 # Nodebay 0.1.0 verification record
 
-This record separates completed checks from checks that still require an unlocked Mac, hardware, credentials, or publication infrastructure. It describes the current `feature/nodebay` branch based on Boring Notch `dev` commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
+This record separates completed checks from checks that still require hardware, credentials, or publication infrastructure. It describes the current `chore/nodebay-github-migration` branch, preserves `feature/nodebay` at `763f234`, and is based on Boring Notch `dev` commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
 
 ## Environment
 
@@ -34,7 +34,19 @@ This record separates completed checks from checks that still require an unlocke
 - The release archive includes GPL-3.0, foundation attribution, runtime notices, privacy information, and corresponding-source instructions.
 - Developer ID deep signature and hardened-runtime verification.
 - Release artifact excludes the debug `get-task-allow` entitlement from the application and XPC helper.
-- Pre-notarization artifact SHA-256: `e84fad25e386262c3b28b6f47a09c3e669bf8c57ff7bf70b6022cf2f37410524`.
+- Pre-notarization artifact SHA-256: `56f7b9e493b680cad06fca4225781d9c4a2dbeda65587e47b4722cd5dae8efe7`.
+
+## Passed UI checks
+
+- The local Release QA build launches and remains running on macOS 26.6.1 after removing a `MusicManager.shared` and Defaults-key initialization cycle.
+- The native Nodebay application menu exposes **Settings…**, and `Command-,` opens the settings window.
+- General settings render the built-in display, follow-active-display mode, virtual-notch fallback, and notch sizing controls.
+- Plugins & Engines diagnostics report bundled MarkItDown 0.1.7, installed yt-dlp 2026.07.04, FFmpeg 9.0.1, ImageOptim 1.9.3, and the intentionally unavailable browser bridge.
+- The Converters page reports a healthy bundled runtime and its generated, local-only test conversion completed with **Passed**.
+- Downloader, Image Compressor, independent media sources, shelf settings, and About Nodebay rendered without dismissing or crashing the app.
+- The notch expanded through its configured shortcut and the empty Inbox shelf rendered with native Home, Inbox, Settings, battery, AirDrop, and file-drop controls.
+- The Downloader page abbreviates paths inside the home directory, preventing a public screenshot from exposing the account name.
+- Dark-mode screenshots were captured from an ad-hoc signed QA copy built from the same source as the Developer ID candidate. No personal documents or media URLs were used.
 
 ## Pending final artifact checks
 
@@ -45,7 +57,7 @@ This record separates completed checks from checks that still require an unlocke
 
 ## UI and hardware checks currently unavailable
 
-- Light and dark appearance screenshots from the final signed build.
+- Light-mode screenshots and screenshots from the final notarized build.
 - End-to-end app-routed conversion, download, compression, removal/Undo, stack, and multi-file Finder drag flows.
 - VoiceOver, keyboard focus, hit-target, reduced-motion, and context-menu regression passes.
 - Built-in and external-display tests, hot-plugging, clamshell mode, mixed scaling, rotation, Spaces, full-screen apps, Mission Control, Stage Manager, and changing the main display.

@@ -3,7 +3,8 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-release_version=${RELEASE_VERSION:-0.1.0}
+release_version=${RELEASE_VERSION:-0.1.1}
+build_number=${BUILD_NUMBER:-2}
 release_tag=${RELEASE_TAG:-nodebay-v$release_version}
 signing_identity=${SIGNING_IDENTITY:--}
 development_team=${DEVELOPMENT_TEAM:-}
@@ -37,6 +38,7 @@ build_arguments=(
     -destination 'platform=macOS,arch=arm64'
     -derivedDataPath "$derived_data"
     MARKETING_VERSION="$release_version"
+    CURRENT_PROJECT_VERSION="$build_number"
 )
 
 if [[ "$signing_identity" == "-" ]]; then
@@ -52,6 +54,7 @@ else
         CODE_SIGN_IDENTITY="$signing_identity"
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
         DEVELOPMENT_TEAM="$development_team"
+        ENABLE_HARDENED_RUNTIME=YES
         OTHER_CODE_SIGN_FLAGS=--timestamp
     )
 fi
@@ -83,12 +86,37 @@ xattr -cr "$app_stage"
 if [[ "$signing_identity" == "-" ]]; then
     codesign --force --deep --sign - "$app_stage"
 else
-    runtime_root="$app_stage/Contents/Resources/markitdown-runtime"
+    # Xcode and SwiftPM dependencies can contain ad-hoc-signed nested tools.
+    # Sign every bundled Mach-O leaf first, then seal nested code bundles from
+    # deepest to shallowest. This preserves their identifiers and entitlements
+    # while applying the release Developer ID, hardened runtime, and timestamp.
     while IFS= read -r candidate; do
         if /usr/bin/file -b "$candidate" | /usr/bin/grep -q 'Mach-O'; then
-            codesign --force --options runtime --timestamp --sign "$signing_identity" "$candidate"
+            codesign \
+                --force \
+                --options runtime \
+                --timestamp \
+                --preserve-metadata=identifier,entitlements,requirements \
+                --sign "$signing_identity" \
+                "$candidate"
         fi
-    done < <(/usr/bin/find "$runtime_root" -type f -print)
+    done < <(/usr/bin/find "$app_stage/Contents" -type f -print | /usr/bin/sort -r)
+
+    while IFS= read -r bundle; do
+        codesign \
+            --force \
+            --options runtime \
+            --timestamp \
+            --preserve-metadata=identifier,entitlements,requirements \
+            --sign "$signing_identity" \
+            "$bundle"
+    done < <(
+        /usr/bin/find "$app_stage/Contents" -type d \
+            \( -name '*.framework' -o -name '*.xpc' -o -name '*.app' \) -print \
+            | /usr/bin/awk '{ print length($0), $0 }' \
+            | /usr/bin/sort -rn \
+            | /usr/bin/cut -d' ' -f2-
+    )
 
     # License files and refreshed runtime signatures change the resource seal.
     # Preserve the entitlements produced by Xcode while sealing the final app.
@@ -96,7 +124,7 @@ else
         --force \
         --options runtime \
         --timestamp \
-        --preserve-metadata=entitlements,requirements,flags,runtime \
+        --preserve-metadata=identifier,entitlements,requirements \
         --sign "$signing_identity" \
         "$app_stage"
 fi

@@ -112,5 +112,12 @@ fi
 mv "$staged_runtime" "$vendor_root"
 trap - EXIT
 
+# File Provider-managed workspaces can restore stale conflict copies with a
+# " 2" suffix after the generated directory is replaced. They are never part
+# of the runtime and must not reach Xcode resources or a release archive.
+find "$vendor_root" -depth \
+    \( -name '* 2' -o -name '__pycache__' -o -name '*.pyc' \) \
+    -exec rm -rf {} +
+
 print "Local MarkItDown runtime created at $vendor_root"
 print "Architecture: $(uname -m); Python: $python_version; lock: $lock_digest"

@@ -70,7 +70,8 @@ actor ImageOptimCompressionService {
         }
 
         do {
-            let result = try await SafeProcessRunner.run(
+            let result = try await SafeProcessRunner.runApproved(
+                engine: "imageoptim",
                 executable: Self.executableURL,
                 arguments: [outputURL.path],
                 timeout: .seconds(600),

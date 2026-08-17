@@ -88,7 +88,8 @@ actor MediaDownloaderService {
 
     func inspect(_ url: URL) async throws -> MediaInspection {
         let executable = try requiredExecutable()
-        let result = try await SafeProcessRunner.run(
+        let result = try await SafeProcessRunner.runApproved(
+            engine: "yt-dlp",
             executable: executable,
             arguments: baseArguments + ["--dump-single-json", "--flat-playlist", url.absoluteString],
             timeout: .seconds(90),
@@ -157,7 +158,8 @@ actor MediaDownloaderService {
         arguments.append(preserveThumbnail ? "--write-thumbnail" : "--no-write-thumbnail")
         arguments.append(inspection.url.absoluteString)
 
-        let result = try await SafeProcessRunner.run(
+        let result = try await SafeProcessRunner.runApproved(
+            engine: "yt-dlp",
             executable: executable,
             arguments: arguments,
             timeout: .seconds(7_200),

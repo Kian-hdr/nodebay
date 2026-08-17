@@ -19,6 +19,9 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
     private var lunarPipeHandler: JSONLinesPipeHandler?
     private var lunarStreamTask: Task<Void, Never>?
     private var lunarListener: BoringNotchXPCHelperLunarListener?
+    private let processQueue = DispatchQueue(label: "Nodebay.approved-processes", attributes: .concurrent)
+    private let processStateQueue = DispatchQueue(label: "Nodebay.approved-processes.state")
+    private var approvedProcesses: [String: Process] = [:]
 
     init(connection: NSXPCConnection) {
         self.connection = connection
@@ -51,6 +54,10 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
         if let p = processToTerminate, p.isRunning { p.terminate() }
         if let ph = pipeHandlerToClose {
             Task { await ph.close() }
+        }
+        processStateQueue.sync {
+            approvedProcesses.values.forEach { if $0.isRunning { $0.terminate() } }
+            approvedProcesses.removeAll()
         }
     }
     
@@ -362,6 +369,131 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
         reply(ok)
     }
 
+    // MARK: - Isolated Nodebay processing engines
+
+    @objc func runApprovedProcess(
+        _ jobID: String,
+        engine: String,
+        executablePath: String,
+        arguments: [String],
+        timeout: Double,
+        maximumLogBytes: Int,
+        with reply: @escaping (NSNumber, String, String, String?) -> Void
+    ) {
+        guard jobID.utf8.count <= 128,
+              arguments.count <= 256,
+              arguments.allSatisfy({ $0.utf8.count <= 16_384 && !$0.contains("\0") }),
+              let executableURL = approvedExecutable(engine: engine, path: executablePath),
+              validateArguments(engine: engine, arguments: arguments) else {
+            reply(-1, "", "", "Nodebay rejected an unapproved engine request.")
+            return
+        }
+
+        processQueue.async { [weak self] in
+            guard let self else { return }
+            let process = Process()
+            let stdout = Pipe()
+            let stderr = Pipe()
+            let stdoutBuffer = ProcessOutputBuffer(limit: maximumLogBytes)
+            let stderrBuffer = ProcessOutputBuffer(limit: maximumLogBytes)
+            let finishLock = NSLock()
+            var didFinish = false
+
+            func finish(code: Int32, error: String? = nil) {
+                finishLock.lock()
+                guard !didFinish else { finishLock.unlock(); return }
+                didFinish = true
+                finishLock.unlock()
+                stdout.fileHandleForReading.readabilityHandler = nil
+                stderr.fileHandleForReading.readabilityHandler = nil
+                stdoutBuffer.append(stdout.fileHandleForReading.readDataToEndOfFile())
+                stderrBuffer.append(stderr.fileHandleForReading.readDataToEndOfFile())
+                self.processStateQueue.sync { self.approvedProcesses.removeValue(forKey: jobID) }
+                reply(NSNumber(value: code), stdoutBuffer.string, stderrBuffer.string, error)
+            }
+
+            process.executableURL = executableURL
+            process.arguments = arguments
+            process.standardOutput = stdout
+            process.standardError = stderr
+            var environment = ProcessInfo.processInfo.environment
+            if engine == "markitdown" {
+                environment["MARKITDOWN_LOCAL_ONLY"] = "1"
+                environment["PYTHONNOUSERSITE"] = "1"
+                environment["NO_PROXY"] = "*"
+                environment["no_proxy"] = "*"
+                for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] {
+                    environment.removeValue(forKey: key)
+                }
+            }
+            process.environment = environment
+            stdout.fileHandleForReading.readabilityHandler = { stdoutBuffer.append($0.availableData) }
+            stderr.fileHandleForReading.readabilityHandler = { stderrBuffer.append($0.availableData) }
+            process.terminationHandler = { finished in finish(code: finished.terminationStatus) }
+
+            self.processStateQueue.sync { self.approvedProcesses[jobID] = process }
+            do {
+                try process.run()
+            } catch {
+                finish(code: -1, error: error.localizedDescription)
+                return
+            }
+
+            let boundedTimeout = min(max(timeout, 1), 7_200)
+            self.processQueue.asyncAfter(deadline: .now() + boundedTimeout) {
+                if process.isRunning {
+                    process.terminate()
+                    finish(code: -2, error: "The engine exceeded its time limit.")
+                }
+            }
+        }
+    }
+
+    @objc func cancelApprovedProcess(_ jobID: String) {
+        processStateQueue.sync {
+            if let process = approvedProcesses[jobID], process.isRunning { process.terminate() }
+        }
+    }
+
+    private func approvedExecutable(engine: String, path: String) -> URL? {
+        guard path.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: path) else { return nil }
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        switch engine {
+        case "markitdown":
+            let appURL = Bundle.main.bundleURL
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+            let allowedRoot = appURL.appending(path: "Contents/Resources/markitdown-runtime").standardizedFileURL.path + "/"
+            return url.path.hasPrefix(allowedRoot) && url.lastPathComponent == "markitdown-local" ? url : nil
+        case "yt-dlp":
+            return ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"].contains(url.path) ? url : nil
+        case "imageoptim":
+            return url.path == "/Applications/ImageOptim.app/Contents/MacOS/ImageOptim" ? url : nil
+        case "ffmpeg":
+            return ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].contains(url.path) ? url : nil
+        default:
+            return nil
+        }
+    }
+
+    private func validateArguments(engine: String, arguments: [String]) -> Bool {
+        switch engine {
+        case "markitdown":
+            return arguments == ["--nodebay-version"] || (arguments.count == 4 && arguments[0] == "--input" && arguments[2] == "--output"
+                && arguments[1].hasPrefix("/") && arguments[3].hasPrefix("/")
+            )
+        case "imageoptim":
+            return arguments.count == 1 && arguments[0].hasPrefix("/")
+        case "yt-dlp":
+            return arguments == ["--version"] || arguments.prefix(4) == ["--ignore-config", "--no-config-locations", "--no-plugin-dirs", "--no-cookies-from-browser"]
+        case "ffmpeg":
+            return !arguments.isEmpty
+        default:
+            return false
+        }
+    }
+
     // MARK: - Private helpers for DisplayServices / IOKit access
     private func displayServicesGetBrightness(displayID: CGDirectDisplayID, out: inout Float) -> Bool {
         guard let sym = dlsym(DisplayServicesHandle.handle, "DisplayServicesGetBrightness") else { return false }
@@ -417,6 +549,28 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             }
             return nil
         }()
+    }
+}
+
+private final class ProcessOutputBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let limit: Int
+    private var data = Data()
+
+    init(limit: Int) { self.limit = min(max(limit, 0), 1_048_576) }
+
+    func append(_ value: Data) {
+        guard !value.isEmpty, limit > 0 else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        let remaining = limit - data.count
+        if remaining > 0 { data.append(value.prefix(remaining)) }
+    }
+
+    var string: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return String(decoding: data, as: UTF8.self)
     }
 }
 

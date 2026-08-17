@@ -77,6 +77,25 @@ enum SafeProcessError: LocalizedError {
 }
 
 enum SafeProcessRunner {
+    static func runApproved(
+        engine: String,
+        executable: URL,
+        arguments: [String],
+        timeout: Duration = .seconds(15),
+        maximumLogBytes: Int = 32_768
+    ) async throws -> ProcessResult {
+        guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+            throw SafeProcessError.executableMissing
+        }
+        return try await XPCHelperClient.shared.runApprovedProcess(
+            engine: engine,
+            executable: executable,
+            arguments: arguments,
+            timeout: timeout,
+            maximumLogBytes: maximumLogBytes
+        )
+    }
+
     static func run(
         executable: URL,
         arguments: [String],
@@ -191,13 +210,14 @@ struct ExecutableProvider: ProcessingProvider {
     let candidateURLs: [URL]
     let versionArguments: [String]
     let bundled: Bool
+    let engineID: String
 
     func diagnose() async -> EngineDiagnostic {
         guard let executable = candidateURLs.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
             return .unavailable("Install or bundle this engine to enable its features.")
         }
         do {
-            let result = try await SafeProcessRunner.run(executable: executable, arguments: versionArguments, timeout: .seconds(8))
+            let result = try await SafeProcessRunner.runApproved(engine: engineID, executable: executable, arguments: versionArguments, timeout: .seconds(8))
             let firstLine = (result.standardOutput.isEmpty ? result.standardError : result.standardOutput)
                 .components(separatedBy: .newlines).first ?? "Unknown"
             guard result.exitCode == 0 else {
@@ -283,7 +303,7 @@ final class ProcessingProviderRegistry: ObservableObject {
                     runsLocally: true, requiresNetwork: false,
                     inputTypes: ["PDF", "DOCX", "PPTX", "XLSX", "XLS", "HTML", "CSV", "JSON", "XML", "EPUB", "MSG", "ZIP", "TXT", "RST"],
                     outputTypes: ["Markdown (.md)"], pinnedVersion: "0.1.7", configurable: false
-                ), candidateURLs: [markItDown], versionArguments: ["--nodebay-version"], bundled: true
+                ), candidateURLs: [markItDown], versionArguments: ["--nodebay-version"], bundled: true, engineID: "markitdown"
             )),
             AnyProcessingProvider(ExecutableProvider(
                 descriptor: .init(
@@ -292,7 +312,7 @@ final class ProcessingProviderRegistry: ObservableObject {
                     officialURL: URL(string: "https://github.com/yt-dlp/yt-dlp")!, license: "Unlicense with GPLv3+ components depending on distribution",
                     runsLocally: true, requiresNetwork: true, inputTypes: ["HTTP and HTTPS media URLs", "Playlists"],
                     outputTypes: ["Original media", "MP4", "MP3"], pinnedVersion: MediaDownloaderService.pinnedTestedVersion, configurable: true
-                ), candidateURLs: [resources.appending(path: "engines/yt-dlp"), homebrew.appending(path: "yt-dlp"), intelHomebrew.appending(path: "yt-dlp")], versionArguments: ["--version"], bundled: false
+                ), candidateURLs: [resources.appending(path: "engines/yt-dlp"), homebrew.appending(path: "yt-dlp"), intelHomebrew.appending(path: "yt-dlp")], versionArguments: ["--version"], bundled: false, engineID: "yt-dlp"
             )),
             AnyProcessingProvider(ExecutableProvider(
                 descriptor: .init(
@@ -301,7 +321,7 @@ final class ProcessingProviderRegistry: ObservableObject {
                     officialURL: URL(string: "https://ffmpeg.org")!, license: "Depends on exact build configuration",
                     runsLocally: true, requiresNetwork: false, inputTypes: ["Audio and video streams"],
                     outputTypes: ["MP4", "MP3", "Original containers"], pinnedVersion: nil, configurable: false
-                ), candidateURLs: [resources.appending(path: "engines/ffmpeg"), homebrew.appending(path: "ffmpeg"), intelHomebrew.appending(path: "ffmpeg")], versionArguments: ["-version"], bundled: false
+                ), candidateURLs: [resources.appending(path: "engines/ffmpeg"), homebrew.appending(path: "ffmpeg"), intelHomebrew.appending(path: "ffmpeg")], versionArguments: ["-version"], bundled: false, engineID: "ffmpeg"
             )),
             AnyProcessingProvider(ImageOptimProvider()),
             AnyProcessingProvider(BrowserBridgeProvider()),

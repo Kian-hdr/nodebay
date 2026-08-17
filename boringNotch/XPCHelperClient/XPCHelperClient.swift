@@ -365,5 +365,46 @@ final class XPCHelperClient: NSObject {
             return false
         }
     }
-}
 
+    nonisolated func runApprovedProcess(
+        engine: String,
+        executable: URL,
+        arguments: [String],
+        timeout: Duration,
+        maximumLogBytes: Int
+    ) async throws -> ProcessResult {
+        let jobID = UUID().uuidString
+        let seconds = timeout.components.seconds > 0 ? Double(timeout.components.seconds) : 1
+        return try await withTaskCancellationHandler {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.runApprovedProcess(
+                    jobID,
+                    engine: engine,
+                    executablePath: executable.path,
+                    arguments: arguments,
+                    timeout: seconds,
+                    maximumLogBytes: maximumLogBytes
+                ) { code, output, errorOutput, launchError in
+                    if let launchError {
+                        continuation.resume(throwing: SafeProcessError.launchFailed(launchError))
+                    } else if code.int32Value == -2 {
+                        continuation.resume(throwing: SafeProcessError.timedOut)
+                    } else {
+                        continuation.resume(returning: ProcessResult(
+                            exitCode: code.int32Value,
+                            standardOutput: output,
+                            standardError: errorOutput
+                        ))
+                    }
+                }
+            }
+        } onCancel: {
+            Task { [weak self] in
+                guard let self else { return }
+                let service = await MainActor.run { self.ensureRemoteService() }
+                try? await service.withService { $0.cancelApprovedProcess(jobID) }
+            }
+        }
+    }
+}

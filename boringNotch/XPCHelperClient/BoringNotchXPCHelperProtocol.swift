@@ -59,4 +59,15 @@ final class BNLunarBrightnessEvent: NSObject, NSSecureCoding {
     func stopLunarEventStream()
     /// Write Lunar's hideOSD preference (disable/enable Lunar's OSD when we replace it).
     func setLunarOSDHidden(_ hide: Bool, with reply: @escaping (Bool) -> Void)
+    /// Runs one explicitly approved Nodebay processing engine. This is not a general shell API.
+    func runApprovedProcess(
+        _ jobID: String,
+        engine: String,
+        executablePath: String,
+        arguments: [String],
+        timeout: Double,
+        maximumLogBytes: Int,
+        with reply: @escaping (NSNumber, String, String, String?) -> Void
+    )
+    func cancelApprovedProcess(_ jobID: String)
 }

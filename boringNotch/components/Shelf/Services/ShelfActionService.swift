@@ -133,18 +133,10 @@ actor MarkItDownConversionService {
     }
 
     private func runHelper(_ helperURL: URL, input: URL, output: URL) async throws {
-        var environment = ProcessInfo.processInfo.environment
-        environment["MARKITDOWN_LOCAL_ONLY"] = "1"
-        environment["PYTHONNOUSERSITE"] = "1"
-        environment["NO_PROXY"] = "*"
-        environment["no_proxy"] = "*"
-        for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] {
-            environment.removeValue(forKey: key)
-        }
-        let result = try await SafeProcessRunner.run(
+        let result = try await SafeProcessRunner.runApproved(
+            engine: "markitdown",
             executable: helperURL,
             arguments: ["--input", input.path, "--output", output.path],
-            environment: environment,
             timeout: .seconds(180),
             maximumLogBytes: 16_384
         )

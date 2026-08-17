@@ -1,6 +1,6 @@
 # Nodebay 0.1.0 verification record
 
-This record separates completed checks from checks that still require hardware, credentials, or publication infrastructure. It describes the current `chore/nodebay-github-migration` branch, preserves `feature/nodebay` at `763f234`, and is based on Boring Notch `dev` commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
+This record separates completed checks from checks that still require hardware, credentials, or publication infrastructure. It describes the prepared local `main` and `dev` branches, preserves the earlier Nodebay branches and tags, and is based on Boring Notch `dev` commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
 
 ## Environment
 
@@ -30,12 +30,18 @@ This record separates completed checks from checks that still require hardware, 
 - ImageOptim copy-first fixture: source hash remained unchanged and the generated copy was valid and smaller.
 - Clean Debug build.
 - Clean Release build for Apple Silicon.
+- Fifty-seven repository contract and privacy tests.
+- Offline repository structure, tracked-artifact, identity, and local documentation-link validation.
 - Application and bundled MarkItDown architectures are `arm64`.
 - The release archive includes GPL-3.0, foundation attribution, runtime notices, privacy information, and corresponding-source instructions.
 - Developer ID deep signature and hardened-runtime verification.
 - Release artifact excludes the debug `get-task-allow` entitlement from the application and XPC helper.
 - Icon Composer is the primary app-icon source, and the compiled asset contains light, dark, and tintable icon-stack renditions.
 - Pre-notarization artifact SHA-256: `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`.
+- Release ZIP has one top-level entry, `Nodebay.app`, and no `__MACOSX` metadata directory.
+- Exactly one matching application bundle is installed: `/Applications/Nodebay.app`.
+- The active app has one XPC helper and one media-adapter child after three verified orphan processes from earlier builds were stopped.
+- Accessibility authorization was reported granted by the main Nodebay process and the HUD media-key event tap started.
 
 ## Passed UI checks
 
@@ -55,8 +61,8 @@ This record separates completed checks from checks that still require hardware, 
 
 - Gatekeeper assessment after notarization. The current Developer ID candidate is rejected as `Unnotarized Developer ID`, as expected before submission.
 - Notarization and stapling. This requires an authorized Apple submission and is intentionally not performed before final publication approval.
-- Homebrew cask checksum update for the final signed and notarized archive.
-- `brew style` and `brew audit` inside the proposed public tap.
+- Homebrew cask checksum update for the final signed and notarized archive. The prepared cask currently records the pre-notarization checksum.
+- Public cask audit, download, install, launch, upgrade, and uninstall tests. Local `brew style` and Ruby syntax checks pass, but Homebrew disables path-based audit and the release URL does not exist before publication.
 
 ## UI and hardware checks currently unavailable
 
@@ -66,6 +72,8 @@ This record separates completed checks from checks that still require hardware, 
 - Built-in and external-display tests, hot-plugging, clamshell mode, mixed scaling, rotation, Spaces, full-screen apps, Mission Control, Stage Manager, and changing the main display.
 - Large-batch memory and termination recovery testing.
 - Individual browser-tab media control. The browser bridge is deliberately reported as unavailable and has not been claimed as implemented.
+- End-to-end visual HUD output from an injected hardware media key. The app's authorization and event-tap startup passed, but the available automation could not synthesize a supported hardware media key.
+- Restart-based launch-at-login verification. The settings control is present, but this pass did not restart the Mac.
 
 ## Known limitations
 

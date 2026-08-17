@@ -1,15 +1,15 @@
 # Pull request draft
 
-Target: `Kian-hdr/nodebay:dev`
-Source: `Kian-hdr/nodebay:chore/nodebay-github-migration`
+Target: `Kian-hdr/nodebay:main`
+Source: `Kian-hdr/nodebay:dev`
 
-## Complete the GitHub migration to Nodebay
+## Release Nodebay 0.1.0
 
-This pull request makes the owned public fork the canonical Nodebay repository while preserving its visible fork relationship and complete history.
+This pull request promotes the verified Nodebay 0.1.0 source from `dev` to the stable `main` branch. The new repository is standalone, not a GitHub fork, while preserving the complete reachable Boring Notch and Nodebay commit history.
 
 ### Repository and documentation
 
-- Updates public source, clone, release, Homebrew, support, and security URLs to `Kian-hdr/nodebay`.
+- Publishes public source, clone, release, Homebrew, support, and security URLs under `Kian-hdr/nodebay`.
 - Replaces inherited community files with Nodebay-specific privacy-safe contribution, issue, pull-request, support, security, conduct, and release guidance.
 - Preserves explicit Boring Notch attribution and the exact foundation commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
 - Retains the legacy application bundle identifier for the first migration-safe release.
@@ -35,4 +35,4 @@ See `docs/nodebay-verification.md` and `docs/github-migration-preflight.md` for 
 
 ### Publication boundary
 
-This PR does not authorize merging, releasing, Homebrew publication, or upstream changes. Those remain separate explicit operations in the approved migration package.
+Creating this PR does not authorize merging, notarization, releasing, Homebrew publication, or changes to upstream Boring Notch. Those remain separately approval-gated operations.

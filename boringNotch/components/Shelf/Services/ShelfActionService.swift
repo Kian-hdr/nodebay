@@ -23,6 +23,8 @@ enum ShelfActionService {
         case .text(let string):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(string, forType: .string)
+        case .stack:
+            break
         }
     }
 
@@ -131,14 +133,6 @@ actor MarkItDownConversionService {
     }
 
     private func runHelper(_ helperURL: URL, input: URL, output: URL) async throws {
-        let process = Process()
-        let standardError = Pipe()
-
-        process.executableURL = helperURL
-        process.arguments = ["--input", input.path, "--output", output.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = standardError
-
         var environment = ProcessInfo.processInfo.environment
         environment["MARKITDOWN_LOCAL_ONLY"] = "1"
         environment["PYTHONNOUSERSITE"] = "1"
@@ -147,29 +141,15 @@ actor MarkItDownConversionService {
         for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] {
             environment.removeValue(forKey: key)
         }
-        process.environment = environment
-
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            process.terminationHandler = { finishedProcess in
-                let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
-                let errorText = String(data: errorData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-                if finishedProcess.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    continuation.resume(
-                        throwing: MarkItDownConversionError.helperFailed(errorText)
-                    )
-                }
-            }
-
-            do {
-                try process.run()
-            } catch {
-                process.terminationHandler = nil
-                continuation.resume(throwing: error)
-            }
+        let result = try await SafeProcessRunner.run(
+            executable: helperURL,
+            arguments: ["--input", input.path, "--output", output.path],
+            environment: environment,
+            timeout: .seconds(180),
+            maximumLogBytes: 16_384
+        )
+        guard result.exitCode == 0 else {
+            throw MarkItDownConversionError.helperFailed(result.standardError)
         }
     }
 }

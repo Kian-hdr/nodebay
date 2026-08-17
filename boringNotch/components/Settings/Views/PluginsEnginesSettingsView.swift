@@ -96,6 +96,69 @@ struct ConvertersSettingsView: View {
     }
 }
 
+struct ImageCompressionSettingsView: View {
+    @StateObject private var registry = ProcessingProviderRegistry.shared
+    @AppStorage("nodebay.imageOptim.automaticEnabled") private var automaticEnabled = false
+    @AppStorage("nodebay.imageOptim.thresholdMB") private var thresholdMB = 10.0
+    @AppStorage("nodebay.imageOptim.askBeforeCompression") private var askBeforeCompression = true
+    @AppStorage("nodebay.imageOptim.resultSuffix") private var resultSuffix = "optimized"
+    @AppStorage("nodebay.imageOptim.addResults") private var addResults = true
+
+    private var diagnostic: EngineDiagnostic? { registry.diagnostics["imageoptim"] }
+
+    var body: some View {
+        Form {
+            Section("ImageOptim Companion") {
+                LabeledContent("Status", value: diagnostic?.availability.rawValue ?? "Checking")
+                LabeledContent("Version", value: diagnostic?.version ?? "Checking")
+                LabeledContent("Installation", value: "/Applications/ImageOptim.app")
+                Link("Download ImageOptim", destination: URL(string: "https://imageoptim.com/mac")!)
+                Button("Open ImageOptim Preferences") {
+                    NSWorkspace.shared.open(ImageOptimCompressionService.appURL)
+                }
+                .disabled(!ImageOptimCompressionService.isInstalled)
+                Text("Nodebay invokes ImageOptim’s documented blocking executable with structured file arguments. Only a collision-safe copy is provided to ImageOptim.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Defaults") {
+                Picker("Compression mode", selection: .constant("ImageOptim preferences")) {
+                    Text("ImageOptim preferences").tag("ImageOptim preferences")
+                }
+                Toggle("Ask before compression", isOn: $askBeforeCompression)
+                TextField("Result filename suffix", text: $resultSuffix)
+                LabeledContent("Result location", value: "Beside the original")
+                Toggle("Automatically add results to Nodebay", isOn: $addResults)
+                LabeledContent("Metadata preservation", value: "Controlled in ImageOptim")
+            }
+
+            Section("Automatic Compression") {
+                Toggle("Enable automatic compression", isOn: $automaticEnabled)
+                HStack {
+                    Text("Minimum image size")
+                    Spacer()
+                    TextField("MB", value: $thresholdMB, format: .number.precision(.fractionLength(0...1)))
+                        .frame(width: 70)
+                    Text("MB").foregroundStyle(.secondary)
+                }
+                .disabled(!automaticEnabled)
+                Text("Automatic compression is off by default and never runs without explicit opt-in.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Diagnostics") {
+                LabeledContent("Last result", value: diagnostic?.message ?? "Not checked")
+                Button("Run Diagnostics") { Task { await registry.refresh() } }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Image Compressor")
+        .task { await registry.refresh() }
+    }
+}
+
 private struct EngineProviderSection: View {
     let provider: AnyProcessingProvider
     let diagnostic: EngineDiagnostic?

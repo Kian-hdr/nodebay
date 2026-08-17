@@ -54,6 +54,8 @@ final class ShelfItemViewModel: ObservableObject {
     @Published var isDropTargeted: Bool = false
     @Published var isRenaming: Bool = false
     @Published var draftTitle: String = ""
+    @Published private(set) var isBatchConverting = false
+    private var batchConversionTask: Task<Void, Never>?
     private var sharingLifecycle: SharingLifecycleDelegate?
     private var quickShareLifecycle: SharingLifecycleDelegate?
     private var sharingAccessingURLs: [URL] = []
@@ -99,6 +101,8 @@ final class ShelfItemViewModel: ObservableObject {
             return NSItemProvider(object: string as NSString)
         case .link(let url):
             return NSItemProvider(object: url as NSURL)
+        case .stack(_, let members):
+            return createMultiItemProvider(for: members)
         }
     }
 
@@ -106,7 +110,7 @@ final class ShelfItemViewModel: ObservableObject {
         let provider = NSItemProvider()
         var urls: [URL] = []
         var textItems: [String] = []
-        for item in items {
+        for item in items.flatMap(\.flattenedItems) {
             switch item.kind {
             case .file:
                 if let url = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) {
@@ -117,6 +121,8 @@ final class ShelfItemViewModel: ObservableObject {
             case .text(let string):
                 textItems.append(string)
             case .link:
+                break
+            case .stack:
                 break
             }
         }
@@ -164,6 +170,192 @@ final class ShelfItemViewModel: ObservableObject {
 
     func convertItemToMarkdown() {
         convertItemsToMarkdown([item])
+    }
+
+    var canBatchConvertStack: Bool {
+        guard let members = item.stackMembers else { return false }
+        return members.contains { member in
+            guard let url = member.fileURL else { return false }
+            return !["md", "markdown"].contains(url.pathExtension.lowercased())
+                && MarkItDownConversionService.supports(url)
+        }
+    }
+
+    var canCompressImage: Bool {
+        guard let url = item.fileURL else { return false }
+        return ImageOptimCompressionService.isInstalled && ImageOptimCompressionService.supports(url)
+    }
+
+    var canBatchCompressStack: Bool {
+        guard let members = item.stackMembers else { return false }
+        return ImageOptimCompressionService.isInstalled
+            && members.contains { $0.fileURL.map(ImageOptimCompressionService.supports) ?? false }
+    }
+
+    func compressImage() {
+        guard let inputURL = item.fileURL else { return }
+        ShelfStateViewModel.shared.beginConverting([item])
+        Task {
+            do {
+                let suffix = UserDefaults.standard.string(forKey: "nodebay.imageOptim.resultSuffix") ?? "optimized"
+                let result = try await ImageOptimCompressionService.shared.compressCopy(of: inputURL, suffix: suffix)
+                let bookmark = try Bookmark(url: result.outputURL)
+                let outputItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false)
+
+                var keepCopy = true
+                let alert = compressionAlert(for: result)
+                if !result.isSmaller {
+                    alert.addButton(withTitle: "Keep Copy")
+                    alert.addButton(withTitle: "Discard Copy")
+                    keepCopy = alert.runModal() == .alertFirstButtonReturn
+                } else {
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+
+                if keepCopy {
+                    ShelfStateViewModel.shared.add([outputItem])
+                } else {
+                    try? FileManager.default.removeItem(at: result.outputURL)
+                }
+            } catch {
+                presentProcessingError(title: "Image Compression Failed", error: error)
+            }
+            ShelfStateViewModel.shared.finishConverting([item])
+        }
+    }
+
+    func compressStackImages() {
+        guard let members = item.stackMembers else { return }
+        let compatible = members.filter { $0.fileURL.map(ImageOptimCompressionService.supports) ?? false }
+        guard !compatible.isEmpty else { return }
+        batchConversionTask?.cancel()
+        isBatchConverting = true
+        ShelfStateViewModel.shared.beginConverting([item])
+        batchConversionTask = Task { [weak self] in
+            guard let self else { return }
+            var results: [ShelfItem] = []
+            var failures: [String] = []
+            var savedBytes: Int64 = 0
+            let suffix = UserDefaults.standard.string(forKey: "nodebay.imageOptim.resultSuffix") ?? "optimized"
+            for (offset, source) in compatible.enumerated() {
+                if Task.isCancelled { break }
+                ShelfStateViewModel.shared.setConversionProgress("Compressing \(offset + 1) of \(compatible.count)", for: item)
+                guard let url = source.fileURL else { continue }
+                do {
+                    let result = try await ImageOptimCompressionService.shared.compressCopy(of: url, suffix: suffix)
+                    let bookmark = try Bookmark(url: result.outputURL)
+                    results.append(ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false))
+                    savedBytes += result.bytesSaved
+                } catch {
+                    failures.append("\(source.displayName): \(error.localizedDescription)")
+                }
+            }
+            if !results.isEmpty {
+                let resultStack = ShelfItem(kind: .stack(name: "\(item.displayName) Compressed", members: results))
+                ShelfStateViewModel.shared.insertResultStack(resultStack, beside: item)
+            }
+            ShelfStateViewModel.shared.finishConverting([item])
+            isBatchConverting = false
+
+            let alert = NSAlert()
+            alert.messageText = Task.isCancelled ? "Batch Compression Cancelled" : "Batch Compression Finished"
+            var details = ["Created \(results.count) compressed copy or copies.", "Saved \(ByteCountFormatter.string(fromByteCount: savedBytes, countStyle: .file))."]
+            if members.count > compatible.count { details.append("Skipped \(members.count - compatible.count) unsupported file(s).") }
+            details.append(contentsOf: failures)
+            alert.informativeText = details.joined(separator: "\n")
+            alert.alertStyle = failures.isEmpty ? .informational : .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
+    private func compressionAlert(for result: ImageCompressionResult) -> NSAlert {
+        let alert = NSAlert()
+        alert.messageText = result.isSmaller ? "Image Compressed" : "No Useful Size Reduction"
+        alert.informativeText = [
+            "Original: \(ByteCountFormatter.string(fromByteCount: result.originalSize, countStyle: .file))",
+            "Compressed: \(ByteCountFormatter.string(fromByteCount: result.compressedSize, countStyle: .file))",
+            "Saved: \(ByteCountFormatter.string(fromByteCount: result.bytesSaved, countStyle: .file)) (\(result.percentageSaved.formatted(.number.precision(.fractionLength(1))))%)",
+            "Metadata: \(result.metadataStatus)",
+            "Mode: \(result.compressionMode)",
+        ].joined(separator: "\n")
+        alert.alertStyle = .informational
+        return alert
+    }
+
+    private func presentProcessingError(title: String, error: Error) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    func convertStackToMarkdown() {
+        guard let members = item.stackMembers else { return }
+        let compatible = members.filter { member in
+            guard let url = member.fileURL else { return false }
+            return !["md", "markdown"].contains(url.pathExtension.lowercased())
+                && MarkItDownConversionService.supports(url)
+        }
+        guard !compatible.isEmpty else { return }
+
+        batchConversionTask?.cancel()
+        isBatchConverting = true
+        ShelfStateViewModel.shared.beginConverting([item])
+        batchConversionTask = Task { [weak self] in
+            guard let self else { return }
+            var results: [ShelfItem] = []
+            var failures: [String] = []
+
+            for (offset, source) in compatible.enumerated() {
+                if Task.isCancelled { break }
+                ShelfStateViewModel.shared.setConversionProgress(
+                    "Converting \(offset + 1) of \(compatible.count)",
+                    for: item
+                )
+                guard let inputURL = source.fileURL else {
+                    failures.append("\(source.displayName): file unavailable")
+                    continue
+                }
+                do {
+                    let outputURL = try await MarkItDownConversionService.shared.convert(inputURL)
+                    let bookmark = try Bookmark(url: outputURL)
+                    results.append(ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true))
+                } catch {
+                    failures.append("\(source.displayName): \(error.localizedDescription)")
+                }
+            }
+
+            if !results.isEmpty {
+                let resultStack = ShelfItem(
+                    kind: .stack(name: "\(item.displayName) Markdown", members: results)
+                )
+                ShelfStateViewModel.shared.insertResultStack(resultStack, beside: item)
+            }
+            ShelfStateViewModel.shared.finishConverting([item])
+            isBatchConverting = false
+
+            let skippedCount = members.count - compatible.count
+            if skippedCount > 0 || !failures.isEmpty || Task.isCancelled {
+                let alert = NSAlert()
+                alert.messageText = Task.isCancelled ? "Batch Conversion Cancelled" : "Batch Conversion Finished"
+                var lines: [String] = []
+                if skippedCount > 0 { lines.append("Skipped \(skippedCount) unsupported or existing Markdown file(s).") }
+                if !results.isEmpty { lines.append("Created \(results.count) Markdown file(s).") }
+                lines.append(contentsOf: failures)
+                alert.informativeText = lines.joined(separator: "\n")
+                alert.alertStyle = failures.isEmpty ? .informational : .warning
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
+    }
+
+    func cancelBatchConversion() {
+        batchConversionTask?.cancel()
     }
 
     private func convertItemsToMarkdown(_ items: [ShelfItem]) {
@@ -216,7 +408,7 @@ final class ShelfItemViewModel: ObservableObject {
             if case .text(let text) = item.kind {
                 itemsToShare.append(text)
             } else {
-                for item in ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items) {
+                for item in ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items).flatMap(\.flattenedItems) {
                     switch item.kind {
                     case .file:
                         // Use immediate update for user-initiated share action
@@ -228,6 +420,8 @@ final class ShelfItemViewModel: ObservableObject {
                         itemsToShare.append(string)
                     case .link(let url):
                         itemsToShare.append(url)
+                    case .stack:
+                        break
                     }
                 }
             }
@@ -305,14 +499,15 @@ final class ShelfItemViewModel: ObservableObject {
         }
 
         let selectedItems = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
-        let selectedFileURLs = selectedItems.compactMap { $0.fileURL }
-        let selectedLinkURLs: [URL] = selectedItems.compactMap { itm in
+        let selectedLeafItems = selectedItems.flatMap(\.flattenedItems)
+        let selectedFileURLs = selectedLeafItems.compactMap { $0.fileURL }
+        let selectedLinkURLs: [URL] = selectedLeafItems.compactMap { itm in
             if case .link(let url) = itm.kind { return url }
             return nil
         }
         let selectedFolderURLs = selectedFileURLs.filter { isDirectory($0) }
         // URLs valid for Open/Open With (exclude folders)
-        let selectedOpenableURLs = selectedItems.compactMap { itm -> URL? in
+        let selectedOpenableURLs = selectedLeafItems.compactMap { itm -> URL? in
             if let u = itm.fileURL { return isDirectory(u) ? nil : u }
             if case .link(let url) = itm.kind { return url }
             return nil
@@ -428,6 +623,13 @@ final class ShelfItemViewModel: ObservableObject {
                 imageSubmenu.addItem(convertItem)
             }
 
+            if imageURLs.count == 1,
+               imageURLs.allSatisfy(ImageOptimCompressionService.supports),
+               ImageOptimCompressionService.isInstalled {
+                let compressImage = NSMenuItem(title: "Compress Image", action: nil, keyEquivalent: "")
+                imageSubmenu.addItem(compressImage)
+            }
+
             // Create PDF - for one or more images
             let createPDF = NSMenuItem(title: "Create PDF", action: nil, keyEquivalent: "")
             imageSubmenu.addItem(createPDF)
@@ -456,6 +658,13 @@ final class ShelfItemViewModel: ObservableObject {
         }
 
         menu.addItem(NSMenuItem.separator())
+        if selectedItems.count > 1 {
+            addMenuItem(title: "Create Stack")
+        } else if selectedItems.count == 1, selectedItems[0].stackMembers != nil {
+            addMenuItem(title: "Dissolve Stack")
+            if canBatchConvertStack { addMenuItem(title: "Convert Compatible Files to MD") }
+            if canBatchCompressStack { addMenuItem(title: "Compress Compatible Images") }
+        }
         addMenuItem(title: "Remove")
 
         let actionTarget = MenuActionTarget(item: item, view: view, viewModel: self)
@@ -634,12 +843,28 @@ final class ShelfItemViewModel: ObservableObject {
             case "Remove":
                 let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
                 for it in selected { ShelfActionService.remove(it) }
+
+            case "Create Stack":
+                let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
+                _ = ShelfStateViewModel.shared.createStack(from: selected)
+
+            case "Dissolve Stack":
+                ShelfStateViewModel.shared.dissolveStack(item)
+
+            case "Convert Compatible Files to MD":
+                viewModel?.convertStackToMarkdown()
+
+            case "Compress Compatible Images":
+                viewModel?.compressStackImages()
                 
             case "Remove Background":
                 handleRemoveBackground()
                 
             case "Convert Image…":
                 showConvertImageDialog()
+
+            case "Compress Image":
+                viewModel?.compressImage()
                 
             case "Create PDF":
                 handleCreatePDF()

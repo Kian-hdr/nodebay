@@ -25,6 +25,10 @@ struct ShelfItemView: View {
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
     private var conversionTint: Color { Color(red: 0.24, green: 0.56, blue: 0.96) }
+    private var showsActionButton: Bool {
+        viewModel.canConvertToMarkdown || viewModel.canCompressImage
+            || viewModel.canBatchConvertStack || viewModel.canBatchCompressStack
+    }
     
     init(item: ShelfItem) {
         self.item = item
@@ -50,14 +54,19 @@ struct ShelfItemView: View {
                             onRightClick: viewModel.handleRightClick,
                             onClick: { event, nsview in
                                 viewModel.handleClick(event: event, view: nsview)
+                                if item.stackMembers != nil,
+                                   event.clickCount == 1,
+                                   event.modifierFlags.intersection([.shift, .command, .control]).isEmpty {
+                                    showStack = true
+                                }
                             }
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(width: 105, height: 88)
-                    .offset(y: viewModel.canConvertToMarkdown ? 0 : 13)
+                    .offset(y: showsActionButton ? 0 : 13)
 
-                    if viewModel.canConvertToMarkdown {
+                    if showsActionButton {
                         conversionButton
                     } else {
                         Color.clear
@@ -71,6 +80,21 @@ struct ShelfItemView: View {
                 .contentShape(Rectangle())
                 .animation(.easeInOut(duration: 0.1), value: debouncedDropTarget)
                 .animation(.easeInOut(duration: 0.1), value: isSelected)
+
+                Button {
+                    ShelfStateViewModel.shared.remove(item)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+                .offset(x: 48, y: -56)
+                .help("Remove from Nodebay. The file stays on disk.")
+                .accessibilityLabel("Remove \(item.displayName) from Nodebay")
             } else {
                 Color.clear
                     .frame(width: 105, height: 114)
@@ -84,6 +108,18 @@ struct ShelfItemView: View {
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(50))
                 debouncedDropTarget = targeted
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $viewModel.isDropTargeted) { providers in
+            Task {
+                let dropped = await ShelfDropService.items(from: providers)
+                _ = ShelfStateViewModel.shared.createStack(onto: item, droppedItems: dropped)
+            }
+            return true
+        }
+        .popover(isPresented: $showStack, arrowEdge: .bottom) {
+            if item.stackMembers != nil {
+                StackContentsPopoverView(stack: item, viewModel: viewModel)
             }
         }
         .onAppear {
@@ -116,6 +152,17 @@ struct ShelfItemView: View {
                     }
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let members = item.stackMembers {
+                    Text("\(members.count)")
+                        .font(.caption2.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.blue, in: Capsule())
+                        .accessibilityLabel("\(members.count) files")
+                }
+            }
     }
 
     private var textView: some View {
@@ -130,7 +177,13 @@ struct ShelfItemView: View {
 
     private var conversionButton: some View {
         Button {
-            viewModel.convertItemToMarkdown()
+            if item.stackMembers != nil {
+                showStack = true
+            } else if viewModel.canCompressImage {
+                viewModel.compressImage()
+            } else {
+                viewModel.convertItemToMarkdown()
+            }
         } label: {
             HStack(spacing: 3) {
                 if shelfState.isConverting(item) {
@@ -138,10 +191,10 @@ struct ShelfItemView: View {
                         .controlSize(.mini)
                         .tint(conversionTint.opacity(0.85))
                 } else {
-                    Image(systemName: "doc.badge.arrow.up")
+                    Image(systemName: viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up")
                 }
 
-                Text(shelfState.isConverting(item) ? "Converting…" : "Convert to MD")
+                Text(actionButtonTitle)
                     .lineLimit(1)
             }
             .font(.system(size: 9, weight: .semibold, design: .rounded))
@@ -163,6 +216,13 @@ struct ShelfItemView: View {
         .disabled(shelfState.isConverting(item))
         .help("Create a separate Markdown copy")
         .accessibilityLabel("Convert to Markdown")
+    }
+
+    private var actionButtonTitle: String {
+        if let progress = shelfState.conversionProgress[item.id] { return progress }
+        if shelfState.isConverting(item) { return "Converting…" }
+        if item.stackMembers != nil { return "Stack Actions" }
+        return viewModel.canCompressImage ? "Compress Image" : "Convert to MD"
     }
 
     private var backgroundView: some View {
@@ -204,6 +264,134 @@ struct ShelfItemView: View {
             return 2
         } else {
             return 1
+        }
+    }
+}
+
+private struct StackContentsPopoverView: View {
+    let stack: ShelfItem
+    @ObservedObject var viewModel: ShelfItemViewModel
+    @EnvironmentObject private var quickLookService: QuickLookService
+    @State private var name: String
+
+    init(stack: ShelfItem, viewModel: ShelfItemViewModel) {
+        self.stack = stack
+        self.viewModel = viewModel
+        _name = State(initialValue: stack.displayName)
+    }
+
+    private var members: [ShelfItem] { stack.stackMembers ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                TextField("Stack name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { ShelfStateViewModel.shared.renameStack(stack, name: name) }
+                    .accessibilityLabel("Stack name")
+                Text("\(members.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(Array(members.enumerated()), id: \.element.id) { index, member in
+                        HStack(spacing: 8) {
+                            Image(nsImage: member.icon)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 30, height: 30)
+                            Text(member.displayName)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button {
+                                if let url = member.fileURL {
+                                    quickLookService.show(urls: [url], selectFirst: true)
+                                }
+                            } label: {
+                                Image(systemName: "eye")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(member.fileURL == nil)
+                            .help("Quick Look")
+
+                            Button {
+                                ShelfStateViewModel.shared.reorderMember(in: stack, from: index, to: index - 1)
+                            } label: { Image(systemName: "chevron.up") }
+                            .buttonStyle(.borderless)
+                            .disabled(index == 0)
+                            .help("Move earlier")
+
+                            Button {
+                                ShelfStateViewModel.shared.reorderMember(in: stack, from: index, to: index + 1)
+                            } label: { Image(systemName: "chevron.down") }
+                            .buttonStyle(.borderless)
+                            .disabled(index == members.count - 1)
+                            .help("Move later")
+
+                            Button {
+                                ShelfStateViewModel.shared.removeMember(member, from: stack)
+                            } label: { Image(systemName: "minus.circle") }
+                            .buttonStyle(.borderless)
+                            .help("Remove from stack and keep in Nodebay")
+                        }
+                        .padding(6)
+                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                        .contentShape(Rectangle())
+                        .onDrag { itemProvider(for: member) }
+                    }
+                }
+            }
+            .frame(maxHeight: 250)
+
+            if viewModel.canBatchConvertStack {
+                HStack {
+                    Button("Convert Compatible Files to MD") {
+                        viewModel.convertStackToMarkdown()
+                    }
+                    .disabled(viewModel.isBatchConverting)
+                    if viewModel.isBatchConverting {
+                        Button("Cancel", role: .cancel) { viewModel.cancelBatchConversion() }
+                    }
+                }
+            }
+
+            if viewModel.canBatchCompressStack {
+                HStack {
+                    Button("Compress Compatible Images") {
+                        viewModel.compressStackImages()
+                    }
+                    .disabled(viewModel.isBatchConverting)
+                    if viewModel.isBatchConverting {
+                        Button("Cancel", role: .cancel) { viewModel.cancelBatchConversion() }
+                    }
+                }
+            }
+
+            HStack {
+                Button("Dissolve Stack") { ShelfStateViewModel.shared.dissolveStack(stack) }
+                Spacer()
+                Button("Save Name") { ShelfStateViewModel.shared.renameStack(stack, name: name) }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(14)
+        .frame(width: 420)
+    }
+
+    private func itemProvider(for member: ShelfItem) -> NSItemProvider {
+        switch member.kind {
+        case .file:
+            if let url = member.fileURL { return NSItemProvider(object: url as NSURL) }
+            return NSItemProvider(object: member.displayName as NSString)
+        case .text(let string):
+            return NSItemProvider(object: string as NSString)
+        case .link(let url):
+            return NSItemProvider(object: url as NSURL)
+        case .stack:
+            return NSItemProvider()
         }
     }
 }
@@ -297,16 +485,21 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private func startDragSession(with event: NSEvent) {
             // Prepare dragging items
             let selectedItems = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
-            let itemsToDrag: [ShelfItem]
+            let shelfItemsToRemove: [ShelfItem]
 
             if selectedItems.count > 1 && selectedItems.contains(where: { $0.id == item.id }) {
-                itemsToDrag = selectedItems
+                shelfItemsToRemove = selectedItems
             } else {
-                itemsToDrag = [item]
+                shelfItemsToRemove = [item]
             }
 
+            let itemsToDrag = shelfItemsToRemove.flatMap(\.flattenedItems)
+
             // Store items being dragged for auto-remove feature
-            draggedItems = itemsToDrag
+            draggedItems = shelfItemsToRemove
+            for parent in shelfItemsToRemove where parent.flattenedItems.contains(where: \.isTemporary) {
+                promisedItemIDs.insert(parent.id)
+            }
 
             // Create dragging items for AppKit
             var draggingItems: [NSDraggingItem] = []
@@ -379,6 +572,8 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
                 pasteboardItem.setString(url.absoluteString, forType: .URL)
                 pasteboardItem.setString(url.absoluteString, forType: .string)
                 return pasteboardItem
+            case .stack:
+                return nil
             }
         }
         

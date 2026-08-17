@@ -8,14 +8,15 @@
 import AppKit
 import Foundation
 
-enum ShelfItemKind: Codable, Equatable, Sendable {
+indirect enum ShelfItemKind: Codable, Equatable, Sendable {
     case file(bookmark: Data)
     case text(string: String)
     case link(url: URL)
+    case stack(name: String, members: [ShelfItem])
 
-    enum CodingKeys: String, CodingKey { case type, value }
+    enum CodingKeys: String, CodingKey { case type, value, name, members }
 
-    enum KindTag: String, Codable { case file, text, link }
+    enum KindTag: String, Codable { case file, text, link, stack }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +29,11 @@ enum ShelfItemKind: Codable, Equatable, Sendable {
             self = .text(string: try container.decode(String.self, forKey: .value))
         case .link:
             self = .link(url: try container.decode(URL.self, forKey: .value))
+        case .stack:
+            self = .stack(
+                name: try container.decode(String.self, forKey: .name),
+                members: try container.decode([ShelfItem].self, forKey: .members)
+            )
         }
     }
 
@@ -43,6 +49,10 @@ enum ShelfItemKind: Codable, Equatable, Sendable {
         case .link(let url):
             try container.encode(KindTag.link, forKey: .type)
             try container.encode(url, forKey: .value)
+        case .stack(let name, let members):
+            try container.encode(KindTag.stack, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(members, forKey: .members)
         }
     }
 
@@ -115,6 +125,8 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
             } else {
                 return s
             }
+        case .stack(let name, let members):
+            return name.isEmpty ? "\(members.count) files" : name
         }
     }
     
@@ -131,10 +143,15 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
             return url
         case .text:
             return nil
+        case .stack:
+            return nil
         }
     }
     
     var icon: NSImage {
+        if case .stack(_, let members) = kind {
+            return Self.stackIcon(members: members)
+        }
         guard case .file = kind else {
             return Self.thumbnailSymbolImage(systemName: kind.iconSymbolName) ?? NSImage()
         }
@@ -155,9 +172,38 @@ struct ShelfItem: Identifiable, Codable, Equatable, Sendable {
             return
         }
     }
+
+    var stackMembers: [ShelfItem]? {
+        guard case .stack(_, let members) = kind else { return nil }
+        return members
+    }
+
+    var flattenedItems: [ShelfItem] {
+        stackMembers ?? [self]
+    }
 }
 
 private extension ShelfItem {
+   static func stackIcon(members: [ShelfItem]) -> NSImage {
+        let size = CGSize(width: 64, height: 64)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        let cards = min(3, max(1, members.count))
+        for index in 0..<cards {
+            let inset = CGFloat(cards - index - 1) * 5
+            let rect = CGRect(x: inset, y: inset, width: 52, height: 52)
+            let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
+            NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
+            path.fill()
+            NSColor.separatorColor.setStroke()
+            path.lineWidth = 1
+            path.stroke()
+        }
+        return image
+    }
+
    static func thumbnailSymbolImage(
         systemName: String,
     size: CGSize = CGSize(width: 64, height: 80), 
@@ -202,6 +248,8 @@ extension ShelfItem {
             return "link://" + u.absoluteString
         case .text(let s):
             return "text://" + s
+        case .stack:
+            return "stack://" + id.uuidString
         }
     }
 }
@@ -216,8 +264,9 @@ private extension ShelfItemKind {
             return "text.justifyleft"
         case .link:
             return "link"
+        case .stack:
+            return "square.stack.3d.up.fill"
         }
     }
 }
-
 

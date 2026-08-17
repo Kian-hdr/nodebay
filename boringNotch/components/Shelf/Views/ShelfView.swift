@@ -26,6 +26,22 @@ struct ShelfView: View {
                     handleDrop(providers: providers)
                 }
         }
+        .overlay(alignment: .bottom) {
+            if tvm.canUndoRemoval {
+                HStack(spacing: 8) {
+                    Text("Removed from Nodebay")
+                    Button("Undo") { tvm.undoLastRemoval() }
+                        .keyboardShortcut("z", modifiers: .command)
+                }
+                .font(.caption)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.14), lineWidth: 0.5))
+                .padding(.bottom, 6)
+                .accessibilityElement(children: .contain)
+            }
+        }
         // Bind Quick Look to shelf selection
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()

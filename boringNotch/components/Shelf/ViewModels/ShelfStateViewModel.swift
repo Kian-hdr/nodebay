@@ -17,6 +17,10 @@ final class ShelfStateViewModel: ObservableObject {
 
     @Published var isLoading: Bool = false
     @Published private(set) var convertingItemIDs: Set<ShelfItem.ID> = []
+    @Published private(set) var conversionProgress: [ShelfItem.ID: String] = [:]
+    @Published private(set) var canUndoRemoval = false
+
+    private var lastRemoval: (item: ShelfItem, index: Int)?
 
     var isEmpty: Bool { items.isEmpty }
 
@@ -34,6 +38,11 @@ final class ShelfStateViewModel: ObservableObject {
 
     func finishConverting(_ items: [ShelfItem]) {
         convertingItemIDs.subtract(items.map(\.id))
+        for item in items { conversionProgress[item.id] = nil }
+    }
+
+    func setConversionProgress(_ text: String, for item: ShelfItem) {
+        conversionProgress[item.id] = text
     }
 
     private init() {
@@ -66,8 +75,108 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     func remove(_ item: ShelfItem) {
-        item.cleanupStoredData()
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        lastRemoval = (item, index)
         items.removeAll { $0.id == item.id }
+        canUndoRemoval = true
+    }
+
+    func undoLastRemoval() {
+        guard let removal = lastRemoval else { return }
+        let index = min(removal.index, items.count)
+        items.insert(removal.item, at: index)
+        lastRemoval = nil
+        canUndoRemoval = false
+    }
+
+    @discardableResult
+    func createStack(from selectedItems: [ShelfItem], name: String? = nil) -> ShelfItem? {
+        let selectedIDs = Set(selectedItems.map(\.id))
+        guard selectedIDs.count >= 2,
+              let insertionIndex = items.indices.first(where: { selectedIDs.contains(items[$0].id) }) else {
+            return nil
+        }
+        let members = items
+            .filter { selectedIDs.contains($0.id) }
+            .flatMap(\.flattenedItems)
+            .reduce(into: [ShelfItem]()) { result, member in
+                if !result.contains(where: { $0.identityKey == member.identityKey }) {
+                    result.append(member)
+                }
+            }
+        guard members.count >= 2 else { return nil }
+
+        let stack = ShelfItem(
+            kind: .stack(name: name ?? "File Stack", members: members),
+            isTemporary: false
+        )
+        items.removeAll { selectedIDs.contains($0.id) }
+        items.insert(stack, at: min(insertionIndex, items.count))
+        ShelfSelectionModel.shared.selectSingle(stack)
+        return stack
+    }
+
+    @discardableResult
+    func createStack(onto target: ShelfItem, droppedItems: [ShelfItem]) -> ShelfItem? {
+        guard let insertionIndex = items.firstIndex(where: { $0.id == target.id }) else { return nil }
+        let members = (target.flattenedItems + droppedItems.flatMap(\.flattenedItems))
+            .reduce(into: [ShelfItem]()) { result, member in
+                if !result.contains(where: { $0.identityKey == member.identityKey }) {
+                    result.append(member)
+                }
+            }
+        guard members.count >= 2 else { return nil }
+        let memberKeys = Set(members.map(\.identityKey))
+        items.removeAll { item in
+            item.id == target.id || (item.stackMembers == nil && memberKeys.contains(item.identityKey))
+        }
+        let stack = ShelfItem(kind: .stack(name: "File Stack", members: members))
+        items.insert(stack, at: min(insertionIndex, items.count))
+        ShelfSelectionModel.shared.selectSingle(stack)
+        return stack
+    }
+
+    func renameStack(_ stack: ShelfItem, name: String) {
+        guard let index = items.firstIndex(where: { $0.id == stack.id }),
+              case .stack(_, let members) = items[index].kind else { return }
+        items[index] = ShelfItem(id: stack.id, kind: .stack(name: name, members: members))
+    }
+
+    func reorderMember(in stack: ShelfItem, from source: Int, to destination: Int) {
+        guard let index = items.firstIndex(where: { $0.id == stack.id }),
+              case .stack(let name, var members) = items[index].kind,
+              members.indices.contains(source), members.indices.contains(destination), source != destination else { return }
+        let member = members.remove(at: source)
+        members.insert(member, at: destination)
+        items[index] = ShelfItem(id: stack.id, kind: .stack(name: name, members: members))
+    }
+
+    func removeMember(_ member: ShelfItem, from stack: ShelfItem) {
+        guard let index = items.firstIndex(where: { $0.id == stack.id }),
+              case .stack(let name, var members) = items[index].kind else { return }
+        members.removeAll { $0.id == member.id }
+        if members.count < 2 {
+            items.remove(at: index)
+            items.insert(contentsOf: members + [member], at: index)
+        } else {
+            items[index] = ShelfItem(id: stack.id, kind: .stack(name: name, members: members))
+            items.insert(member, at: min(index + 1, items.count))
+        }
+    }
+
+    func dissolveStack(_ stack: ShelfItem) {
+        guard let index = items.firstIndex(where: { $0.id == stack.id }),
+              case .stack(_, let members) = items[index].kind else { return }
+        items.remove(at: index)
+        items.insert(contentsOf: members, at: index)
+    }
+
+    func insertResultStack(_ result: ShelfItem, beside source: ShelfItem) {
+        guard let index = items.firstIndex(where: { $0.id == source.id }) else {
+            add([result])
+            return
+        }
+        items.insert(result, at: min(index + 1, items.count))
     }
 
     func updateBookmark(for item: ShelfItem, bookmark: Data) {
@@ -102,6 +211,20 @@ final class ShelfStateViewModel: ObservableObject {
                         keep.append(item)
                     } else {
                         item.cleanupStoredData()
+                    }
+                case .stack(let name, let members):
+                    var validMembers: [ShelfItem] = []
+                    for member in members {
+                        if case .file(let data) = member.kind {
+                            if await Bookmark(data: data).validate() { validMembers.append(member) }
+                        } else {
+                            validMembers.append(member)
+                        }
+                    }
+                    if validMembers.count >= 2 {
+                        keep.append(ShelfItem(id: item.id, kind: .stack(name: name, members: validMembers)))
+                    } else {
+                        keep.append(contentsOf: validMembers)
                     }
                 default:
                     keep.append(item)

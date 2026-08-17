@@ -26,7 +26,7 @@ struct ShelfItemView: View {
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
     private var conversionTint: Color { Color(red: 0.24, green: 0.56, blue: 0.96) }
     private var showsActionButton: Bool {
-        viewModel.canConvertToMarkdown || viewModel.canCompressImage
+        viewModel.canConvertToMarkdown || viewModel.canCompressImage || viewModel.canDownloadMedia
             || viewModel.canBatchConvertStack || viewModel.canBatchCompressStack
     }
     
@@ -181,6 +181,8 @@ struct ShelfItemView: View {
                 showStack = true
             } else if viewModel.canCompressImage {
                 viewModel.compressImage()
+            } else if viewModel.canDownloadMedia {
+                viewModel.downloadMedia()
             } else {
                 viewModel.convertItemToMarkdown()
             }
@@ -191,7 +193,7 @@ struct ShelfItemView: View {
                         .controlSize(.mini)
                         .tint(conversionTint.opacity(0.85))
                 } else {
-                    Image(systemName: viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up")
+                    Image(systemName: viewModel.canDownloadMedia ? "arrow.down.circle" : (viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up"))
                 }
 
                 Text(actionButtonTitle)
@@ -214,14 +216,15 @@ struct ShelfItemView: View {
         .frame(height: 20)
         .buttonStyle(.plain)
         .disabled(shelfState.isConverting(item))
-        .help("Create a separate Markdown copy")
-        .accessibilityLabel("Convert to Markdown")
+        .help(viewModel.canDownloadMedia ? "Download media locally" : "Create a separate output copy")
+        .accessibilityLabel(actionButtonTitle)
     }
 
     private var actionButtonTitle: String {
         if let progress = shelfState.conversionProgress[item.id] { return progress }
         if shelfState.isConverting(item) { return "Converting…" }
         if item.stackMembers != nil { return "Stack Actions" }
+        if viewModel.canDownloadMedia { return "Download Media" }
         return viewModel.canCompressImage ? "Compress Image" : "Convert to MD"
     }
 

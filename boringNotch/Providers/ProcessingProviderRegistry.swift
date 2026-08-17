@@ -119,17 +119,30 @@ enum SafeProcessRunner {
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
+        let stdoutBuffer = BoundedProcessBuffer(maximumBytes: maximumLogBytes)
+        let stderrBuffer = BoundedProcessBuffer(maximumBytes: maximumLogBytes)
         process.executableURL = executable
         process.arguments = arguments
         process.environment = environment ?? ProcessInfo.processInfo.environment
         process.standardOutput = stdout
         process.standardError = stderr
 
+        stdout.fileHandleForReading.readabilityHandler = { handle in
+            stdoutBuffer.append(handle.availableData)
+        }
+        stderr.fileHandleForReading.readabilityHandler = { handle in
+            stderrBuffer.append(handle.availableData)
+        }
+
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 process.terminationHandler = { finished in
-                    let output = boundedString(stdout.fileHandleForReading.readDataToEndOfFile(), maximumBytes: maximumLogBytes)
-                    let error = boundedString(stderr.fileHandleForReading.readDataToEndOfFile(), maximumBytes: maximumLogBytes)
+                    stdout.fileHandleForReading.readabilityHandler = nil
+                    stderr.fileHandleForReading.readabilityHandler = nil
+                    stdoutBuffer.append(stdout.fileHandleForReading.readDataToEndOfFile())
+                    stderrBuffer.append(stderr.fileHandleForReading.readDataToEndOfFile())
+                    let output = stdoutBuffer.stringValue
+                    let error = stderrBuffer.stringValue
                     continuation.resume(returning: ProcessResult(exitCode: finished.terminationStatus, standardOutput: output, standardError: error))
                 }
                 do {
@@ -146,10 +159,30 @@ enum SafeProcessRunner {
         }
     }
 
-    private static func boundedString(_ data: Data, maximumBytes: Int) -> String {
-        let bounded = data.prefix(maximumBytes)
-        return String(data: bounded, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+}
+
+private final class BoundedProcessBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let maximumBytes: Int
+    private var data = Data()
+
+    init(maximumBytes: Int) {
+        self.maximumBytes = max(0, maximumBytes)
+    }
+
+    func append(_ newData: Data) {
+        guard !newData.isEmpty, maximumBytes > 0 else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        let remaining = maximumBytes - data.count
+        if remaining > 0 { data.append(newData.prefix(remaining)) }
+    }
+
+    var stringValue: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return (String(data: data, encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -258,7 +291,7 @@ final class ProcessingProviderRegistry: ObservableObject {
                     purpose: "Inspect and download user-authorized media URLs.", provider: "yt-dlp contributors",
                     officialURL: URL(string: "https://github.com/yt-dlp/yt-dlp")!, license: "Unlicense with GPLv3+ components depending on distribution",
                     runsLocally: true, requiresNetwork: true, inputTypes: ["HTTP and HTTPS media URLs", "Playlists"],
-                    outputTypes: ["Original media", "MP4", "Audio"], pinnedVersion: nil, configurable: true
+                    outputTypes: ["Original media", "MP4", "MP3"], pinnedVersion: MediaDownloaderService.pinnedTestedVersion, configurable: true
                 ), candidateURLs: [resources.appending(path: "engines/yt-dlp"), homebrew.appending(path: "yt-dlp"), intelHomebrew.appending(path: "yt-dlp")], versionArguments: ["--version"], bundled: false
             )),
             AnyProcessingProvider(ExecutableProvider(

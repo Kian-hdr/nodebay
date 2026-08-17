@@ -168,6 +168,87 @@ final class ShelfItemViewModel: ObservableObject {
         return MarkItDownConversionService.supports(url)
     }
 
+    var canDownloadMedia: Bool {
+        guard case .link(let url) = item.kind else { return false }
+        return ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            && MediaDownloaderService.executableURL != nil
+    }
+
+    func downloadMedia() {
+        guard case .link(let url) = item.kind else { return }
+        ShelfStateViewModel.shared.beginConverting([item])
+        ShelfStateViewModel.shared.setConversionProgress("Inspecting…", for: item)
+        Task {
+            do {
+                let validatedURL = try MediaDownloaderService.validatedURL(from: url.absoluteString)
+                let inspection = try await MediaDownloaderService.shared.inspect(validatedURL)
+                let format = chooseDownloadFormat(for: inspection)
+                guard let format else {
+                    ShelfStateViewModel.shared.finishConverting([item])
+                    return
+                }
+                ShelfStateViewModel.shared.setConversionProgress("Downloading…", for: item)
+                let destination = configuredDownloadDirectory()
+                let accessed = destination.startAccessingSecurityScopedResource()
+                defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
+                let result = try await MediaDownloaderService.shared.download(
+                    inspection,
+                    format: format,
+                    destination: destination,
+                    playlistConfirmed: true,
+                    preserveMetadata: UserDefaults.standard.object(forKey: "nodebay.downloader.preserveMetadata") as? Bool ?? true,
+                    preserveThumbnail: UserDefaults.standard.bool(forKey: "nodebay.downloader.preserveThumbnail")
+                )
+                let outputItems = try result.files.map { fileURL in
+                    ShelfItem(kind: .file(bookmark: try Bookmark(url: fileURL).data), isTemporary: false)
+                }
+                if UserDefaults.standard.object(forKey: "nodebay.downloader.addResults") as? Bool ?? true {
+                    if outputItems.count == 1 {
+                        ShelfStateViewModel.shared.add(outputItems)
+                    } else {
+                        ShelfStateViewModel.shared.add([
+                            ShelfItem(kind: .stack(name: "\(inspection.title) Downloads", members: outputItems))
+                        ])
+                    }
+                }
+            } catch {
+                presentProcessingError(title: "Media Download Failed", error: error)
+            }
+            ShelfStateViewModel.shared.finishConverting([item])
+        }
+    }
+
+    private func chooseDownloadFormat(for inspection: MediaInspection) -> MediaDownloadFormat? {
+        let askEveryTime = UserDefaults.standard.object(forKey: "nodebay.downloader.askEveryTime") as? Bool ?? true
+        let stored = UserDefaults.standard.string(forKey: "nodebay.downloader.defaultFormat")
+        let defaultFormat = stored.flatMap(MediaDownloadFormat.init(rawValue:)) ?? .bestOriginal
+        let mustConfirmPlaylist = inspection.isPlaylist
+            && (UserDefaults.standard.object(forKey: "nodebay.downloader.askPlaylist") as? Bool ?? true)
+        guard askEveryTime || mustConfirmPlaylist else { return defaultFormat }
+
+        let alert = NSAlert()
+        alert.messageText = inspection.title
+        let count = inspection.itemCount.map { " (\($0) items)" } ?? ""
+        alert.informativeText = "Source: \(inspection.sourceService)\(inspection.isPlaylist ? " • Playlist\(count)" : "")\nChoose a local download format."
+        alert.addButton(withTitle: inspection.isPlaylist ? "Download Playlist" : "Download")
+        alert.addButton(withTitle: "Cancel")
+        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 28))
+        picker.addItems(withTitles: MediaDownloadFormat.allCases.map(\.rawValue))
+        picker.selectItem(withTitle: defaultFormat.rawValue)
+        alert.accessoryView = picker
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return MediaDownloadFormat(rawValue: picker.titleOfSelectedItem ?? "") ?? defaultFormat
+    }
+
+    private func configuredDownloadDirectory() -> URL {
+        if let data = UserDefaults.standard.data(forKey: "nodebay.downloader.directoryBookmark"),
+           let url = Bookmark(data: data).resolvedURL {
+            return url
+        }
+        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
+    }
+
     func convertItemToMarkdown() {
         convertItemsToMarkdown([item])
     }
@@ -603,6 +684,10 @@ final class ShelfItemViewModel: ObservableObject {
         menu.addItem(NSMenuItem.separator())
         addMenuItem(title: "Share…")
 
+        if canDownloadMedia {
+            addMenuItem(title: "Download Media")
+        }
+
         // Add image processing options for image files grouped under "Image Actions"
         let imageURLs = selectedFileURLs.filter { ImageProcessingService.shared.isImageFile($0) }
         if !imageURLs.isEmpty {
@@ -865,6 +950,9 @@ final class ShelfItemViewModel: ObservableObject {
 
             case "Compress Image":
                 viewModel?.compressImage()
+
+            case "Download Media":
+                viewModel?.downloadMedia()
                 
             case "Create PDF":
                 handleCreatePDF()

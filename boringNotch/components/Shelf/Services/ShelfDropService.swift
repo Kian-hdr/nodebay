@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 struct ShelfDropService {
     static func items(from providers: [NSItemProvider]) async -> [ShelfItem] {
         // Process providers concurrently for better performance with large drops
-        await withTaskGroup(of: ShelfItem?.self) { group in
+        await withTaskGroup(of: [ShelfItem].self) { group in
             for provider in providers {
                 group.addTask {
                     await processProvider(provider)
@@ -22,58 +22,66 @@ struct ShelfDropService {
             var results: [ShelfItem] = []
             results.reserveCapacity(providers.count)
             
-            for await item in group {
-                if let item = item {
-                    results.append(item)
-                }
+            for await items in group {
+                results.append(contentsOf: items)
             }
             
             return results
         }
     }
     
-    private static func processProvider(_ provider: NSItemProvider) async -> ShelfItem? {
+    private static func processProvider(_ provider: NSItemProvider) async -> [ShelfItem] {
         if let actualFileURL = await provider.extractFileURL() {
             if let bookmark = createBookmark(for: actualFileURL) {
-                return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
             }
-            return nil
+            return []
         }
         
         if let url = await provider.extractURL() {
             if url.isFileURL {
                 if let bookmark = createBookmark(for: url) {
-                    return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                    return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
                 }
             } else {
-                return await ShelfItem(kind: .link(url: url), isTemporary: false)
+                return [await ShelfItem(kind: .link(url: url), isTemporary: false)]
             }
-            return nil
+            return []
         }
         
         if let text = await provider.extractText() {
-            return await ShelfItem(kind: .text(string: text), isTemporary: false)
+            let lines = text.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            let urls = lines.compactMap { try? MediaDownloaderService.validatedURL(from: $0) }
+            if !urls.isEmpty, urls.count == lines.count {
+                var items: [ShelfItem] = []
+                for url in urls {
+                    items.append(await ShelfItem(kind: .link(url: url), isTemporary: false))
+                }
+                return items
+            }
+            return [await ShelfItem(kind: .text(string: text), isTemporary: false)]
         }
         
         if let data = await provider.loadData() {
             if let tempDataURL = await TemporaryFileStorageService.shared.createTempFile(for: .data(data, suggestedName: provider.suggestedName)),
                let bookmark = createBookmark(for: tempDataURL) {
-                return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: true)
+                return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: true)]
             }
-            return nil
+            return []
         }
         
         if let fileURL = await provider.extractItem() {
             if let bookmark = createBookmark(for: fileURL) {
-                return await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)
+                return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
             }
         }
         
-        return nil
+        return []
     }
     
     private static func createBookmark(for url: URL) -> Data? {
         return (try? Bookmark(url: url))?.data
     }
 }
-

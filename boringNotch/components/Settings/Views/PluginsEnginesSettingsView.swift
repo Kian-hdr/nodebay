@@ -159,6 +159,212 @@ struct ImageCompressionSettingsView: View {
     }
 }
 
+struct DownloaderSettingsView: View {
+    @StateObject private var registry = ProcessingProviderRegistry.shared
+    @AppStorage("nodebay.downloader.defaultFormat") private var defaultFormat = MediaDownloadFormat.bestOriginal.rawValue
+    @AppStorage("nodebay.downloader.askEveryTime") private var askEveryTime = true
+    @AppStorage("nodebay.downloader.preferredResolution") private var preferredResolution = "Best available"
+    @AppStorage("nodebay.downloader.audioBitrate") private var audioBitrate = "Best available"
+    @AppStorage("nodebay.downloader.maximumConcurrent") private var maximumConcurrent = 2
+    @AppStorage("nodebay.downloader.filenameTemplate") private var filenameTemplate = "Title and media ID"
+    @AppStorage("nodebay.downloader.preserveMetadata") private var preserveMetadata = true
+    @AppStorage("nodebay.downloader.preserveThumbnail") private var preserveThumbnail = false
+    @AppStorage("nodebay.downloader.addResults") private var addResults = true
+    @AppStorage("nodebay.downloader.askPlaylist") private var askPlaylist = true
+    @State private var input = ""
+    @State private var status = "Ready"
+    @State private var isWorking = false
+    @State private var inspections: [MediaInspection] = []
+    @State private var workTask: Task<Void, Never>?
+
+    var body: some View {
+        Form {
+            Section("Add Download") {
+                TextField("One or more HTTP/HTTPS URLs", text: $input, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { inspectInput() }
+                HStack {
+                    Button(isWorking ? "Working…" : "Inspect URL") { inspectInput() }
+                        .disabled(isWorking || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if !inspections.isEmpty {
+                        Button("Download \(inspections.count == 1 ? "Item" : "\(inspections.count) Items")") { startDownloads() }
+                            .disabled(isWorking)
+                    }
+                    if isWorking {
+                        Button("Cancel") {
+                            workTask?.cancel()
+                            status = "Cancelled"
+                            isWorking = false
+                        }
+                    }
+                }
+                LabeledContent("Status", value: status)
+                Text("Inspection and downloads run locally. Network connections go directly from yt-dlp on this Mac to the source service.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Download Location") {
+                LabeledContent("Directory", value: FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ?? "~/Downloads")
+                Button("Choose Custom Directory…") { chooseDirectory() }
+                Text("Custom folders use a persistent security-scoped bookmark. Nodebay never writes outside the selected directory.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Formats") {
+                Picker("Default format", selection: $defaultFormat) {
+                    ForEach(MediaDownloadFormat.allCases) { format in Text(format.rawValue).tag(format.rawValue) }
+                }
+                Toggle("Ask every time", isOn: $askEveryTime)
+                Picker("Preferred resolution", selection: $preferredResolution) {
+                    ForEach(["Best available", "2160p", "1440p", "1080p", "720p"], id: \.self) { Text($0) }
+                }
+                Picker("Preferred audio bitrate", selection: $audioBitrate) {
+                    ForEach(["Best available", "320 kbps", "256 kbps", "192 kbps", "128 kbps"], id: \.self) { Text($0) }
+                }
+                Stepper("Maximum simultaneous downloads: \(maximumConcurrent)", value: $maximumConcurrent, in: 1...4)
+            }
+
+            Section("Output") {
+                Picker("Filename template", selection: $filenameTemplate) {
+                    Text("Title and media ID").tag("Title and media ID")
+                }
+                Toggle("Preserve metadata", isOn: $preserveMetadata)
+                Toggle("Preserve thumbnail", isOn: $preserveThumbnail)
+                Toggle("Automatically add completed downloads to Nodebay", isOn: $addResults)
+                Toggle("Ask before downloading a playlist", isOn: $askPlaylist)
+            }
+
+            Section("Privacy and Safety") {
+                LabeledContent("Browser cookies", value: "Disabled")
+                LabeledContent("Nodebay proxy or cloud", value: "None")
+                Text("Only HTTP and HTTPS URLs are accepted. Nodebay uses structured process arguments, disables yt-dlp config files and plugins, and does not expose arbitrary command-line options. Users remain responsible for permissions, copyright, and service terms.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Runtime Diagnostics") {
+                LabeledContent("yt-dlp", value: registry.diagnostics["yt-dlp"]?.version ?? "Checking")
+                LabeledContent("FFmpeg", value: registry.diagnostics["ffmpeg"]?.version ?? "Checking")
+                Button("Run Diagnostics") { Task { await registry.refresh() } }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Downloader")
+        .task { await registry.refresh() }
+    }
+
+    private func inspectInput() {
+        workTask?.cancel()
+        isWorking = true
+        status = "Inspecting"
+        inspections = []
+        workTask = Task {
+            do {
+                let rawURLs = input.components(separatedBy: .newlines)
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                guard !rawURLs.isEmpty else { throw MediaDownloaderError.invalidURL }
+                for (index, rawURL) in rawURLs.enumerated() {
+                    try Task.checkCancellation()
+                    status = "Inspecting \(index + 1) of \(rawURLs.count)"
+                    let url = try MediaDownloaderService.validatedURL(from: rawURL)
+                    inspections.append(try await MediaDownloaderService.shared.inspect(url))
+                }
+                let playlists = inspections.filter(\.isPlaylist).count
+                status = "Ready: \(inspections.count) item\(inspections.count == 1 ? "" : "s")\(playlists > 0 ? ", \(playlists) playlist\(playlists == 1 ? "" : "s")" : "")"
+            } catch is CancellationError {
+                status = "Cancelled"
+            } catch {
+                status = error.localizedDescription
+            }
+            isWorking = false
+        }
+    }
+
+    private func startDownloads() {
+        guard !inspections.isEmpty else { return }
+        let playlistCount = inspections.filter(\.isPlaylist).count
+        if playlistCount > 0, askPlaylist {
+            let alert = NSAlert()
+            alert.messageText = "Download playlist content?"
+            alert.informativeText = "\(playlistCount) inspected URL\(playlistCount == 1 ? " is" : "s are") a playlist. Each playlist item will be downloaded as a separate file."
+            alert.addButton(withTitle: "Download")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        workTask?.cancel()
+        isWorking = true
+        workTask = Task {
+            var files: [URL] = []
+            var failures: [String] = []
+            let destination = configuredDirectory()
+            let accessed = destination.startAccessingSecurityScopedResource()
+            defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
+            let format = MediaDownloadFormat(rawValue: defaultFormat) ?? .bestOriginal
+            for (index, inspection) in inspections.enumerated() {
+                if Task.isCancelled { break }
+                status = "Downloading \(index + 1) of \(inspections.count)"
+                do {
+                    let result = try await MediaDownloaderService.shared.download(
+                        inspection,
+                        format: format,
+                        destination: destination,
+                        playlistConfirmed: true,
+                        preserveMetadata: preserveMetadata,
+                        preserveThumbnail: preserveThumbnail
+                    )
+                    files.append(contentsOf: result.files)
+                } catch {
+                    failures.append("\(inspection.title): \(error.localizedDescription)")
+                }
+            }
+            if addResults, !files.isEmpty {
+                do {
+                    let shelfItems = try files.map { ShelfItem(kind: .file(bookmark: try Bookmark(url: $0).data)) }
+                    if shelfItems.count == 1 {
+                        ShelfStateViewModel.shared.add(shelfItems)
+                    } else {
+                        ShelfStateViewModel.shared.add([ShelfItem(kind: .stack(name: "Downloaded Media", members: shelfItems))])
+                    }
+                } catch {
+                    failures.append("Nodebay could not add a completed file to the shelf: \(error.localizedDescription)")
+                }
+            }
+            status = Task.isCancelled
+                ? "Cancelled. Completed files were preserved."
+                : "Completed \(files.count) file\(files.count == 1 ? "" : "s")\(failures.isEmpty ? "" : "; \(failures.count) failed")"
+            isWorking = false
+        }
+    }
+
+    private func configuredDirectory() -> URL {
+        if let data = UserDefaults.standard.data(forKey: "nodebay.downloader.directoryBookmark"),
+           let url = Bookmark(data: data).resolvedURL {
+            return url
+        }
+        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
+    }
+
+    private func chooseDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose Download Folder"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let bookmark = try Bookmark(url: url)
+            UserDefaults.standard.set(bookmark.data, forKey: "nodebay.downloader.directoryBookmark")
+            status = "Download folder saved"
+        } catch {
+            status = "Folder access failed: \(error.localizedDescription)"
+        }
+    }
+}
+
 private struct EngineProviderSection: View {
     let provider: AnyProcessingProvider
     let diagnostic: EngineDiagnostic?

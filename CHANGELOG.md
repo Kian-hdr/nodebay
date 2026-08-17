@@ -12,6 +12,7 @@ All notable Nodebay changes are recorded here. The project follows semantic vers
 - Local yt-dlp and FFmpeg downloader workflow with completed items added to the shelf.
 - Copy-first ImageOptim compression with results added beside source references.
 - Media-source selection, system HUD replacement, and external-display placement modes.
+- Optional first-party Chrome bridge for independently selecting and controlling YouTube and YouTube Music tabs.
 - XPC-isolated processing, reproducible packaging, dependency-notice validation, and release checks.
 
 ### Changed
@@ -21,5 +22,6 @@ All notable Nodebay changes are recorded here. The project follows semantic vers
 ### Security
 
 - External processes use structured arguments, allowlisted executables, bounded output, cancellation, and no shell interpolation.
+- The browser bridge uses native messaging, loopback-only transport, a fixed control allowlist, and site access limited to YouTube and YouTube Music.
 
 No public Nodebay version has been released yet.

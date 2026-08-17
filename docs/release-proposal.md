@@ -1,68 +1,53 @@
-# Nodebay 0.1.0 migration and publication proposal
+# Nodebay 0.1.0 current release proposal
 
-This document is a draft only. It does not authorize any external action.
+This document records the current state and remaining approval-gated work. It does not authorize external publication by itself.
 
-## Proposed destinations
+## Completed repository migration
 
-- New canonical repository: `https://github.com/Kian-hdr/nodebay`
-- Repository type: standalone public repository, not a GitHub fork
+- Canonical standalone source: `https://github.com/Kian-hdr/nodebay`
+- Visibility: public
 - Stable branch: `main`
 - Development branch: `dev`
-- Release PR target: `Kian-hdr/nodebay:main` from `Kian-hdr/nodebay:dev`
-- Release tag: `nodebay-v0.1.0`
-- Proposed tap: `https://github.com/Kian-hdr/homebrew-nodebay`
-- Proposed install command: `brew install --cask Kian-hdr/nodebay/nodebay`
-- Historical upstream remains: `https://github.com/TheBoredTeam/boring.notch`
-- Obsolete owned repositories to archive: `Kian-hdr/boring.notch` and `Kian-hdr/homebrew-boring-notch-markitdown`
+- Exact Boring Notch foundation: `44dd999f70493da48209c99e9f873c47f2e55c83`
+- Public release tags and releases: none
+- Public Homebrew tap: not created
+- Obsolete repositories: archived and still public pending the requested visibility change
 
-No upstream issue or pull request is proposed as part of this migration.
+## Proposed source update
 
-## Proposed repository metadata
+Publish the reviewed browser-media feature commits to `dev`, open a release pull request from `dev` to `main`, and merge only after the checks and final copy are approved. The update adds an optional first-party Chrome bridge for independently selecting compatible YouTube and YouTube Music tabs. It does not modify or fork any processing engine.
 
-- Visibility: public
-- Default branch: `main`
-- Description: `A local-first macOS utility bay for the notch, with file stacks, conversion, downloads, media controls, and external-display support. Based on Boring Notch.`
-- Website: empty until a controlled destination exists
-- Issues: enabled
-- Wiki: disabled
-- Topics: `macos`, `swift`, `swiftui`, `notch`, `productivity`, `file-shelf`, `markdown`, `markitdown`, `yt-dlp`, `imageoptim`, `apple-silicon`, `open-source`
-- Fork relationship: none; provenance is preserved through complete Git history and visible attribution
+## Proposed release
 
-## Proposed release assets
+- Tag: `nodebay-v0.1.0`
+- Application archive: `Nodebay-0.1.0-arm64.zip`
+- Checksum file: `Nodebay-0.1.0-checksums.txt`
+- Architecture: Apple Silicon
+- Minimum macOS: 15.0
+- Signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)`
 
-- `Nodebay-0.1.0-arm64.zip`
-- `Nodebay-0.1.0-checksums.txt`
-- GitHub-generated source archives for tag `nodebay-v0.1.0`
-- Complete notices, privacy information, dependency manifest, and corresponding-source instructions in the source and app archive
+The exact Developer ID candidate must be submitted to Apple, notarized, stapled, re-zipped, and verified before its final SHA-256 can be placed in the Homebrew cask. No unnotarized archive should be advertised as the public Homebrew release.
 
-The current pre-notarization archive SHA-256 is `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`. It is not a publishable final checksum because notarization and stapling will change the distributed archive.
+## Proposed Homebrew publication
 
-Current signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)`.
+Create public `Kian-hdr/homebrew-nodebay` with the reviewed `Casks/nodebay.rb` and README. The cask must install exactly `Nodebay.app`, use the final notarized archive checksum, require Apple Silicon and macOS 15, and preserve normal quarantine behavior.
 
-## Proposed external operations
+```bash
+brew tap Kian-hdr/nodebay
+brew install --cask nodebay
+```
 
-Publication is split into two approval gates because Apple notarization and stapling change the release archive and therefore its SHA-256. Publishing the current pre-notarization checksum would create a broken Homebrew cask.
+The fully qualified equivalent is `brew install --cask Kian-hdr/nodebay/nodebay`.
 
-### Phase 1: standalone source migration and notarization submission
+## Obsolete repository visibility
 
-1. Create public standalone `Kian-hdr/nodebay` without an initialized README or license.
-2. Add it as `origin` and push the prepared `main` and `dev` branches, preserving complete history and metadata. Do not create the release tag yet.
-3. Apply the proposed description, empty website, topics, issues setting, and current social preview.
-4. Create the public release-tracking issue from `docs/github-migration-issue-draft.md`.
-5. Add the approved archival notices to `Kian-hdr/boring.notch` and `Kian-hdr/homebrew-boring-notch-markitdown`, mark the former prerelease historical, then archive both repositories read-only.
-6. Submit the exact Developer ID application to Apple notarization. If Apple credentials are not already configured, stop before authentication and request the repository owner's action.
+- `Kian-hdr/homebrew-boring-notch-markitdown` can change directly from archived public to archived private.
+- `Kian-hdr/boring.notch` is a public fork. GitHub requires it to leave the fork network before it can become private. Detachment is permanent, preserves Git commit metadata, and removes the fork relationship. The repository currently has no issues, pull requests, releases, child forks, stars, or watchers.
 
-Phase 1 does not create `Kian-hdr/homebrew-nodebay`, publish a tag or release, create a release PR, or expose a cask whose download URL does not exist.
+## Remaining gates
 
-### Phase 2: final release and Homebrew publication
-
-After notarization succeeds, staple the ticket, recreate and reverify the ZIP, calculate the final checksum, update both cask copies, rerun the release and Homebrew checks, and present the exact final artifact and cask for a second approval. Only that second approval authorizes:
-
-1. the `nodebay-v0.1.0` tag and GitHub release;
-2. the `dev` to `main` release pull request, if a source difference exists at that time;
-3. creation of public `Kian-hdr/homebrew-nodebay` and push of its prepared `main` branch;
-4. public cask audit, install, launch, upgrade, and uninstall smoke tests.
-
-## Approval gate
-
-Before Phase 1, present the exact local branches, complete commit list, full diff artifact, tracked-file manifest, screenshots, notices, verification matrix, destinations, issue text, archival copy, and every external effect for explicit approval. Before Phase 2, present the final post-notarization archive, checksum, cask, release notes, proposed tag, PR state, and smoke-test plan for a second explicit approval.
+1. Explicit confirmation for Chrome extension installation and live multi-tab verification.
+2. Apple notarization credentials or an already configured `notarytool` profile.
+3. Final post-notarization archive verification and SHA-256 calculation.
+4. Final review of the tag, release notes, cask, social-preview upload, repository visibility changes, and public destinations.
+5. Explicit approval immediately before public writes and access changes.

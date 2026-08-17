@@ -2,6 +2,8 @@
 
 Checked live on 2026-08-17 before any external migration write.
 
+> Historical record: the standalone migration described here has since been completed. Current release and visibility state is maintained in [release-proposal.md](release-proposal.md) and [release-verification-matrix.md](release-verification-matrix.md).
+
 ## Local repository
 
 - Path: `/Users/kian/Documents/Codex/BoringNotch-MarkItDown`

@@ -27,10 +27,12 @@ Checked on 2026-08-17 on Apple Silicon, macOS 26.6.1, and Xcode 26.6. `Passed` m
 | No unintended Nodebay cloud traffic | Passed static and local guard | No analytics/update feed; MarkItDown sockets denied; packet capture not run |
 | License-notice validation | Passed | Swift lock and processing integrations covered; generated notice checksum passes |
 | Documentation links | Passed local | Thirty required files and all local Markdown links validated offline |
+| Browser bridge contracts | Passed | Four permission, identity, command-allowlist, and Chrome native-framing tests |
+| Multiple live Chrome tabs | Not run | Requires explicit installation of the unpacked extension and live YouTube fixtures |
 | Homebrew cask syntax/style | Passed | Ruby syntax and `brew style` pass in the prepared local tap |
 | Homebrew audit/install/uninstall | Unavailable | Requires the approved public release URL and tap |
 | UI screenshots | Passed for checked dark-mode views | Nine privacy-safe repository screenshots; the unified Plugins & Engines page was recaptured from the installed app on 2026-08-17; light mode and final notarized build pending |
 | Accessibility audit | Not run | VoiceOver, focus, hit-target, and reduced-motion manual pass pending |
 | Large-batch memory/crash test | Not run | Requires dedicated stress fixtures and Instruments pass |
 
-The current pre-notarization artifact is `build/nodebay-homebrew-arm64-release/Nodebay-0.1.0-arm64.zip`, SHA-256 `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`. It must not be published as the final Homebrew asset until Apple notarization, stapling, re-zipping, and checksum replacement complete.
+The earlier pre-browser archive, SHA-256 `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`, is superseded. A new Developer ID candidate must be built from the browser-media feature commit, then notarized, stapled, re-zipped, and assigned a final Homebrew checksum before publication.

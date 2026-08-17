@@ -11,7 +11,9 @@ Network access occurs only when a feature inherently needs it:
 - Media artwork can be fetched from the artwork URL supplied by the selected playback source.
 - Links opened by the user are handed to the default browser.
 
-Microsoft MarkItDown conversion and ImageOptim compression are local-only. The MarkItDown XPC environment removes proxy variables and sets the bundled runtime to local-only mode. Nodebay's optional browser bridge is not shipped in this source state, and individual browser-tab enumeration is therefore not claimed.
+Microsoft MarkItDown conversion and ImageOptim compression are local-only. The MarkItDown XPC environment removes proxy variables and sets the bundled runtime to local-only mode.
+
+The optional Browser Media Bridge is also local-only. Its explicitly installed Chrome extension can access media elements only on `www.youtube.com` and `music.youtube.com`. It sends Nodebay a tab identifier, visible media title and artist, playback state and timing, volume, and supported-control flags through Chrome native messaging and a loopback-only connection. It does not request browser history, cookies, broad tab-list access, web-request access, clipboard access, or access to other sites. Nodebay does not send this browser media data to a server.
 
 ## Files and permissions
 

@@ -10,11 +10,11 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay is under release preparation. No public Nodebay release, Homebrew tap, update feed, browser bridge, or pull request has been published from this branch. Reproducible build and cask templates are included, but publication requires explicit final approval after review of the artifact, checksum, screenshots, notices, and verification report.
+Nodebay is under release preparation. No release, Homebrew tap, update feed, or pull request has been published from this feature branch. The optional Browser Media Bridge is implemented locally but has not been published from this branch. Reproducible build and cask templates are included, and further publication still requires explicit final approval.
 
 ## Screenshots
 
-These privacy-safe dark-mode screenshots come from an ad-hoc signed Release QA copy built from the same source as the Developer ID candidate. The repository does not use inherited Boring Notch screenshots or advertise the optional browser bridge as available.
+These privacy-safe dark-mode screenshots come from an ad-hoc signed Release QA copy built from the same source as the Developer ID candidate. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after the explicit Chrome installation and end-to-end UI verification pass.
 
 | Local engines and conversion | Downloads and safe image copies |
 |---|---|
@@ -39,6 +39,7 @@ The following capabilities are implemented in the current source. Automated chec
 - Local yt-dlp downloads with explicit MP4, MP3, or best-original selection and optional FFmpeg processing
 - Copy-first ImageOptim integration that never sends an original file to ImageOptim
 - Independent Apple Music, Spotify, YouTube Music, and system Now Playing source state with an explicit active control target
+- Optional independent Chrome tab sources for playable YouTube and YouTube Music tabs through a local first-party bridge
 - Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, and license links
 - XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
 
@@ -57,7 +58,7 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
 
 Document conversion, image compression, file and stack management, and media processing run locally. Nodebay has no analytics endpoint, proxy, download server, or Nodebay cloud account.
 
-Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional browser bridge is not shipped yet, so Nodebay does not claim individual browser-tab enumeration in this source state.
+Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional Chrome bridge uses native messaging and loopback only; it does not send browser media metadata to a server.
 
 See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure.
 
@@ -69,7 +70,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.7.4 | Separate Homebrew companion | Yes | Yes, direct to source |
 | [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
-| Browser media bridge | Not shipped | Optional future extension and native bridge | Intended | No server |
+| Browser media bridge | 0.1.0 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |
 
 Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
 
@@ -162,13 +163,14 @@ After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and
 - Camera and microphone or audio capture: optional mirror, camera, and waveform features
 - Network client: direct downloads, optional lyrics, artwork, and local media companions
 - Local networking: the existing local YouTube Music companion integration
+- Chrome extension: optional native messaging and site access limited to YouTube and YouTube Music
 
 Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the first migration-safe build so existing preferences, bookmarks, saved shelf state, and Accessibility authorization remain usable. The user-visible product and release artifacts are Nodebay. A future bundle-identifier change must ship with a signed, tested migration.
 
 ## Known limitations
 
-- Individual browser-tab media control is unavailable until an optional local native-messaging bridge has been implemented, permissioned, and tested in a named browser.
-- Public macOS media APIs do not reliably enumerate every third-party app or browser tab. Nodebay falls back to system Now Playing where appropriate.
+- Individual browser-tab control currently supports explicitly permitted Google Chrome tabs on `www.youtube.com` and `music.youtube.com`. Other browsers and sites fall back to system Now Playing.
+- Chrome requires the bundled extension to be loaded explicitly; Nodebay cannot silently install or enable it.
 - ImageOptim behavior follows the installed app's preferences. Nodebay reports that status and always protects the source through a copy-first workflow.
 - Physical multi-monitor, clamshell, Spaces, full-screen, Mission Control, and Stage Manager regression checks require the final manual hardware test pass.
 - The update feed is intentionally absent in this unpublished build.

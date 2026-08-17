@@ -1,0 +1,65 @@
+name: Nodebay CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: nodebay-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Apple Silicon build and verification
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require Apple Silicon
+        run: test "$(uname -m)" = arm64
+
+      - name: Install reproducible toolchain
+        run: brew install python@3.13 yt-dlp ffmpeg
+
+      - name: Validate repository and notices
+        run: |
+          python3 -m unittest discover -s Tests -p 'test_*.py' -v
+          python3 scripts/generate_nodebay_notices.py --check
+          zsh -n scripts/*.sh
+          ruby -c Casks/nodebay.rb
+          git status --short
+
+      - name: Build and verify MarkItDown runtime
+        run: |
+          ./scripts/build_markitdown_runtime.sh
+          ./scripts/test_markitdown_runtime.sh
+
+      - name: Test local downloader fixture
+        run: ./scripts/test_downloader_local.sh
+
+      - name: Clean Release build
+        run: |
+          xcodebuild \
+            -project boringNotch.xcodeproj \
+            -scheme boringNotch \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/NodebayDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Ensure generated artifacts remain untracked
+        run: |
+          if git status --porcelain --untracked-files=all | grep -E '(^|/)(build|DerivedData|markitdown-runtime|__pycache__)/|\.app/|\.dSYM/'; then
+            echo "Generated build artifact is visible to Git"
+            exit 1
+          fi
+

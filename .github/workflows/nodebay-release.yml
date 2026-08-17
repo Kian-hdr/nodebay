@@ -1,0 +1,117 @@
+name: Nodebay release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version without a leading v
+        required: true
+        type: string
+      confirmation:
+        description: Type RELEASE to authorize this workflow run
+        required: true
+        type: string
+      publish:
+        description: Publish the verified GitHub release
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: nodebay-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Sign, notarize, verify, and optionally publish
+    if: ${{ inputs.confirmation == 'RELEASE' }}
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: release
+    steps:
+      - name: Checkout exact ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate release ref and architecture
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          test "$(uname -m)" = arm64
+          test "$GITHUB_REF_NAME" = "nodebay-v$VERSION"
+          test "$(git status --porcelain)" = ""
+
+      - name: Install reproducible toolchain
+        run: brew install python@3.13
+
+      - name: Install Developer ID certificate
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate="$RUNNER_TEMP/nodebay-developer-id.p12"
+          keychain="$RUNNER_TEMP/nodebay-release.keychain-db"
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security import "$certificate" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security list-keychains -d user -s "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$keychain"
+
+      - name: Build Developer ID archive
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: nodebay-v${{ inputs.version }}
+          SIGNING_IDENTITY: "Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)"
+          DEVELOPMENT_TEAM: HZWY8HT54D
+        run: ./scripts/package_homebrew_arm64.sh
+
+      - name: Notarize and staple
+        env:
+          VERSION: ${{ inputs.version }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          archive="build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-arm64.zip"
+          xcrun notarytool submit "$archive" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          stage="$RUNNER_TEMP/nodebay-staple"
+          mkdir -p "$stage"
+          ditto -x -k "$archive" "$stage"
+          xcrun stapler staple "$stage/Nodebay.app"
+          xcrun stapler validate "$stage/Nodebay.app"
+          ditto -c -k --sequesterRsrc --keepParent "$stage/Nodebay.app" "$archive"
+          REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh "$archive"
+          shasum -a 256 "$archive" > "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 compatibility ref
+        with:
+          name: Nodebay-${{ inputs.version }}-arm64
+          path: |
+            build/nodebay-homebrew-arm64-release/Nodebay-${{ inputs.version }}-arm64.zip
+            build/nodebay-homebrew-arm64-release/Nodebay-${{ inputs.version }}-checksums.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "nodebay-v$VERSION" \
+            "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-arm64.zip" \
+            "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt" \
+            --verify-tag \
+            --title "Nodebay $VERSION for Apple Silicon" \
+            --notes-file docs/release-notes-nodebay-0.1.0.md

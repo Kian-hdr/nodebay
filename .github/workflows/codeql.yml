@@ -9,7 +9,7 @@
 # the `language` matrix defined below to confirm you have the correct set of
 # supported CodeQL languages.
 #
-name: "CodeQL Advanced"
+name: Nodebay CodeQL
 
 on:
   push:
@@ -88,7 +88,7 @@ jobs:
           -project boringNotch.xcodeproj \
           -scheme boringNotch
 
-    - name: Build Boring Notch
+    - name: Build Nodebay
       if: matrix.language == 'swift'
       run: |
         set -o pipefail

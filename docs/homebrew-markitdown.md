@@ -40,3 +40,9 @@ The exact source is available from the release tag in
 is GPL-3.0. Microsoft MarkItDown 0.1.7 is bundled unmodified under MIT. Complete
 runtime notices are included in `THIRD_PARTY_LICENSES_MARKITDOWN` and inside the
 application’s generated MarkItDown runtime.
+
+Release maintainers can reproduce the Apple Silicon archive and checksum with:
+
+```bash
+./scripts/package_homebrew_arm64.sh
+```

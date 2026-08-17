@@ -1,0 +1,38 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "03-highlights.png",
+          "name" : "Status Highlight"
+        },
+        {
+          "image-name" : "02-modules.png",
+          "name" : "Modules"
+        },
+        {
+          "image-name" : "01-bay.png",
+          "name" : "Bay Chassis"
+        }
+      ],
+      "name" : "Utility Bay",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

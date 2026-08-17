@@ -109,7 +109,7 @@ if [[ "$main_arch" != *"arm64"* || "$helper_arch" != *"arm64"* ]]; then
     exit 1
 fi
 
-ditto -c -k --sequesterRsrc --keepParent "$app_stage" "$artifact_path"
+ditto -c -k --keepParent "$app_stage" "$artifact_path"
 shasum -a 256 "$artifact_path" | tee "$artifact_path.sha256"
 
 print "Artifact: $artifact_path"

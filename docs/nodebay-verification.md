@@ -35,7 +35,7 @@ This record separates completed checks from checks that still require hardware, 
 - Developer ID deep signature and hardened-runtime verification.
 - Release artifact excludes the debug `get-task-allow` entitlement from the application and XPC helper.
 - Icon Composer is the primary app-icon source, and the compiled asset contains light, dark, and tintable icon-stack renditions.
-- Pre-notarization artifact SHA-256: `8421ade1f773d11884de987856851ab73ab6853f105d49f7fd374f43b1b65212`.
+- Pre-notarization artifact SHA-256: `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`.
 
 ## Passed UI checks
 

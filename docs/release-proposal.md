@@ -33,7 +33,7 @@ No upstream issue or pull request is proposed as part of this migration.
 - GitHub-generated source archives for tag `nodebay-v0.1.0`
 - Complete notices, privacy information, dependency manifest, and corresponding-source instructions in the source and app archive
 
-The current pre-notarization archive SHA-256 is `8421ade1f773d11884de987856851ab73ab6853f105d49f7fd374f43b1b65212`. It is not a publishable final checksum because notarization and stapling will change the distributed archive.
+The current pre-notarization archive SHA-256 is `b9deedc0cd4d2c111ac7d753cdb118f37a776f2ba301b76707d04a18a8c2e71a`. It is not a publishable final checksum because notarization and stapling will change the distributed archive.
 
 Current signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)`.
 

@@ -90,7 +90,7 @@ jobs:
           ditto -x -k "$archive" "$stage"
           xcrun stapler staple "$stage/Nodebay.app"
           xcrun stapler validate "$stage/Nodebay.app"
-          ditto -c -k --sequesterRsrc --keepParent "$stage/Nodebay.app" "$archive"
+          ditto -c -k --keepParent "$stage/Nodebay.app" "$archive"
           REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh "$archive"
           shasum -a 256 "$archive" > "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt"
 

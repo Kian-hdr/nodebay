@@ -30,6 +30,26 @@ enum HideNotchOption: String, Defaults.Serializable {
     case never
 }
 
+enum DisplayPlacementMode: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case builtIn
+    case specific
+    case main
+    case followActive
+    case all
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .builtIn: "Built-in display only"
+        case .specific: "Specific display"
+        case .main: "Main display"
+        case .followActive: "Follow active display"
+        case .all: "All displays"
+        }
+    }
+}
+
 struct AppLanguage: RawRepresentable, Hashable, Identifiable, Defaults.Serializable {
     static let system = AppLanguage(rawValue: "system")
 
@@ -110,6 +130,7 @@ extension Notification.Name {
     static let notchHeightChanged = Notification.Name("NotchHeightChanged")
     static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
     static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
+    static let displayPlacementModeChanged = Notification.Name("displayPlacementModeChanged")
     
     // MARK: - Shelf
     static let expandedDragDetectionChanged = Notification.Name("expandedDragDetectionChanged")
@@ -143,6 +164,15 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
             return "Spotify"
         case .youtubeMusic:
             return "YouTube Music"
+        }
+    }
+
+    var expectedBundleIdentifier: String? {
+        switch self {
+        case .nowPlaying: nil
+        case .appleMusic: "com.apple.Music"
+        case .spotify: "com.spotify.client"
+        case .youtubeMusic: "com.github.th-ch.youtube-music"
         }
     }
 }
@@ -210,6 +240,7 @@ extension Defaults.Keys {
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let automaticallySwitchDisplay = Key<Bool>("automaticallySwitchDisplay", default: true)
+    static let displayPlacementMode = Key<DisplayPlacementMode>("nodebayDisplayPlacementMode", default: .followActive)
     static let releaseName = Key<String>("releaseName", default: "Flying Rabbit 🐇🪽")
     
     // MARK: Behavior

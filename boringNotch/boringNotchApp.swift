@@ -112,6 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
+        timer?.invalidate()
     }
 
     @MainActor
@@ -312,6 +313,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        migrateDisplayPlacementPreferenceIfNeeded()
 
         NotificationCenter.default.addObserver(
             self,
@@ -322,6 +324,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         observers.append(NotificationCenter.default.addObserver(
             forName: Notification.Name.selectedScreenChanged, object: nil, queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.adjustWindowPosition(changeAlpha: true)
+                self?.setupDragDetectors()
+            }
+        })
+
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .displayPlacementModeChanged, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.adjustWindowPosition(changeAlpha: true)
@@ -464,6 +475,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupDragDetectors()
+        installActiveDisplayTracking()
 
         if coordinator.firstLaunch {
             DispatchQueue.main.async {
@@ -561,13 +573,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let selectedScreen: NSScreen
 
-            if let preferredScreen = NSScreen.screen(withUUID: coordinator.preferredScreenUUID ?? "") {
-                coordinator.selectedScreenUUID = coordinator.preferredScreenUUID ?? ""
-                selectedScreen = preferredScreen
-            } else if Defaults[.automaticallySwitchDisplay], let mainScreen = NSScreen.main,
-                      let mainUUID = mainScreen.displayUUID {
-                coordinator.selectedScreenUUID = mainUUID
-                selectedScreen = mainScreen
+            if let resolvedScreen = resolvedSingleDisplay() {
+                selectedScreen = resolvedScreen
+                coordinator.selectedScreenUUID = resolvedScreen.displayUUID ?? ""
             } else {
                 if let window = window {
                     window.alphaValue = 0
@@ -594,6 +602,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // windows might have been added/removed during the earlier logic –
         // update the OSD subsystems accordingly.
         coordinator.applyOSDSources()
+    }
+
+    @MainActor
+    private func resolvedSingleDisplay() -> NSScreen? {
+        let fallback = NSScreen.main ?? NSScreen.screens.first
+        switch Defaults[.displayPlacementMode] {
+        case .all:
+            return fallback
+        case .builtIn:
+            return NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? fallback
+        case .specific:
+            return NSScreen.screen(withUUID: coordinator.preferredScreenUUID ?? "") ?? fallback
+        case .main:
+            return fallback
+        case .followActive:
+            let pointer = NSEvent.mouseLocation
+            return NSScreen.screens.first(where: { $0.frame.contains(pointer) }) ?? fallback
+        }
+    }
+
+    private func installActiveDisplayTracking() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard Defaults[.displayPlacementMode] == .followActive else { return }
+            Task { @MainActor in
+                guard let self,
+                      let target = self.resolvedSingleDisplay(),
+                      target.displayUUID != self.coordinator.selectedScreenUUID else { return }
+                self.adjustWindowPosition(changeAlpha: true)
+                self.setupDragDetectors()
+            }
+        }
+    }
+
+    private func migrateDisplayPlacementPreferenceIfNeeded() {
+        let key = "nodebayDisplayPlacementMode"
+        guard UserDefaults.standard.object(forKey: key) == nil else {
+            Defaults[.showOnAllDisplays] = Defaults[.displayPlacementMode] == .all
+            return
+        }
+        if Defaults[.showOnAllDisplays] {
+            Defaults[.displayPlacementMode] = .all
+        } else if Defaults[.automaticallySwitchDisplay] {
+            Defaults[.displayPlacementMode] = .followActive
+        } else {
+            Defaults[.displayPlacementMode] = .specific
+        }
     }
 
     @objc func togglePopover(_ sender: Any?) {

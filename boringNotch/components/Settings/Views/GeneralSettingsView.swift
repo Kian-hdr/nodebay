@@ -28,6 +28,7 @@ struct GeneralSettings: View {
     @Default(.notchHeightMode) var notchHeightMode
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.automaticallySwitchDisplay) var automaticallySwitchDisplay
+    @Default(.displayPlacementMode) var displayPlacementMode
     @Default(.enableGestures) var enableGestures
     @Default(.openNotchOnHover) var openNotchOnHover
     @Default(.enableOpeningAnimation) var enableOpeningAnimation
@@ -55,12 +56,19 @@ struct GeneralSettings: View {
                     appLanguage.applyAppleLanguagesOverride()
                     showLanguageRestartAlert = true
                 }
-                Defaults.Toggle(key: .showOnAllDisplays) {
-                    Text("Show on all displays")
+                Picker("Nodebay display", selection: $displayPlacementMode) {
+                    ForEach(DisplayPlacementMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
-                .onChange(of: showOnAllDisplays) {
-                    NotificationCenter.default.post(
-                        name: Notification.Name.showOnAllDisplaysChanged, object: nil)
+                .onChange(of: displayPlacementMode) { _, mode in
+                    let wasAll = showOnAllDisplays
+                    showOnAllDisplays = mode == .all
+                    automaticallySwitchDisplay = mode == .followActive || mode == .main || mode == .builtIn
+                    NotificationCenter.default.post(name: .displayPlacementModeChanged, object: nil)
+                    if wasAll != showOnAllDisplays {
+                        NotificationCenter.default.post(name: .showOnAllDisplaysChanged, object: nil)
+                    }
                 }
                 Picker("Preferred display", selection: $coordinator.preferredScreenUUID) {
                     ForEach(screens, id: \.uuid) { screen in
@@ -73,16 +81,10 @@ struct GeneralSettings: View {
                         return (uuid, screen.localizedName)
                     }
                 }
-                .disabled(showOnAllDisplays)
-                
-                Defaults.Toggle(key: .automaticallySwitchDisplay) {
-                    Text("Automatically switch displays")
-                }
-                    .onChange(of: automaticallySwitchDisplay) {
-                        NotificationCenter.default.post(
-                            name: Notification.Name.automaticallySwitchDisplayChanged, object: nil)
-                    }
-                    .disabled(showOnAllDisplays)
+                .disabled(displayPlacementMode != .specific)
+                Text("A virtual top-center notch is used on displays without a physical notch. If a chosen display disconnects, Nodebay safely falls back to the current main display.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 Text("System features")
             }

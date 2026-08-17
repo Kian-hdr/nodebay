@@ -15,10 +15,21 @@ let defaultImage: NSImage = .init(
 )!
 
 class MusicManager: ObservableObject {
+    struct MediaSourceState: Identifiable {
+        let type: MediaControllerType
+        let title: String
+        let artist: String
+        let bundleIdentifier: String?
+        let isPlaying: Bool
+        let isAvailable: Bool
+
+        var id: String { type.rawValue }
+    }
+
     // MARK: - Properties
     static let shared = MusicManager()
     private var cancellables = Set<AnyCancellable>()
-    private var controllerCancellables = Set<AnyCancellable>()
+    private var controllerCancellables: [MediaControllerType: Set<AnyCancellable>] = [:]
     private var debounceIdleTask: Task<Void, Never>?
 
     // Helper to check if macOS has removed support for NowPlayingController
@@ -26,7 +37,10 @@ class MusicManager: ObservableObject {
     private let mediaChecker = MediaChecker()
 
     // Active controller
+    private var controllers: [MediaControllerType: any MediaControllerProtocol] = [:]
     private var activeController: (any MediaControllerProtocol)?
+    @Published private(set) var mediaSourceStates: [MediaControllerType: MediaSourceState] = [:]
+    @Published private(set) var activeSourceType: MediaControllerType = Defaults[.mediaController]
 
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
@@ -109,16 +123,12 @@ class MusicManager: ObservableObject {
 
         // Release active controller
         activeController = nil
+        controllers.removeAll()
     }
 
     // MARK: - Setup Methods
     private func createController(for type: MediaControllerType) -> (any MediaControllerProtocol)? {
-        // Cleanup previous controller
-        if activeController != nil {
-            controllerCancellables.removeAll()
-            activeController = nil
-        }
-
+        if let existing = controllers[type] { return existing }
         let newController: (any MediaControllerProtocol)?
 
         switch type {
@@ -139,14 +149,25 @@ class MusicManager: ObservableObject {
 
         // Set up state observation for the new controller
         if let controller = newController {
+            controllers[type] = controller
+            controllerCancellables[type] = []
             controller.playbackStatePublisher
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
-                    guard let self = self,
-                          self.activeController === controller else { return }
-                    self.updateFromPlaybackState(state)
+                    guard let self else { return }
+                    self.mediaSourceStates[type] = MediaSourceState(
+                        type: type,
+                        title: state.title,
+                        artist: state.artist,
+                        bundleIdentifier: state.bundleIdentifier,
+                        isPlaying: state.isPlaying,
+                        isAvailable: controller.isActive()
+                    )
+                    if self.activeSourceType == type {
+                        self.updateFromPlaybackState(state)
+                    }
                 }
-                .store(in: &controllerCancellables)
+                .store(in: &controllerCancellables[type, default: []])
         }
 
         return newController
@@ -161,25 +182,75 @@ class MusicManager: ObservableObject {
             ? .appleMusic
             : preferredType
 
+        initializeMediaSourceRegistry()
+
         if let controller = createController(for: controllerType) {
-            setActiveController(controller)
+            setActiveController(controller, type: controllerType)
         } else if controllerType != .appleMusic, let fallbackController = createController(for: .appleMusic) {
             // Fallback to Apple Music if preferred controller couldn't be created
-            setActiveController(fallbackController)
+            setActiveController(fallbackController, type: .appleMusic)
         }
     }
 
-    private func setActiveController(_ controller: any MediaControllerProtocol) {
+    private func initializeMediaSourceRegistry() {
+        for type in MediaControllerType.allCases where !(type == .nowPlaying && isNowPlayingDeprecated) {
+            guard let controller = createController(for: type) else { continue }
+            mediaSourceStates[type] = mediaSourceStates[type] ?? MediaSourceState(
+                type: type,
+                title: "",
+                artist: "",
+                bundleIdentifier: type.expectedBundleIdentifier,
+                isPlaying: false,
+                isAvailable: controller.isActive()
+            )
+            Task { await controller.updatePlaybackInfo() }
+        }
+    }
+
+    private func setActiveController(_ controller: any MediaControllerProtocol, type: MediaControllerType) {
         // Cancel any existing flip animation
         flipWorkItem?.cancel()
 
         // Set new active controller
         activeController = controller
+        activeSourceType = type
         
         self.canFavoriteTrack = controller.supportsFavorite
 
         // Get current state from active controller
         forceUpdate()
+    }
+
+    @MainActor
+    func selectMediaSource(_ type: MediaControllerType) {
+        guard !(type == .nowPlaying && isNowPlayingDeprecated),
+              let controller = createController(for: type) else { return }
+        Defaults[.mediaController] = type
+        setActiveController(controller, type: type)
+    }
+
+    var selectableMediaSources: [MediaSourceState] {
+        MediaControllerType.allCases.compactMap { type in
+            guard !(type == .nowPlaying && isNowPlayingDeprecated) else { return nil }
+            if let state = mediaSourceStates[type] {
+                return MediaSourceState(
+                    type: type,
+                    title: state.title,
+                    artist: state.artist,
+                    bundleIdentifier: state.bundleIdentifier,
+                    isPlaying: state.isPlaying,
+                    isAvailable: controllers[type]?.isActive() ?? false
+                )
+            }
+            return MediaSourceState(
+                type: type,
+                title: "",
+                artist: "",
+                bundleIdentifier: type.expectedBundleIdentifier,
+                isPlaying: false,
+                isAvailable: false
+            )
+        }
     }
 
     // MARK: - Update Methods

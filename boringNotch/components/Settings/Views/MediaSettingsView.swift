@@ -17,6 +17,7 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
     @Default(.enableLyrics) var enableLyrics
+    @ObservedObject private var musicManager = MusicManager.shared
 
     var body: some View {
         Form {
@@ -31,6 +32,26 @@ struct Media: View {
                         name: Notification.Name.mediaControllerChanged,
                         object: nil
                     )
+                }
+                ForEach(musicManager.selectableMediaSources) { source in
+                    HStack {
+                        Circle()
+                            .fill(source.isPlaying ? Color.green : (source.isAvailable ? Color.secondary : Color.red))
+                            .frame(width: 7, height: 7)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(source.type.localizedString)
+                            if !source.title.isEmpty {
+                                Text(source.title)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer()
+                        Text(source.isPlaying ? "Playing" : (source.isAvailable ? "Available" : "Unavailable"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } header: {
                 Text("Media Source")
@@ -54,6 +75,9 @@ struct Media: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
                 }
+                Text("Nodebay keeps independent state for each available controller. Individual browser tabs are not exposed unless the optional local native-messaging bridge is installed and verified.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
             
             Section {

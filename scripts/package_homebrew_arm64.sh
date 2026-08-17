@@ -71,7 +71,7 @@ cat > "$licenses_root/SOURCE_AND_LICENSES.txt" <<EOF
 Nodebay $release_version
 
 Corresponding source and build instructions:
-https://github.com/Kian-hdr/boring.notch/tree/$release_tag
+https://github.com/Kian-hdr/nodebay/tree/$release_tag
 
 Nodebay is distributed under GPL-3.0 and is based on Boring Notch commit
 44dd999f70493da48209c99e9f873c47f2e55c83. Microsoft MarkItDown 0.1.7 is

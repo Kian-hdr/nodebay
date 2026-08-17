@@ -9,6 +9,7 @@ Nodebay is a local-first utility bay for the MacBook notch and external displays
 - Structured local yt-dlp downloads with optional FFmpeg processing
 - Copy-first ImageOptim integration that never sends the original image to ImageOptim
 - Independent media-source selection and display-aware placement
+- Optional first-party Chrome bridge for independently selecting compatible YouTube and YouTube Music tabs
 - Provider diagnostics, process isolation, bounded logs, cancellation, and collision-safe outputs
 
 ## Privacy and file safety
@@ -27,11 +28,12 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file. Re
 
 The first Nodebay release deliberately retains the legacy `theboringteam.boringnotch` bundle identifier to preserve existing preferences, security-scoped bookmarks, shelf state, and permission continuity. The visible application and release assets are named Nodebay. A future bundle-identifier migration will require a separately tested upgrade path.
 
-The historical Boring Notch MarkItDown prerelease remains available as an immutable historical record. New users should install Nodebay 0.1.0.
+The historical Boring Notch repositories are retained privately as migration records. New users should install Nodebay 0.1.0 from the canonical Nodebay repository.
 
 ## Known limitations
 
-- Individual browser-tab enumeration is unavailable because the optional local browser bridge is not shipped.
+- Individual browser-tab control currently requires explicit installation of the bundled Chrome extension and supports only `www.youtube.com` and `music.youtube.com`.
+- Live multi-tab Chrome verification remains pending until the extension installation is approved.
 - Some third-party media sources expose only the controls available through macOS or their local interfaces.
 - yt-dlp, FFmpeg, and ImageOptim are not bundled.
 - The final release must not be described as notarized or Homebrew-installable until those checks complete successfully.

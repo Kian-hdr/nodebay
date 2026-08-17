@@ -103,6 +103,28 @@ class NodebayBrandingTests(unittest.TestCase):
             bundle_info,
         )
 
+    def test_about_uses_complete_canonical_main_branch_links(self) -> None:
+        bundle_info = (ROOT / "boringNotch/extensions/BundleInfos.swift").read_text(
+            encoding="utf-8"
+        )
+        about = (ROOT / "boringNotch/components/Settings/Views/AboutView.swift").read_text(
+            encoding="utf-8"
+        )
+        for name in (
+            "sourceURL",
+            "releasesURL",
+            "issuesURL",
+            "licenseURL",
+            "acknowledgementsURL",
+            "thirdPartyNoticesURL",
+            "privacyURL",
+            "securityURL",
+            "upstreamURL",
+        ):
+            self.assertIn(f"NodebayBrand.{name}", about)
+        self.assertIn("blob/main/LICENSE", bundle_info)
+        self.assertNotIn("blob/dev/", about + bundle_info)
+
     def test_icon_composer_source_drives_adaptive_app_icon(self) -> None:
         project = (ROOT / "boringNotch.xcodeproj/project.pbxproj").read_text(
             encoding="utf-8"

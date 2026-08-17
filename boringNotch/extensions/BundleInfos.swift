@@ -13,6 +13,13 @@ enum NodebayBrand {
     static let creator = "Kian Konrad Tajbakhsh"
     static let copyright = "Copyright © 2026 Kian Konrad Tajbakhsh."
     static let sourceURL = URL(string: "https://github.com/Kian-hdr/nodebay")!
+    static let releasesURL = sourceURL.appending(path: "releases")
+    static let issuesURL = sourceURL.appending(path: "issues")
+    static let licenseURL = sourceURL.appending(path: "blob/main/LICENSE")
+    static let acknowledgementsURL = sourceURL.appending(path: "blob/main/ACKNOWLEDGEMENTS.md")
+    static let thirdPartyNoticesURL = sourceURL.appending(path: "blob/main/THIRD_PARTY_NOTICES.md")
+    static let privacyURL = sourceURL.appending(path: "blob/main/PRIVACY.md")
+    static let securityURL = sourceURL.appending(path: "blob/main/SECURITY.md")
     static let upstreamURL = URL(string: "https://github.com/TheBoredTeam/boring.notch")!
     static let foundationCommit = "44dd999f70493da48209c99e9f873c47f2e55c83"
     static let foundationLabel = "Boring Notch dev @ 44dd999"

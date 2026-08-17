@@ -57,10 +57,14 @@ struct About: View {
 
             Section("Links") {
                 aboutLink("Nodebay source", systemImage: "chevron.left.forwardslash.chevron.right", url: NodebayBrand.sourceURL)
+                aboutLink("GitHub releases", systemImage: "shippingbox", url: NodebayBrand.releasesURL)
+                aboutLink("Report an issue", systemImage: "exclamationmark.bubble", url: NodebayBrand.issuesURL)
                 aboutLink("Boring Notch upstream", systemImage: "arrow.up.right.square", url: NodebayBrand.upstreamURL)
-                aboutLink("GPL-3.0 license", systemImage: "doc.text", relativePath: "blob/dev/LICENSE")
-                aboutLink("Acknowledgements", systemImage: "person.3", relativePath: "blob/dev/ACKNOWLEDGEMENTS.md")
-                aboutLink("Privacy", systemImage: "hand.raised", relativePath: "blob/dev/PRIVACY.md")
+                aboutLink("GPL-3.0 license", systemImage: "doc.text", url: NodebayBrand.licenseURL)
+                aboutLink("Acknowledgements", systemImage: "person.3", url: NodebayBrand.acknowledgementsURL)
+                aboutLink("Third-party notices", systemImage: "doc.on.doc", url: NodebayBrand.thirdPartyNoticesURL)
+                aboutLink("Privacy", systemImage: "hand.raised", url: NodebayBrand.privacyURL)
+                aboutLink("Security policy", systemImage: "lock.shield", url: NodebayBrand.securityURL)
             }
 
             Section {
@@ -81,13 +85,5 @@ struct About: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-    }
-
-    private func aboutLink(_ title: String, systemImage: String, relativePath: String) -> some View {
-        aboutLink(
-            title,
-            systemImage: systemImage,
-            url: NodebayBrand.sourceURL.appending(path: relativePath)
-        )
     }
 }

@@ -2,6 +2,16 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
+## [0.1.2] - 2026-08-18
+
+### Fixed
+
+- Prevented the Nodebay Settings window from being restored or focused after launch, wake, or application activation unless the user explicitly opened it.
+
+### Changed
+
+- Documented the Homebrew 6 one-time trust requirement for casks from third-party taps.
+
 ## [0.1.1] - 2026-08-17
 
 ### Added

@@ -10,7 +10,7 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay 0.1.1 is the current Apple Silicon release. Its archive is Developer ID signed, notarized by Apple, stapled, and distributed through GitHub Releases and the official Homebrew tap. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
+Nodebay 0.1.2 is the prepared Apple Silicon maintenance release. It prevents the Settings window from reopening without an explicit user action. Its archive is Developer ID signed, notarized by Apple, and stapled for publication. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
 
 ## Screenshots
 

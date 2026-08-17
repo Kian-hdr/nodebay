@@ -5,8 +5,8 @@
 3. Package with a Developer ID identity:
 
    ```bash
-   RELEASE_VERSION=0.1.1 \
-   BUILD_NUMBER=2 \
+   RELEASE_VERSION=0.1.2 \
+   BUILD_NUMBER=3 \
    SIGNING_IDENTITY='Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)' \
    DEVELOPMENT_TEAM=HZWY8HT54D \
    ./scripts/package_homebrew_arm64.sh
@@ -16,7 +16,7 @@
 
    ```bash
    xcrun notarytool submit \
-     build/nodebay-homebrew-arm64-release/Nodebay-0.1.1-arm64.zip \
+     build/nodebay-homebrew-arm64-release/Nodebay-0.1.2-arm64.zip \
      --keychain-profile NodebayRelease \
      --wait
    ```

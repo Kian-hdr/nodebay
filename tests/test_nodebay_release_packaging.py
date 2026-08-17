@@ -37,9 +37,9 @@ class NodebayReleasePackagingTests(unittest.TestCase):
             self.assertIn(marker, VERIFY)
 
     def test_homebrew_cask_matches_final_notarized_artifact(self) -> None:
-        self.assertIn('version "0.1.1"', CASK)
+        self.assertIn('version "0.1.2"', CASK)
         self.assertIn(
-            'sha256 "c497711aebcc549666f5f607e1c6c789d70c28d2636352ed918409f7197fb2a7"',
+            'sha256 "01beb2eefae045b11fffeabc3e19b3df9f8e53e97f367b278a6c405822d53249"',
             CASK,
         )
         self.assertIn('app "Nodebay.app"', CASK)

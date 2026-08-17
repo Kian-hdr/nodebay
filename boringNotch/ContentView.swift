@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
+    @State private var dropNavigationOrigin: DropNavigationOrigin?
 
     @State private var gestureProgress: CGFloat = .zero
     @State private var horizontalMediaGestureTriggered = false
@@ -254,11 +255,7 @@ struct ContentView: View {
             anyDropDebounceTask?.cancel()
 
             if isTargeted {
-                if Defaults[.boringShelf] && vm.notchState == .closed {
-                    if doOpen() {
-                        coordinator.currentView = .shelf
-                    }
-                }
+                beginDropNavigationIfNeeded()
                 return
             }
 
@@ -266,13 +263,24 @@ struct ContentView: View {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled else { return }
 
-                if vm.dropEvent {
-                    vm.dropEvent = false
+                let dropSucceeded = vm.dropEvent
+                vm.dropEvent = false
+
+                if dropSucceeded {
+                    dropNavigationOrigin = nil
                     return
                 }
 
-                vm.dropEvent = false
-                if !SharingStateManager.shared.preventNotchClose {
+                let origin = dropNavigationOrigin
+                dropNavigationOrigin = nil
+
+                if let origin {
+                    coordinator.currentView = origin.view
+                }
+
+                if origin?.notchWasOpen == false,
+                   !SharingStateManager.shared.preventNotchClose
+                {
                     vm.close()
                 }
             }
@@ -564,6 +572,31 @@ struct ContentView: View {
         return didOpen
     }
 
+    /// Temporarily show the shelf whenever compatible drag content enters the
+    /// notch. If the drag is cancelled, the prior tab and open state are
+    /// restored. A successful drop deliberately remains on the shelf so the
+    /// newly added item is immediately visible.
+    private func beginDropNavigationIfNeeded() {
+        guard Defaults[.boringShelf] else { return }
+
+        if dropNavigationOrigin == nil {
+            dropNavigationOrigin = DropNavigationOrigin(
+                view: coordinator.currentView,
+                notchWasOpen: vm.notchState == .open
+            )
+        }
+
+        if vm.notchState == .closed {
+            _ = doOpen()
+        }
+
+        if coordinator.currentView != .shelf {
+            withAnimation(animationSpring) {
+                coordinator.currentView = .shelf
+            }
+        }
+    }
+
     // MARK: - Hover Management
 
     private func handleHover(_ hovering: Bool) {
@@ -746,6 +779,11 @@ struct ContentView: View {
             return coordinator.currentView == .home && !musicManager.isPlayerIdle && isHoveringMusicArea
         }
     }
+}
+
+private struct DropNavigationOrigin {
+    let view: NotchViews
+    let notchWasOpen: Bool
 }
 
 struct FullScreenDropDelegate: DropDelegate {

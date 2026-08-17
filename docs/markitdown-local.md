@@ -1,6 +1,6 @@
 # Local MarkItDown Runtime
 
-Boring Notch can convert supported shelf files into separate Markdown files
+Nodebay can convert supported shelf files into separate Markdown files
 without sending document content to a cloud service. The integration uses the
 unmodified `markitdown` 0.1.7 Python package from Microsoft.
 
@@ -38,7 +38,7 @@ descriptions, third-party plugins, and remote URL conversion are not included.
    shelf. Dragging it to Finder uses an `NSFilePromiseProvider` copy operation,
    which does not overwrite an existing destination.
 
-This boundary applies to conversion only. Boring Notch has unrelated features
+This boundary applies to conversion only. Nodebay has unrelated features
 with their own existing network behavior.
 
 ## Reproducible runtime build
@@ -105,7 +105,7 @@ xcodebuild \
 
 ## Licensing and distribution
 
-Boring Notch remains GPL-3.0. The MarkItDown runtime is a bundled aggregate of
+Nodebay remains GPL-3.0. The MarkItDown runtime is a bundled aggregate of
 CPython, MarkItDown, its conversion dependencies, and PyInstaller support.
 `THIRD_PARTY_LICENSES_MARKITDOWN` is generated from the exact lock and installed
 distribution license files, and is copied into every generated runtime.
@@ -114,7 +114,7 @@ MarkItDown 0.1.7 is used unmodified under the MIT License:
 
 > Copyright (c) Microsoft Corporation.
 
-Binary distributors must include the Boring Notch GPL-3.0 license, the runtime
+Binary distributors must include the Nodebay GPL-3.0 license, the runtime
 notices, corresponding source for GPL-covered modifications, and these build
 instructions. The build process installs MarkItDown from PyPI and does not fork
 or modify Microsoft’s repository.

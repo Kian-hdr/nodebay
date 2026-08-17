@@ -150,12 +150,12 @@ def project_url(metadata: object) -> str:
 
 def generate(requirements: Path, python_license: Path) -> str:
     sections = [
-        "Boring Notch local MarkItDown runtime: third-party notices",
+        "Nodebay local MarkItDown runtime: third-party notices",
         "=" * 62,
         "",
         "This file is generated from requirements/markitdown-runtime.txt and the",
         "license files shipped in the exact installed Python distributions. The",
-        "runtime is bundled with Boring Notch, which remains licensed under GPL-3.0.",
+        "runtime is bundled with Nodebay, which remains licensed under GPL-3.0.",
         "",
         "Python runtime",
         "--------------",

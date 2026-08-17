@@ -10,7 +10,7 @@ import CoreGraphics
 import SwiftUI
 
 @Observable
-final class LunarManager {
+final class LunarManager: @unchecked Sendable {
     static let shared = LunarManager()
     
     private(set) var isLunarAvailable: Bool = false
@@ -35,7 +35,7 @@ final class LunarManager {
     // MARK: - Availability
     
     func refreshAvailability() {
-        Task.detached { [weak self] in
+        Task { [weak self] in
             let available = await XPCHelperClient.shared.isLunarAvailable()
             await MainActor.run {
                 self?.isLunarAvailable = available
@@ -51,7 +51,7 @@ final class LunarManager {
         let listener = eventListener ?? LunarEventListener(manager: self)
         eventListener = listener
 
-        Task.detached { [weak self] in
+        Task { [weak self] in
             guard let self else { return }
             let started = await XPCHelperClient.shared.startLunarEventStream(listener: listener)
             await MainActor.run {
@@ -62,7 +62,7 @@ final class LunarManager {
     }
     
     func stopListening() {
-        Task.detached { [weak self] in
+        Task { [weak self] in
             await XPCHelperClient.shared.stopLunarEventStream()
             await MainActor.run {
                 self?.isListening = false
@@ -131,7 +131,7 @@ final class LunarManager {
     }
 }
 
-@objc final class LunarEventListener: NSObject, BoringNotchXPCHelperLunarListener {
+@objc final class LunarEventListener: NSObject, BoringNotchXPCHelperLunarListener, @unchecked Sendable {
     weak var manager: LunarManager?
 
     init(manager: LunarManager) {

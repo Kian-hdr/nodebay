@@ -1,8 +1,8 @@
 import Foundation
 import Cocoa
-import AsyncXPCConnection
+@preconcurrency import AsyncXPCConnection
 
-final class XPCHelperClient: NSObject {
+final class XPCHelperClient: NSObject, @unchecked Sendable {
     nonisolated static let shared = XPCHelperClient()
     
     private let serviceName = "theboringteam.boringnotch.BoringNotchXPCHelper"
@@ -320,7 +320,7 @@ final class XPCHelperClient: NSObject {
         }
     }
 
-    nonisolated func startLunarEventStream(listener: BoringNotchXPCHelperLunarListener) async -> Bool {
+    nonisolated func startLunarEventStream(listener: any BoringNotchXPCHelperLunarListener & Sendable) async -> Bool {
         await MainActor.run {
             lunarListener = listener
         }

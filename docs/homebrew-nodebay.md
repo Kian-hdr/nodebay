@@ -10,7 +10,7 @@ After a signed or explicitly approved public release and tap are created, the in
 brew install --cask Kian-hdr/nodebay/nodebay
 ```
 
-The cask installs `Nodebay.app` into `/Applications` and verifies the release archive SHA-256. It requires Apple Silicon and macOS Sonoma or newer.
+The cask installs `Nodebay.app` into `/Applications` and verifies the release archive SHA-256. It requires Apple Silicon and macOS Sequoia or newer because the current MediaRemoteAdapter foundation binary has a macOS 15.0 minimum.
 
 ## Reproducible artifact
 

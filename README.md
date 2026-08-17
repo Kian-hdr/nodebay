@@ -53,12 +53,12 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
 | Browser media bridge | Not shipped | Optional future extension and native bridge | Intended | No server |
 
-Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES_NODEBAY.md](THIRD_PARTY_NOTICES_NODEBAY), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
+Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES_NODEBAY.md](THIRD_PARTY_NOTICES_NODEBAY.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
 
 ## Requirements
 
 - Apple Silicon Mac
-- macOS 14 Sonoma or later
+- macOS 15 Sequoia or later. The current MediaRemoteAdapter foundation binary is built with a macOS 15.0 minimum.
 - ImageOptim installed separately for image compression
 - yt-dlp and FFmpeg installed separately for media downloads and conversion
 
@@ -93,6 +93,8 @@ git switch feature/nodebay
 brew install python@3.13
 ./scripts/build_markitdown_runtime.sh
 ./scripts/test_markitdown_runtime.sh
+./scripts/test_downloader_local.sh
+./scripts/test_imageoptim_local.sh
 xcodebuild \
   -project boringNotch.xcodeproj \
   -scheme boringNotch \

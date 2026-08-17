@@ -1,8 +1,8 @@
 cask "nodebay" do
   arch arm: "arm64"
 
-  version "VERSION"
-  sha256 arm: "SHA256"
+  version "0.1.0"
+  sha256 arm: "e31f65f6e271528b25072d3afa5d6c90340ddefa49083158cdde028b96f0dec2"
 
   url "https://github.com/Kian-hdr/boring.notch/releases/download/nodebay-v#{version}/Nodebay-#{version}-#{arch}.zip"
   name "Nodebay"

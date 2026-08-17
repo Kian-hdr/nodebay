@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strictly local MarkItDown command used by the Boring Notch shelf."""
+"""Strictly local MarkItDown command used by the Nodebay shelf."""
 
 from __future__ import annotations
 

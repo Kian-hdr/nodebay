@@ -408,7 +408,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                 stderr.fileHandleForReading.readabilityHandler = nil
                 stdoutBuffer.append(stdout.fileHandleForReading.readDataToEndOfFile())
                 stderrBuffer.append(stderr.fileHandleForReading.readDataToEndOfFile())
-                self.processStateQueue.sync { self.approvedProcesses.removeValue(forKey: jobID) }
+                _ = self.processStateQueue.sync { self.approvedProcesses.removeValue(forKey: jobID) }
                 reply(NSNumber(value: code), stdoutBuffer.string, stderrBuffer.string, error)
             }
 

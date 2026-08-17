@@ -41,15 +41,28 @@ Current signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY
 
 ## Proposed external operations
 
+Publication is split into two approval gates because Apple notarization and stapling change the release archive and therefore its SHA-256. Publishing the current pre-notarization checksum would create a broken Homebrew cask.
+
+### Phase 1: standalone source migration and notarization submission
+
 1. Create public standalone `Kian-hdr/nodebay` without an initialized README or license.
-2. Add it as `origin` and push the prepared `main` and `dev` branches plus the approved Nodebay tag, preserving history and metadata.
-3. Apply the proposed description, empty website, topics, issues setting, and social preview.
-4. Create public `Kian-hdr/homebrew-nodebay`, push its prepared `main`, and set its description.
-5. Add archival notices to `Kian-hdr/boring.notch` and `Kian-hdr/homebrew-boring-notch-markitdown`, mark the former prerelease historical, then archive both repositories read-only.
-6. Create the Nodebay release-tracking issue and, if approved, the `dev` to `main` release pull request.
-7. Submit the exact Developer ID artifact to Apple notarization, staple it, recreate and reverify the archive, and update the cask to the final checksum.
-8. Publish the approved GitHub release and tap only after the final post-notarization checksum is known.
+2. Add it as `origin` and push the prepared `main` and `dev` branches, preserving complete history and metadata. Do not create the release tag yet.
+3. Apply the proposed description, empty website, topics, issues setting, and current social preview.
+4. Create the public release-tracking issue from `docs/github-migration-issue-draft.md`.
+5. Add the approved archival notices to `Kian-hdr/boring.notch` and `Kian-hdr/homebrew-boring-notch-markitdown`, mark the former prerelease historical, then archive both repositories read-only.
+6. Submit the exact Developer ID application to Apple notarization. If Apple credentials are not already configured, stop before authentication and request the repository owner's action.
+
+Phase 1 does not create `Kian-hdr/homebrew-nodebay`, publish a tag or release, create a release PR, or expose a cask whose download URL does not exist.
+
+### Phase 2: final release and Homebrew publication
+
+After notarization succeeds, staple the ticket, recreate and reverify the ZIP, calculate the final checksum, update both cask copies, rerun the release and Homebrew checks, and present the exact final artifact and cask for a second approval. Only that second approval authorizes:
+
+1. the `nodebay-v0.1.0` tag and GitHub release;
+2. the `dev` to `main` release pull request, if a source difference exists at that time;
+3. creation of public `Kian-hdr/homebrew-nodebay` and push of its prepared `main` branch;
+4. public cask audit, install, launch, upgrade, and uninstall smoke tests.
 
 ## Approval gate
 
-Before any operation above, present the final diff, commits, signed-build screenshots, notices, verification matrix, destinations, PR and issue text, release notes, cask, and every external effect for one explicit approval.
+Before Phase 1, present the exact local branches, complete commit list, full diff artifact, tracked-file manifest, screenshots, notices, verification matrix, destinations, issue text, archival copy, and every external effect for explicit approval. Before Phase 2, present the final post-notarization archive, checksum, cask, release notes, proposed tag, PR state, and smoke-test plan for a second explicit approval.

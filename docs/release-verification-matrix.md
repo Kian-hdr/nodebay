@@ -29,7 +29,7 @@ Checked on 2026-08-17 on Apple Silicon, macOS 26.6.1, and Xcode 26.6. `Passed` m
 | Documentation links | Passed local | Thirty required files and all local Markdown links validated offline |
 | Homebrew cask syntax/style | Passed | Ruby syntax and `brew style` pass in the prepared local tap |
 | Homebrew audit/install/uninstall | Unavailable | Requires the approved public release URL and tap |
-| UI screenshots | Passed for checked dark-mode views | Nine privacy-safe repository screenshots; light mode and final notarized build pending |
+| UI screenshots | Passed for checked dark-mode views | Nine privacy-safe repository screenshots; the unified Plugins & Engines page was recaptured from the installed app on 2026-08-17; light mode and final notarized build pending |
 | Accessibility audit | Not run | VoiceOver, focus, hit-target, and reduced-motion manual pass pending |
 | Large-batch memory/crash test | Not run | Requires dedicated stress fixtures and Instruments pass |
 

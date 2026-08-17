@@ -28,6 +28,8 @@ These privacy-safe dark-mode screenshots come from an ad-hoc signed Release QA c
 
 ## Features
 
+The following capabilities are implemented in the current source. Automated checks cover the safety and processing contracts described below. Hardware-dependent and final end-to-end UI checks that have not been rerun are explicitly listed as pending in the [release verification matrix](docs/release-verification-matrix.md); they are not claimed as release-verified.
+
 - Native notch UI on the built-in display and a virtual notch on external displays
 - Explicit built-in, selected, main, pointer-active, and all-display placement modes
 - Persistent shelf references with security-scoped bookmarks
@@ -96,7 +98,7 @@ The proposed public Homebrew command, after a release and tap are approved and p
 brew install --cask Kian-hdr/nodebay/nodebay
 ```
 
-See [Homebrew distribution](docs/homebrew-nodebay.md). This command is intentionally documented as proposed and will not work until the approved public tap exists.
+See [Homebrew installation](docs/homebrew.md) and the [release packaging details](docs/homebrew-nodebay.md). This command is intentionally documented as proposed and will not work until the approved public release and tap exist.
 
 After the first approved GitHub release is published, direct installation will be available from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases). Download the Apple Silicon archive, move `Nodebay.app` to Applications, and verify the published SHA-256 checksum. This link is prepared in advance and contains no Nodebay release yet.
 

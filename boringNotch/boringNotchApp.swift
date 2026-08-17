@@ -25,8 +25,10 @@ struct DynamicNotchApp: App {
         let sparkleUpdaterDelegate = BoringSparkleUpdaterDelegate()
         self.sparkleUpdaterDelegate = sparkleUpdaterDelegate
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: sparkleUpdaterDelegate, userDriverDelegate: nil)
-        SoftwareUpdateStore.updater = updaterController.updater
+            startingUpdater: false, updaterDelegate: sparkleUpdaterDelegate, userDriverDelegate: nil)
+        // This fixed Homebrew distribution must not replace itself with an
+        // upstream build that does not yet contain the MarkItDown feature.
+        SoftwareUpdateStore.updater = nil
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
@@ -40,8 +42,6 @@ struct DynamicNotchApp: App {
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            CheckForUpdatesView(updater: updaterController.updater)
-            Divider()
             Button("Restart Boring Notch") {
                 ApplicationRelauncher.restart()
             }

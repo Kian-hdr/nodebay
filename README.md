@@ -95,6 +95,20 @@ You can also install using [Homebrew](https://brew.sh). The Homebrew installatio
 brew install --cask TheBoredTeam/boring-notch/boring-notch
 ```
 
+### Apple Silicon MarkItDown edition
+
+This fixed community build adds local shelf document-to-Markdown conversion and
+is distributed separately while the feature is under upstream review:
+
+```bash
+brew install --cask Kian-hdr/boring-notch-markitdown/boring-notch-markitdown
+```
+
+It supports Apple Silicon Macs only. The in-app updater is disabled so an
+official build cannot replace this edition before MarkItDown support is merged.
+See [Homebrew MarkItDown Edition](docs/homebrew-markitdown.md) for verification,
+source, licensing, and uninstall instructions.
+
 ## Usage
 
 - Launch the app, and voilà—your notch is now the coolest part of your screen.
@@ -224,4 +238,3 @@ and build instructions as required by GPL-3.0.
 
 - **SwiftUI**: For making us look like coding wizards.
 - **You**: For being awesome and checking out **boring.notch**!
-

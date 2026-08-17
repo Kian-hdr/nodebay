@@ -17,6 +17,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case osd
     case battery
     case shelf
+    case plugins
+    case converters
     case mirror
     case shortcuts
     case advanced
@@ -33,6 +35,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .osd: "OSD"
         case .battery: "Battery"
         case .shelf: "Shelf"
+        case .plugins: "Plugins & Engines"
+        case .converters: "Converters"
         case .mirror: "Mirror"
         case .shortcuts: "Shortcuts"
         case .advanced: "Advanced"
@@ -49,6 +53,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .osd: "dial.medium.fill"
         case .battery: "battery.100.bolt"
         case .shelf: "books.vertical"
+        case .plugins: "puzzlepiece.extension"
+        case .converters: "arrow.triangle.2.circlepath"
         case .mirror: "camera"
         case .shortcuts: "keyboard"
         case .advanced: "gearshape.2"
@@ -96,6 +102,10 @@ struct SettingsView: View {
                     Charge()
                 case .shelf:
                     Shelf()
+                case .plugins:
+                    PluginsEnginesSettingsView()
+                case .converters:
+                    ConvertersSettingsView()
                 case .mirror:
                     MirrorSettings()
                 case .shortcuts:

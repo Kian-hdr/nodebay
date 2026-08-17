@@ -25,6 +25,9 @@ SPEC.loader.exec_module(MODULE)
 
 
 class LocalWrapperTests(unittest.TestCase):
+    def test_pinned_runtime_version_is_reported(self) -> None:
+        self.assertEqual(MODULE.MARKITDOWN_VERSION, "0.1.7")
+
     def test_supported_extensions_are_explicit(self) -> None:
         self.assertIn(".pdf", MODULE.SUPPORTED_EXTENSIONS)
         self.assertIn(".docx", MODULE.SUPPORTED_EXTENSIONS)

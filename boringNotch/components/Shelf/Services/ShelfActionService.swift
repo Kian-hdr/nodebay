@@ -60,7 +60,7 @@ enum MarkItDownConversionError: LocalizedError {
         case .helperMissing:
             return "The bundled local MarkItDown converter could not be found."
         case .temporaryFileCreationFailed:
-            return "Boring Notch could not create a temporary Markdown file."
+            return "Nodebay could not create a temporary Markdown file."
         case .helperFailed(let message):
             return message.isEmpty ? "The local MarkItDown converter failed." : message
         case .outputMissing:

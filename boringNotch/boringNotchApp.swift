@@ -35,14 +35,14 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("boring.notch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
+        MenuBarExtra(NodebayBrand.name, systemImage: "shippingbox.fill", isInserted: $showMenuBarIcon) {
             Button("Settings") {
                 DispatchQueue.main.async {
                     SettingsWindowController.shared.showWindow()
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            Button("Restart Boring Notch") {
+            Button("Restart Nodebay") {
                 ApplicationRelauncher.restart()
             }
             Button("Quit", role: .destructive) {

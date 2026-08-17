@@ -191,7 +191,7 @@ struct GeneralSettings: View {
                 ApplicationRelauncher.restart()
             }
         } message: {
-            Text("Changing the app language requires restarting Boring Notch.")
+            Text("Changing the app language requires restarting Nodebay.")
         }
     }
 

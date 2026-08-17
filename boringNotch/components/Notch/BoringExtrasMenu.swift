@@ -43,12 +43,10 @@ struct BoringExtrasMenu : View {
     var github: some View {
         BoringLargeButtons(
             action: {
-                if let url = URL(string: "https://github.com/TheBoredTeam/boring.notch") {
-                    NSWorkspace.shared.open(url)
-                }
+                NSWorkspace.shared.open(NodebayBrand.sourceURL)
             },
             icon: Image(.github),
-            title: "Checkout"
+            title: "Source"
         )
     }
     

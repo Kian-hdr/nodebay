@@ -16,6 +16,7 @@ SUPPORTED_EXTENSIONS = {
     ".csv", ".json", ".jsonl", ".xml", ".rss", ".atom", ".epub",
     ".msg", ".zip", ".txt", ".md", ".markdown", ".rst", ".log",
 }
+MARKITDOWN_VERSION = "0.1.7"
 
 
 def _disable_network() -> None:
@@ -86,9 +87,16 @@ def convert(input_path: Path, output_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Convert one local file to Markdown")
-    parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--nodebay-version", action="store_true")
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--output", type=Path)
     arguments = parser.parse_args()
+
+    if arguments.nodebay_version:
+        print(f"MarkItDown {MARKITDOWN_VERSION}")
+        return 0
+    if arguments.input is None or arguments.output is None:
+        parser.error("--input and --output are required for conversion")
 
     try:
         convert(arguments.input, arguments.output)

@@ -45,7 +45,7 @@ struct OnboardingView: View {
                 PermissionRequestView(
                     icon: Image(systemName: "camera.fill"),
                     title: "Enable Camera Access",
-                    description: "Boring Notch includes a mirror feature that lets you quickly check your appearance using your camera, right from the notch. Camera access is required only to show this live preview. You can turn the mirror feature on or off at any time in the app.",
+                    description: "Nodebay includes a mirror feature that lets you quickly check your appearance using your camera, right from the notch. Camera access is required only to show this live preview. You can turn the mirror feature on or off at any time in the app.",
                     privacyNote: "Your camera is never used without your consent, and nothing is recorded or stored.",
                     onAllow: {
                         Task {
@@ -67,7 +67,7 @@ struct OnboardingView: View {
                 PermissionRequestView(
                     icon: Image(systemName: "calendar"),
                     title: "Enable Calendar Access",
-                    description: "Boring Notch can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
+                    description: "Nodebay can show all your upcoming events in one place. Access to your calendar is needed to display your schedule.",
                     privacyNote: "Your calendar data is only used to show your events and is never shared.",
                     onAllow: {
                         Task {
@@ -89,7 +89,7 @@ struct OnboardingView: View {
                     PermissionRequestView(
                         icon: Image(systemName: "checklist"),
                         title: "Enable Reminders Access",
-                        description: "Boring Notch can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
+                        description: "Nodebay can show your scheduled reminders alongside your calendar events. Access to Reminders is needed to display your reminders.",
                         privacyNote: "Your reminders data is only used to show your reminders and is never shared.",
                         onAllow: {
                             Task {
@@ -111,7 +111,7 @@ struct OnboardingView: View {
                 PermissionRequestView(
                     icon: Image(systemName: "waveform"),
                     title: "Enable Real-Time Audio",
-                    description: "Boring Notch can analyze the audio playing from your music app to draw a live FFT waveform in the notch, with only a minimal impact on CPU usage.",
+                    description: "Nodebay can analyze the audio playing from your music app to draw a live FFT waveform in the notch, with only a minimal impact on CPU usage.",
                     privacyNote: "Audio is processed locally for the visualizer and never recorded, stored, or shared.",
                     onAllow: {
                         Task {
@@ -227,11 +227,11 @@ struct SoftwareUpdatePermissionView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundColor(.effectiveAccent)
 
-            Text("Keep Boring Notch Updated")
+            Text("Keep Nodebay Updated")
                 .font(.title)
                 .fontWeight(.semibold)
 
-            Text("Boring Notch can check for updates in the background. You can still check manually from the menu bar at any time.")
+            Text("Nodebay updates are disabled in this unpublished development build. A signed update feed will be configured before release.")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 34)

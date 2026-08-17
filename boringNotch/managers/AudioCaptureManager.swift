@@ -450,7 +450,7 @@ final class AudioCaptureManager: ObservableObject {
 
         let excludedProcessIDs = translatePIDToAudioObject(pid: getpid()).map { [$0] } ?? []
         let tapDescription = CATapDescription(monoGlobalTapButExcludeProcesses: excludedProcessIDs)
-        tapDescription.name = "Boring Notch Audio Permission Probe"
+        tapDescription.name = "Nodebay Audio Permission Probe"
         tapDescription.muteBehavior = .unmuted
         tapDescription.isPrivate = true
 
@@ -474,7 +474,7 @@ final class AudioCaptureManager: ObservableObject {
 
         let aggregateUID = "com.boringnotch.permissionprobe.\(UUID().uuidString)"
         let aggregateDescription: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "Boring Notch Audio Permission Probe",
+            kAudioAggregateDeviceNameKey: "Nodebay Audio Permission Probe",
             kAudioAggregateDeviceUIDKey: aggregateUID,
             kAudioAggregateDeviceMainSubDeviceKey: "",
             kAudioAggregateDeviceIsPrivateKey: 1,

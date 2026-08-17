@@ -21,9 +21,18 @@ final class ShelfPersistenceService {
     private init() {
         let fm = FileManager.default
         let support = try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        let dir = (support ?? fm.temporaryDirectory).appendingPathComponent("boringNotch", isDirectory: true).appendingPathComponent("Shelf", isDirectory: true)
+        let supportRoot = support ?? fm.temporaryDirectory
+        let legacyDir = supportRoot.appendingPathComponent("boringNotch", isDirectory: true)
+            .appendingPathComponent("Shelf", isDirectory: true)
+        let dir = supportRoot.appendingPathComponent("Nodebay", isDirectory: true)
+            .appendingPathComponent("Shelf", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("items.json")
+        let legacyFileURL = legacyDir.appendingPathComponent("items.json")
+        if !fm.fileExists(atPath: fileURL.path), fm.fileExists(atPath: legacyFileURL.path) {
+            // Copy, never move or delete, so rollback to Boring Notch is safe.
+            try? fm.copyItem(at: legacyFileURL, to: fileURL)
+        }
         encoder.outputFormatting = [.prettyPrinted]
         decoder.dateDecodingStrategy = .iso8601
         encoder.dateEncodingStrategy = .iso8601

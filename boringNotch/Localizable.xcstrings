@@ -2935,119 +2935,119 @@
         }
       }
     },
-    "Boring Notch" : {
+    "Nodebay" : {
       "localizations" : {
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "en-GB" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch"
+            "value" : "Nodebay"
           }
         }
       }
     },
-    "Boring Notch can check for updates in the background. You can still check manually from the menu bar at any time." : {
+    "Nodebay can check for updates in the background. You can still check manually from the menu bar at any time." : {
       "comment" : "A description of the software update permission.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch kann im Hintergrund nach Updates suchen. Sie können jederzeit auch manuell über die Menüleiste nach Updates suchen."
+            "value" : "Nodebay kann im Hintergrund nach Updates suchen. Sie können jederzeit auch manuell über die Menüleiste nach Updates suchen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch puede comprobar si hay actualizaciones en segundo plano. Puede comprobar manualmente desde la barra del menú en cualquier momento."
+            "value" : "Nodebay puede comprobar si hay actualizaciones en segundo plano. Puede comprobar manualmente desde la barra del menú en cualquier momento."
           }
         },
         "fr" : {
@@ -3059,149 +3059,149 @@
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch può controllare gli aggiornamenti in background. È comunque possibile controllare manualmente dalla barra dei menu in qualsiasi momento."
+            "value" : "Nodebay può controllare gli aggiornamenti in background. È comunque possibile controllare manualmente dalla barra dei menu in qualsiasi momento."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notchはバックグラウンドでアップデートを確認します。また、メニューバーからいつでも確認することもできます。"
+            "value" : "Nodebayはバックグラウンドでアップデートを確認します。また、メニューバーからいつでも確認することもできます。"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch kan op de achtergrond controleren of er updates beschikbaar zijn. Je kunt dit op elk moment ook handmatig controleren via de menubalk."
+            "value" : "Nodebay kan op de achtergrond controleren of er updates beschikbaar zijn. Je kunt dit op elk moment ook handmatig controleren via de menubalk."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O Boring Notch pode verificar atualizações em segundo plano. Mesmo assim, você ainda pode verificar manualmente a partir da barra de menus a qualquer momento."
+            "value" : "O Nodebay pode verificar atualizações em segundo plano. Mesmo assim, você ainda pode verificar manualmente a partir da barra de menus a qualquer momento."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch может проверить наличие обновлений в фоновом режиме. Вы все еще можете вручную проверить в строке меню в любое время."
+            "value" : "Nodebay может проверить наличие обновлений в фоновом режиме. Вы все еще можете вручную проверить в строке меню в любое время."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch arka planda güncellemeleri denetleyebilir. Güncellemeleri menü çubuğundan istediğiniz zaman denetleyebilirsiniz."
+            "value" : "Nodebay arka planda güncellemeleri denetleyebilir. Güncellemeleri menü çubuğundan istediğiniz zaman denetleyebilirsiniz."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch може перевіряти наявність оновлень у фоновому режимі. Ви також можете в будь-який момент перевірити їх вручну через інструментальну панель."
+            "value" : "Nodebay може перевіряти наявність оновлень у фоновому режимі. Ви також можете в будь-який момент перевірити їх вручну через інструментальну панель."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch 可以在后台检查更新。你也可以随时通过菜单栏手动检查。"
+            "value" : "Nodebay 可以在后台检查更新。你也可以随时通过菜单栏手动检查。"
           }
         }
       }
     },
-    "boring.notch" : {
+    "Nodebay" : {
       "localizations" : {
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "en-GB" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "boring.notch"
+            "value" : "Nodebay"
           }
         }
       }
@@ -3940,18 +3940,18 @@
         }
       }
     },
-    "Changing the app language requires restarting Boring Notch." : {
+    "Changing the app language requires restarting Nodebay." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Das Ändern der App-Sprache erfordert einen Neustart von Boring Notch."
+            "value" : "Das Ändern der App-Sprache erfordert einen Neustart von Nodebay."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Changing the app language requires restarting Boring Notch."
+            "value" : "Changing the app language requires restarting Nodebay."
           }
         },
         "fr" : {
@@ -3963,43 +3963,43 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アプリの言語を変更するにはBoring Notchを再起動する必要があります。"
+            "value" : "アプリの言語を変更するにはNodebayを再起動する必要があります。"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Om de taal van de app te wijzigen, moet je Boring Notch opnieuw opstarten."
+            "value" : "Om de taal van de app te wijzigen, moet je Nodebay opnieuw opstarten."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "É preciso reiniciar o Boring Notch para alterar o idioma."
+            "value" : "É preciso reiniciar o Nodebay para alterar o idioma."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Изменение языка приложения требует перезапуска Boring Notch."
+            "value" : "Изменение языка приложения требует перезапуска Nodebay."
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uygulama dilini değiştirmek Boring Notch'u yeniden başlatır."
+            "value" : "Uygulama dilini değiştirmek Nodebay'u yeniden başlatır."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Зміна мови програми вимагає перезапуску Boring Notch."
+            "value" : "Зміна мови програми вимагає перезапуску Nodebay."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "更改应用语言需要重启 Boring Notch。"
+            "value" : "更改应用语言需要重启 Nodebay。"
           }
         }
       }
@@ -11951,55 +11951,55 @@
         }
       }
     },
-    "Keep Boring Notch Updated" : {
-      "comment" : "A title for a view that allows users to configure Boring Notch's update preferences.",
+    "Keep Nodebay Updated" : {
+      "comment" : "A title for a view that allows users to configure Nodebay's update preferences.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Immer Boring Notch aktualisiert haben"
+            "value" : "Immer Nodebay aktualisiert haben"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Garder Boring Notch à jour"
+            "value" : "Garder Nodebay à jour"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notchを最新に保つ"
+            "value" : "Nodebayを最新に保つ"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Houd Boring Notch up-to-date"
+            "value" : "Houd Nodebay up-to-date"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mantenha o Boring Notch atualizado"
+            "value" : "Mantenha o Nodebay atualizado"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сохранять Boring Notch обновленным"
+            "value" : "Сохранять Nodebay обновленным"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Зберігати Boring Notch оновленим"
+            "value" : "Зберігати Nodebay оновленим"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保持 Boring Notch 处于最新版本"
+            "value" : "保持 Nodebay 处于最新版本"
           }
         }
       }
@@ -19344,120 +19344,120 @@
         }
       }
     },
-    "Restart Boring Notch" : {
+    "Restart Nodebay" : {
       "localizations" : {
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restartovat Boring Notch"
+            "value" : "Restartovat Nodebay"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch neu starten"
+            "value" : "Nodebay neu starten"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restart Boring Notch"
+            "value" : "Restart Nodebay"
           }
         },
         "en-GB" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restart Boring Notch"
+            "value" : "Restart Nodebay"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reiniciar Boring Notch"
+            "value" : "Reiniciar Nodebay"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Redémarrer Boring Notch"
+            "value" : "Redémarrer Nodebay"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "הפעל מחדש את Boring Notch"
+            "value" : "הפעל מחדש את Nodebay"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch újraindítása"
+            "value" : "Nodebay újraindítása"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Riavvia Boring Notch"
+            "value" : "Riavvia Nodebay"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notchを再起動"
+            "value" : "Nodebayを再起動"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch 재시작"
+            "value" : "Nodebay 재시작"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Herstart Boring Notch"
+            "value" : "Herstart Nodebay"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Uruchom ponownie Boring Notch"
+            "value" : "Uruchom ponownie Nodebay"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reiniciar o Boring Notch"
+            "value" : "Reiniciar o Nodebay"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Перезапустить Boring Notch"
+            "value" : "Перезапустить Nodebay"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Boring Notch'u yeniden başlat"
+            "value" : "Nodebay'u yeniden başlat"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Перезапустити Boring Notch"
+            "value" : "Перезапустити Nodebay"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重启 Boring Notch"
+            "value" : "重启 Nodebay"
           }
         },
         "zh-Hant-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重啟 Boring Notch"
+            "value" : "重啟 Nodebay"
           }
         }
       }

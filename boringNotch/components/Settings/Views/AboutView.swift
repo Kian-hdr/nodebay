@@ -1,78 +1,93 @@
 //
 //  AboutView.swift
-//  boringNotch
-//
-//  Created by Richard Kunkli on 07/08/2024.
+//  Nodebay
 //
 
-import Defaults
+import AppKit
 import Sparkle
 import SwiftUI
 
 struct About: View {
-    @State private var showBuildNumber: Bool = false
     let updaterController: SPUStandardUpdaterController
-    @Environment(\.openWindow) var openWindow
-    var body: some View {
-        VStack {
-            Form {
-                Section {
-                    HStack {
-                        Text("Release name")
-                        Spacer()
-                        Text(Defaults[.releaseName])
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        if showBuildNumber {
-                            Text("(\(Bundle.main.buildVersionNumber ?? ""))")
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(Bundle.main.releaseVersionNumber ?? "unkown")
-                            .foregroundStyle(.secondary)
-                    }
-                    .onTapGesture {
-                        withAnimation {
-                            showBuildNumber.toggle()
-                        }
-                    }
-                } header: {
-                    Text("Version info")
-                }
 
-                HStack(spacing: 30) {
-                    Spacer(minLength: 0)
-                    Button {
-                        if let url = URL(string: "https://github.com/TheBoredTeam/boring.notch") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image("Github")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18)
-                            Text("GitHub")
-                        }
-                        .contentShape(Rectangle())
+    private var architecture: String {
+        #if arch(arm64)
+        return "Apple Silicon (arm64)"
+        #elseif arch(x86_64)
+        return "Intel (x86_64)"
+        #else
+        return "Unknown"
+        #endif
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(alignment: .center, spacing: 18) {
+                    Image(nsImage: NSApplication.shared.applicationIconImage)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 84, height: 84)
+                        .accessibilityLabel("Nodebay app icon")
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NodebayBrand.name)
+                            .font(.largeTitle.weight(.semibold))
+                        Text(NodebayBrand.tagline)
+                            .foregroundStyle(.secondary)
+                        Text("Version \(Bundle.main.releaseVersionNumber ?? "Unknown") (\(Bundle.main.buildVersionNumber ?? "Unknown"))")
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        Text(architecture)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-                    Spacer(minLength: 0)
                 }
-                .buttonStyle(PlainButtonStyle())
+                .padding(.vertical, 6)
             }
-            VStack(spacing: 0) {
-                Divider()
-                Text("Made with 🫶🏻 by not so boring not.people")
+
+            Section("Project") {
+                LabeledContent("Creator", value: NodebayBrand.creator)
+                LabeledContent("Foundation", value: NodebayBrand.foundationLabel)
+                LabeledContent("License", value: "GPL-3.0")
+                Text("Based on Boring Notch. Nodebay is an independent project and is not endorsed by Boring Notch or any processing-engine provider.")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 5)
-                    .padding(.bottom, 7)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 10)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+
+            Section("Links") {
+                aboutLink("Nodebay source", systemImage: "chevron.left.forwardslash.chevron.right", url: NodebayBrand.sourceURL)
+                aboutLink("Boring Notch upstream", systemImage: "arrow.up.right.square", url: NodebayBrand.upstreamURL)
+                aboutLink("GPL-3.0 license", systemImage: "doc.text", relativePath: "blob/feature/nodebay/LICENSE")
+                aboutLink("Acknowledgements", systemImage: "person.3", relativePath: "blob/feature/nodebay/THIRD_PARTY_NOTICES_NODEBAY.md")
+                aboutLink("Privacy", systemImage: "hand.raised", relativePath: "blob/feature/nodebay/docs/privacy.md")
+            }
+
+            Section {
+                Text(NodebayBrand.copyright)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .navigationTitle("About")
+        .formStyle(.grouped)
+        .navigationTitle("About Nodebay")
+    }
+
+    private func aboutLink(_ title: String, systemImage: String, url: URL) -> some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func aboutLink(_ title: String, systemImage: String, relativePath: String) -> some View {
+        aboutLink(
+            title,
+            systemImage: systemImage,
+            url: NodebayBrand.sourceURL.appending(path: relativePath)
+        )
     }
 }

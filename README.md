@@ -10,6 +10,10 @@ Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch)
 
 Nodebay is under release preparation. No public Nodebay release, Homebrew tap, update feed, browser bridge, or pull request has been published from this branch. Reproducible build and cask templates are included, but publication requires explicit final approval after review of the artifact, checksum, screenshots, notices, and verification report.
 
+## Screenshots
+
+Sanitized screenshots from the final signed build will be added before publication. The release will not use inherited Boring Notch screenshots or advertise interfaces that have not completed the final UI pass.
+
 ## Features
 
 - Native notch UI on the built-in display and a virtual notch on external displays
@@ -82,14 +86,16 @@ brew install --cask Kian-hdr/nodebay/nodebay
 
 See [Homebrew distribution](docs/homebrew-nodebay.md). This command is intentionally documented as proposed and will not work until the approved public tap exists.
 
+After the first approved GitHub release is published, direct installation will be available from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases). Download the Apple Silicon archive, move `Nodebay.app` to Applications, and verify the published SHA-256 checksum. This link is prepared in advance and contains no Nodebay release yet.
+
 ## Build from source
 
 Prerequisites: Xcode 26 or later, Homebrew Python 3.13, and Apple Silicon.
 
 ```bash
-git clone https://github.com/Kian-hdr/boring.notch.git
-cd boring.notch
-git switch feature/nodebay
+git clone https://github.com/Kian-hdr/nodebay.git
+cd nodebay
+git switch dev
 brew install python@3.13
 ./scripts/build_markitdown_runtime.sh
 ./scripts/test_markitdown_runtime.sh
@@ -168,3 +174,9 @@ Nodebay is licensed under [GPL-3.0](LICENSE). Modified binary distributions must
 - Optional compression through separately installed [ImageOptim](https://imageoptim.com/mac)
 
 Nodebay does not fork or modify MarkItDown, yt-dlp, FFmpeg, or ImageOptim.
+
+## Contributing and support
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Use [SUPPORT.md](SUPPORT.md) for privacy-safe reporting guidance and [SECURITY.md](SECURITY.md) for private vulnerability disclosure.
+
+Nodebay is an independent project. Questions about the Boring Notch foundation should be directed to its [upstream repository](https://github.com/TheBoredTeam/boring.notch).

@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible Nodebay problem
+title: "[Bug] "
+labels: [bug, unconfirmed]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach private documents, cookies, downloaded media, credentials, sensitive filenames, or unsanitized logs. Security issues must use the private vulnerability-reporting process.
+  - type: input
+    id: version
+    attributes:
+      label: Nodebay version
+      placeholder: "For example: 0.1.0 (build 1)"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac model and architecture
+      placeholder: "For example: MacBook Pro, Apple Silicon"
+    validations:
+      required: true
+  - type: textarea
+    id: displays
+    attributes:
+      label: Display configuration
+      placeholder: "Built-in display, external displays, scaling, clamshell state"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: engines
+    attributes:
+      label: Relevant engine versions
+      placeholder: "MarkItDown, yt-dlp, FFmpeg, ImageOptim, or none"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove document contents, cookies, URLs, credentials, and personal paths.
+      render: shell
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I searched for duplicate reports.
+          required: true
+        - label: I removed private and identifying data.
+          required: true
+        - label: I confirmed whether original files remained unchanged and described any exception above.
+          required: true
+

@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use IO::Select;
+use IO::Socket::INET;
+
+my $host = "127.0.0.1";
+my $port = 47321;
+if (($ENV{"NODEBAY_BROWSER_BRIDGE_TEST"} // "") eq "1"
+    && ($ENV{"NODEBAY_BROWSER_BRIDGE_PORT"} // "") =~ /^\d+$/) {
+    $port = int($ENV{"NODEBAY_BROWSER_BRIDGE_PORT"});
+}
+
+binmode(STDIN, ":raw");
+binmode(STDOUT, ":raw");
+$| = 1;
+
+my $socket = IO::Socket::INET->new(
+    PeerAddr => $host,
+    PeerPort => $port,
+    Proto => "tcp",
+    Timeout => 2,
+);
+
+if (!$socket) {
+    write_native('{"type":"error","message":"Nodebay is not accepting local browser connections."}');
+    exit 1;
+}
+
+$socket->autoflush(1);
+write_all($socket, '{"type":"nativeHostConnected","extensionVersion":"0.1.0"}' . "\n");
+
+my $selector = IO::Select->new();
+$selector->add(\*STDIN);
+$selector->add($socket);
+my $stdin_buffer = "";
+my $socket_buffer = "";
+my $maximum_message = 1_048_576;
+
+while (1) {
+    for my $handle ($selector->can_read()) {
+        my $chunk = "";
+        my $count = sysread($handle, $chunk, 65_536);
+        exit 0 if !defined($count) || $count == 0;
+
+        if (fileno($handle) == fileno(STDIN)) {
+            $stdin_buffer .= $chunk;
+            while (length($stdin_buffer) >= 4) {
+                my $length = unpack("V", substr($stdin_buffer, 0, 4));
+                exit 2 if $length > $maximum_message;
+                last if length($stdin_buffer) < 4 + $length;
+                substr($stdin_buffer, 0, 4, "");
+                my $payload = substr($stdin_buffer, 0, $length, "");
+                write_all($socket, $payload . "\n");
+            }
+        } else {
+            $socket_buffer .= $chunk;
+            while ($socket_buffer =~ s/^(.*?)\n//s) {
+                my $payload = $1;
+                next if $payload eq "";
+                exit 3 if length($payload) > $maximum_message;
+                write_native($payload);
+            }
+        }
+    }
+}
+
+sub write_native {
+    my ($payload) = @_;
+    write_all(\*STDOUT, pack("V", length($payload)) . $payload);
+}
+
+sub write_all {
+    my ($handle, $data) = @_;
+    my $offset = 0;
+    while ($offset < length($data)) {
+        my $written = syswrite($handle, $data, length($data) - $offset, $offset);
+        exit 4 if !defined($written) || $written == 0;
+        $offset += $written;
+    }
+}

@@ -75,4 +75,12 @@ final class BNLunarBrightnessEvent: NSObject, NSSecureCoding {
         with reply: @escaping (String?) -> Void
     )
     func cancelApprovedProcess(_ jobID: String)
+    /// Installs only Nodebay's fixed Chrome native-messaging manifest.
+    func installBrowserBridgeManifest(
+        _ nativeHostPath: String,
+        extensionID: String,
+        with reply: @escaping (Bool, String?) -> Void
+    )
+    func removeBrowserBridgeManifest(with reply: @escaping (Bool, String?) -> Void)
+    func browserBridgeManifestStatus(with reply: @escaping (Bool, String?) -> Void)
 }

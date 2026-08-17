@@ -468,6 +468,86 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
         }
     }
 
+    // MARK: - Browser media bridge
+
+    private static let browserBridgeExtensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"
+    private static let browserBridgeHostName = "com.nodebay.browser_bridge"
+
+    @objc func installBrowserBridgeManifest(
+        _ nativeHostPath: String,
+        extensionID: String,
+        with reply: @escaping (Bool, String?) -> Void
+    ) {
+        guard extensionID == Self.browserBridgeExtensionID,
+              let executable = validatedBrowserBridgeExecutable(nativeHostPath)
+        else {
+            reply(false, "The bundled browser bridge failed validation.")
+            return
+        }
+
+        let manifest: [String: Any] = [
+            "name": Self.browserBridgeHostName,
+            "description": "Nodebay local browser media bridge",
+            "path": executable.path,
+            "type": "stdio",
+            "allowed_origins": ["chrome-extension://\(Self.browserBridgeExtensionID)/"],
+        ]
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            let directory = browserBridgeManifestURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try data.write(to: browserBridgeManifestURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: browserBridgeManifestURL.path)
+            reply(true, nil)
+        } catch {
+            reply(false, "Could not install the Chrome native host manifest: \(error.localizedDescription)")
+        }
+    }
+
+    @objc func removeBrowserBridgeManifest(with reply: @escaping (Bool, String?) -> Void) {
+        do {
+            if FileManager.default.fileExists(atPath: browserBridgeManifestURL.path) {
+                try FileManager.default.removeItem(at: browserBridgeManifestURL)
+            }
+            reply(true, nil)
+        } catch {
+            reply(false, "Could not remove the Chrome native host manifest: \(error.localizedDescription)")
+        }
+    }
+
+    @objc func browserBridgeManifestStatus(with reply: @escaping (Bool, String?) -> Void) {
+        guard let data = try? Data(contentsOf: browserBridgeManifestURL),
+              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              manifest["name"] as? String == Self.browserBridgeHostName,
+              let path = manifest["path"] as? String,
+              validatedBrowserBridgeExecutable(path) != nil,
+              let origins = manifest["allowed_origins"] as? [String],
+              origins == ["chrome-extension://\(Self.browserBridgeExtensionID)/"]
+        else {
+            reply(false, "Chrome native host is not installed.")
+            return
+        }
+        reply(true, nil)
+    }
+
+    private var browserBridgeManifestURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: "Library/Application Support/Google/Chrome/NativeMessagingHosts", directoryHint: .isDirectory)
+            .appending(path: "\(Self.browserBridgeHostName).json")
+    }
+
+    private func validatedBrowserBridgeExecutable(_ path: String) -> URL? {
+        guard path.hasPrefix("/"), path.utf8.count <= 2_048 else { return nil }
+        let url = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
+        let suffix = ".app/Contents/Resources/BrowserBridge/native/nodebay-browser-bridge"
+        guard url.path.contains(suffix),
+              url.lastPathComponent == "nodebay-browser-bridge",
+              FileManager.default.isExecutableFile(atPath: url.path)
+        else { return nil }
+        return url
+    }
+
     private func approvedExecutable(engine: String, path: String) -> URL? {
         guard path.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: path) else { return nil }
         let url = URL(fileURLWithPath: path).standardizedFileURL

@@ -273,14 +273,42 @@ struct BrowserBridgeProvider: ProcessingProvider {
         license: "GPL-3.0",
         runsLocally: true,
         requiresNetwork: false,
-        inputTypes: ["Approved browser tabs"],
+        inputTypes: ["YouTube tabs", "YouTube Music tabs"],
         outputTypes: ["Independent media sessions"],
-        pinnedVersion: nil,
+        pinnedVersion: BrowserMediaBridge.bridgeVersion,
         configurable: true
     )
 
     func diagnose() async -> EngineDiagnostic {
-        .unavailable("The optional browser extension and native bridge are not installed.")
+        let bridge = await MainActor.run { BrowserMediaBridge.shared }
+        await bridge.refreshInstallationStatus()
+        let status = await MainActor.run {
+            (
+                installed: bridge.isNativeHostInstalled,
+                connected: bridge.isConnected,
+                extensionVersion: bridge.extensionVersion,
+                sessions: bridge.sessions.count,
+                location: bridge.extensionDirectoryURL?.path,
+                error: bridge.lastError
+            )
+        }
+        if status.connected {
+            return .init(
+                availability: .installed,
+                version: status.extensionVersion ?? BrowserMediaBridge.bridgeVersion,
+                location: status.location ?? "Bundled with Nodebay",
+                message: "Connected locally with \(status.sessions) compatible browser tab(s)."
+            )
+        }
+        if status.installed {
+            return .init(
+                availability: .installed,
+                version: BrowserMediaBridge.bridgeVersion,
+                location: status.location ?? "Bundled with Nodebay",
+                message: "Native host installed. Load or enable the bundled Chrome extension to connect tabs."
+            )
+        }
+        return .unavailable(status.error ?? "Install the optional native host and bundled Chrome extension to enable browser tabs.")
     }
 }
 

@@ -13,6 +13,9 @@
 		D0DEB0040000000000000004 /* MediaDownloaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0140000000000000004 /* MediaDownloaderService.swift */; };
 		D0DEB0050000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0150000000000000005 /* PrivacyInfo.xcprivacy */; };
 		D0DEB0060000000000000006 /* Nodebay.icon in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0160000000000000006 /* Nodebay.icon */; };
+		D0DEB0070000000000000007 /* BrowserMediaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0170000000000000007 /* BrowserMediaBridge.swift */; };
+		D0DEB0080000000000000008 /* BrowserTabMediaController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0180000000000000008 /* BrowserTabMediaController.swift */; };
+		D0DEB0090000000000000009 /* BrowserBridge in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0190000000000000009 /* BrowserBridge */; };
 		C0D3A001A816202600000001 /* markitdown-runtime in Resources */ = {isa = PBXBuildFile; fileRef = C0D3A002A816202600000001 /* markitdown-runtime */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
@@ -292,6 +295,9 @@
 		1443E7F42C609E650027C1FC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D0DEB0150000000000000005 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D0DEB0160000000000000006 /* Nodebay.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = Nodebay.icon; path = Design/NodebayIcon/Nodebay.icon; sourceTree = SOURCE_ROOT; };
+		D0DEB0170000000000000007 /* BrowserMediaBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserMediaBridge.swift; sourceTree = "<group>"; };
+		D0DEB0180000000000000008 /* BrowserTabMediaController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabMediaController.swift; sourceTree = "<group>"; };
+		D0DEB0190000000000000009 /* BrowserBridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BrowserBridge; path = BrowserBridge; sourceTree = SOURCE_ROOT; };
 		147163972C5D35B70068B555 /* MusicVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicVisualizer.swift; sourceTree = "<group>"; };
 		147163992C5D35FF0068B555 /* MusicManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicManager.swift; sourceTree = "<group>"; };
 		1471A8582C6281BD0058408D /* BoringNotchWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoringNotchWindow.swift; sourceTree = "<group>"; };
@@ -473,6 +479,7 @@
 			isa = PBXGroup;
 			children = (
 				1132E5232E78D6DA0068732D /* YouTube Music Controller */,
+				D0DEB0180000000000000008 /* BrowserTabMediaController.swift */,
 				1153BD8D2D986B1F00979FB0 /* MediaControllerProtocol.swift */,
 				1153BD922D986E4300979FB0 /* AppleMusicController.swift */,
 				1153BD992D98824300979FB0 /* SpotifyController.swift */,
@@ -624,6 +631,7 @@
 		147163B52C5D804B0068B555 /* managers */ = {
 			isa = PBXGroup;
 			children = (
+				D0DEB0170000000000000007 /* BrowserMediaBridge.swift */,
 				11DB26652EDD0BE1001EA0CF /* LyricsService.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
@@ -655,6 +663,7 @@
 		14CEF4092C5CAED200855D72 = {
 			isa = PBXGroup;
 			children = (
+				D0DEB0190000000000000009 /* BrowserBridge */,
 				D0DEB0160000000000000006 /* Nodebay.icon */,
 				112B0EB62E30DD0F00562D6C /* mediaremote-adapter */,
 				14CEF4142C5CAED300855D72 /* boringNotch */,
@@ -988,6 +997,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0DEB0090000000000000009 /* BrowserBridge in Resources */,
 				D0DEB0060000000000000006 /* Nodebay.icon in Resources */,
 				C0D3A001A816202600000001 /* markitdown-runtime in Resources */,
 				D0DEB0050000000000000005 /* PrivacyInfo.xcprivacy in Resources */,
@@ -1014,6 +1024,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0DEB0070000000000000007 /* BrowserMediaBridge.swift in Sources */,
+				D0DEB0080000000000000008 /* BrowserTabMediaController.swift in Sources */,
 				D0DEB0030000000000000003 /* ImageOptimCompressionService.swift in Sources */,
 				D0DEB0040000000000000004 /* MediaDownloaderService.swift in Sources */,
 				D0DEB0010000000000000001 /* ProcessingProviderRegistry.swift in Sources */,

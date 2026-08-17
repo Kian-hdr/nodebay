@@ -427,4 +427,46 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
             return nil
         }
     }
+
+    nonisolated func installBrowserBridgeManifest(
+        nativeHostPath: String,
+        extensionID: String
+    ) async -> (success: Bool, message: String?) {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.installBrowserBridgeManifest(nativeHostPath, extensionID: extensionID) { success, message in
+                    continuation.resume(returning: (success, message))
+                }
+            }
+        } catch {
+            return (false, error.localizedDescription)
+        }
+    }
+
+    nonisolated func removeBrowserBridgeManifest() async -> (success: Bool, message: String?) {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.removeBrowserBridgeManifest { success, message in
+                    continuation.resume(returning: (success, message))
+                }
+            }
+        } catch {
+            return (false, error.localizedDescription)
+        }
+    }
+
+    nonisolated func browserBridgeManifestStatus() async -> (installed: Bool, message: String?) {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.browserBridgeManifestStatus { installed, message in
+                    continuation.resume(returning: (installed, message))
+                }
+            }
+        } catch {
+            return (false, error.localizedDescription)
+        }
+    }
 }

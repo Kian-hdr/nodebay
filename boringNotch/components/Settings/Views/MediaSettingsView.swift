@@ -5,6 +5,7 @@
 //  Created by Richard Kunkli on 07/08/2024.
 //
 
+import AppKit
 import Defaults
 import SwiftUI
 
@@ -18,6 +19,8 @@ struct Media: View {
 
     @Default(.enableLyrics) var enableLyrics
     @ObservedObject private var musicManager = MusicManager.shared
+    @ObservedObject private var browserBridge = BrowserMediaBridge.shared
+    @State private var bridgeActionInProgress = false
 
     var body: some View {
         Form {
@@ -33,13 +36,13 @@ struct Media: View {
                         object: nil
                     )
                 }
-                ForEach(musicManager.selectableMediaSources) { source in
+                ForEach(musicManager.selectableSourceChoices) { source in
                     HStack {
                         Circle()
                             .fill(source.isPlaying ? Color.green : (source.isAvailable ? Color.secondary : Color.red))
                             .frame(width: 7, height: 7)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(source.type.localizedString)
+                            Text(source.displayName)
                             if !source.title.isEmpty {
                                 Text(source.title)
                                     .font(.caption)
@@ -75,9 +78,57 @@ struct Media: View {
                     .foregroundStyle(.secondary)
                     .font(.caption)
                 }
-                Text("Nodebay keeps independent state for each available controller. Individual browser tabs are not exposed unless the optional local native-messaging bridge is installed and verified.")
+                Text("Nodebay keeps independent state for each controller and each connected compatible browser tab.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
+            }
+
+            Section {
+                LabeledContent("Native host") {
+                    Text(browserBridge.isNativeHostInstalled ? "Installed" : "Not installed")
+                        .foregroundStyle(browserBridge.isNativeHostInstalled ? .green : .secondary)
+                }
+                LabeledContent("Extension connection") {
+                    Text(browserBridge.isConnected ? "Connected" : "Not connected")
+                        .foregroundStyle(browserBridge.isConnected ? .green : .secondary)
+                }
+                if let version = browserBridge.extensionVersion {
+                    LabeledContent("Extension version", value: version)
+                }
+                LabeledContent("Compatible tabs", value: "\(browserBridge.sessions.count)")
+
+                HStack {
+                    Button(browserBridge.isNativeHostInstalled ? "Repair Native Host" : "Install Native Host") {
+                        bridgeActionInProgress = true
+                        Task {
+                            await browserBridge.installNativeHost()
+                            bridgeActionInProgress = false
+                        }
+                    }
+                    .disabled(bridgeActionInProgress || browserBridge.nativeHostExecutableURL == nil)
+
+                    Button("Show Extension in Finder") {
+                        browserBridge.revealExtension()
+                    }
+                    .disabled(browserBridge.extensionDirectoryURL == nil)
+
+                    Button("Open Chrome Extensions") {
+                        browserBridge.openChromeExtensions()
+                    }
+                }
+
+                if let error = browserBridge.lastError, !error.isEmpty {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                Text("Browser Media Tabs")
+            } footer: {
+                Text("Optional and local-only. Load the bundled extension in Chrome to expose only YouTube and YouTube Music tabs that contain playable media. Nodebay never receives browser history or cookies.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             
             Section {

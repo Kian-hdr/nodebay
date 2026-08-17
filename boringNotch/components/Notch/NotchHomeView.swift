@@ -318,26 +318,32 @@ private struct MediaSourcePicker: View {
 
     var body: some View {
         Menu {
-            ForEach(musicManager.selectableMediaSources) { source in
+            ForEach(musicManager.selectableSourceChoices) { source in
                 Button {
-                    musicManager.selectMediaSource(source.type)
+                    musicManager.selectMediaSource(source.id)
                 } label: {
                     Label {
                         Text(sourceLabel(source))
                     } icon: {
-                        Image(systemName: source.type == musicManager.activeSourceType ? "checkmark.circle.fill" : "circle")
+                        Image(systemName: source.id == musicManager.activeSourceID ? "checkmark.circle.fill" : "circle")
                     }
                 }
-                .disabled(!source.isAvailable && source.type != .nowPlaying)
+                .disabled(!source.isAvailable && !isSystemNowPlaying(source))
             }
 
             Divider()
-            Text("Browser tabs require the optional local bridge")
+            if BrowserMediaBridge.shared.isConnected {
+                Text("\(musicManager.browserMediaSessions.count) compatible browser tab(s)")
+            } else {
+                Text("Set up browser tabs in Media settings")
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "dot.radiowaves.left.and.right")
-                Text(musicManager.activeSourceType.localizedString)
+                Text(musicManager.activeSourceLabel)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 160, alignment: .leading)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
             }
@@ -346,15 +352,19 @@ private struct MediaSourcePicker: View {
             .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
-        .fixedSize()
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityLabel("Media source")
-        .accessibilityValue(musicManager.activeSourceType.localizedString)
+        .accessibilityValue(musicManager.activeSourceLabel)
     }
 
-    private func sourceLabel(_ source: MusicManager.MediaSourceState) -> String {
+    private func sourceLabel(_ source: MusicManager.MediaSourceChoice) -> String {
         let activity = source.isPlaying ? "Playing" : (source.isAvailable ? "Available" : "Unavailable")
         let track = source.title.isEmpty ? "" : ": \(source.title)"
-        return "\(source.type.localizedString), \(activity)\(track)"
+        return "\(source.displayName), \(activity)\(track)"
+    }
+
+    private func isSystemNowPlaying(_ source: MusicManager.MediaSourceChoice) -> Bool {
+        source.controllerType == .nowPlaying
     }
 }
 

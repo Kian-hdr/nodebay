@@ -15,6 +15,29 @@ let defaultImage: NSImage = .init(
 )!
 
 class MusicManager: ObservableObject {
+    enum MediaSourceID: Hashable, Identifiable {
+        case controller(MediaControllerType)
+        case browserTab(String)
+
+        var id: String {
+            switch self {
+            case .controller(let type): "controller:\(type.rawValue)"
+            case .browserTab(let id): "browser:\(id)"
+            }
+        }
+    }
+
+    struct MediaSourceChoice: Identifiable {
+        let id: MediaSourceID
+        let displayName: String
+        let title: String
+        let artist: String
+        let bundleIdentifier: String?
+        let isPlaying: Bool
+        let isAvailable: Bool
+        let controllerType: MediaControllerType?
+    }
+
     struct MediaSourceState: Identifiable {
         let type: MediaControllerType
         let title: String
@@ -30,6 +53,8 @@ class MusicManager: ObservableObject {
     static let shared = MusicManager()
     private var cancellables = Set<AnyCancellable>()
     private var controllerCancellables: [MediaControllerType: Set<AnyCancellable>] = [:]
+    private var browserControllers: [String: BrowserTabMediaController] = [:]
+    private var browserControllerCancellables: [String: Set<AnyCancellable>] = [:]
     private var debounceIdleTask: Task<Void, Never>?
 
     // Helper to check if macOS has removed support for NowPlayingController
@@ -41,6 +66,8 @@ class MusicManager: ObservableObject {
     private var activeController: (any MediaControllerProtocol)?
     @Published private(set) var mediaSourceStates: [MediaControllerType: MediaSourceState] = [:]
     @Published private(set) var activeSourceType: MediaControllerType = Defaults[.mediaController]
+    @Published private(set) var activeSourceID: MediaSourceID = .controller(Defaults[.mediaController])
+    @Published private(set) var browserMediaSessions: [BrowserMediaSession] = []
 
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
@@ -88,6 +115,13 @@ class MusicManager: ObservableObject {
 
     // MARK: - Initialization
     init() {
+        BrowserMediaBridge.shared.$sessions
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] sessions in
+                self?.syncBrowserSessions(sessions)
+            }
+            .store(in: &cancellables)
+
         // Listen for changes to the default controller preference
         NotificationCenter.default.publisher(for: Notification.Name.mediaControllerChanged)
             .sink { [weak self] _ in
@@ -118,6 +152,7 @@ class MusicManager: ObservableObject {
         debounceIdleTask?.cancel()
         cancellables.removeAll()
         controllerCancellables.removeAll()
+        browserControllerCancellables.removeAll()
         flipWorkItem?.cancel()
         transitionWorkItem?.cancel()
 
@@ -129,6 +164,7 @@ class MusicManager: ObservableObject {
 
         activeController = nil
         controllers.removeAll()
+        browserControllers.removeAll()
     }
 
     // MARK: - Setup Methods
@@ -168,7 +204,7 @@ class MusicManager: ObservableObject {
                         isPlaying: state.isPlaying,
                         isAvailable: controller.isActive()
                     )
-                    if self.activeSourceType == type {
+                    if self.activeSourceID == .controller(type) {
                         self.updateFromPlaybackState(state)
                     }
                 }
@@ -224,6 +260,7 @@ class MusicManager: ObservableObject {
         // Set new active controller
         activeController = controller
         activeSourceType = type
+        activeSourceID = .controller(type)
         
         self.canFavoriteTrack = controller.supportsFavorite
 
@@ -237,6 +274,59 @@ class MusicManager: ObservableObject {
               let controller = createController(for: type) else { return }
         Defaults[.mediaController] = type
         setActiveController(controller, type: type)
+    }
+
+    @MainActor
+    func selectMediaSource(_ id: MediaSourceID) {
+        switch id {
+        case .controller(let type):
+            selectMediaSource(type)
+        case .browserTab(let sessionID):
+            guard let controller = browserControllers[sessionID], controller.isActive() else { return }
+            flipWorkItem?.cancel()
+            activeController = controller
+            activeSourceID = .browserTab(sessionID)
+            canFavoriteTrack = false
+            volumeControlSupported = controller.supportsVolumeControl
+            updateFromPlaybackState(controller.session.playbackState)
+        }
+    }
+
+    var activeSourceLabel: String {
+        switch activeSourceID {
+        case .controller(let type):
+            return type.localizedString
+        case .browserTab(let id):
+            return browserMediaSessions.first(where: { $0.id == id })?.displayName ?? "Browser tab"
+        }
+    }
+
+    var selectableSourceChoices: [MediaSourceChoice] {
+        let controllerChoices = selectableMediaSources.map { source in
+            MediaSourceChoice(
+                id: .controller(source.type),
+                displayName: source.type.localizedString,
+                title: source.title,
+                artist: source.artist,
+                bundleIdentifier: source.bundleIdentifier,
+                isPlaying: source.isPlaying,
+                isAvailable: source.isAvailable,
+                controllerType: source.type
+            )
+        }
+        let browserChoices = browserMediaSessions.map { session in
+            MediaSourceChoice(
+                id: .browserTab(session.id),
+                displayName: session.displayName,
+                title: session.title,
+                artist: session.artist,
+                bundleIdentifier: "com.google.Chrome",
+                isPlaying: session.isPlaying,
+                isAvailable: true,
+                controllerType: nil
+            )
+        }
+        return controllerChoices + browserChoices
     }
 
     var selectableMediaSources: [MediaSourceState] {
@@ -260,6 +350,38 @@ class MusicManager: ObservableObject {
                 isPlaying: false,
                 isAvailable: false
             )
+        }
+    }
+
+    private func syncBrowserSessions(_ sessions: [BrowserMediaSession]) {
+        browserMediaSessions = sessions
+        let currentIDs = Set(sessions.map(\.id))
+
+        for session in sessions {
+            if let controller = browserControllers[session.id] {
+                controller.update(session: session)
+                continue
+            }
+
+            let controller = BrowserTabMediaController(session: session)
+            browserControllers[session.id] = controller
+            browserControllerCancellables[session.id] = []
+            controller.playbackStatePublisher
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] state in
+                    guard let self, self.activeSourceID == .browserTab(session.id) else { return }
+                    self.updateFromPlaybackState(state)
+                }
+                .store(in: &browserControllerCancellables[session.id, default: []])
+        }
+
+        for id in Set(browserControllers.keys).subtracting(currentIDs) {
+            browserControllers[id]?.markUnavailable()
+            browserControllers.removeValue(forKey: id)
+            browserControllerCancellables.removeValue(forKey: id)
+            if activeSourceID == .browserTab(id) {
+                setActiveControllerBasedOnPreference()
+            }
         }
     }
 

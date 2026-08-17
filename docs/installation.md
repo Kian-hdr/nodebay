@@ -6,10 +6,11 @@ Nodebay currently requires Apple Silicon and macOS 15 Sequoia or later.
 
 ```bash
 brew tap Kian-hdr/nodebay
+brew trust --cask Kian-hdr/nodebay/nodebay
 brew install --cask nodebay
 ```
 
-Equivalent one-line form:
+After the one-time trust step, the fully qualified install is:
 
 ```bash
 brew install --cask Kian-hdr/nodebay/nodebay

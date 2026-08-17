@@ -21,10 +21,11 @@ All links now point to the canonical Nodebay source, releases, issue tracker, GP
 
 ```bash
 brew tap Kian-hdr/nodebay
+brew trust --cask Kian-hdr/nodebay/nodebay
 brew install --cask nodebay
 ```
 
-Or:
+Homebrew 6 requires the one-time trust command for casks from third-party taps. After it is set, the fully qualified install is:
 
 ```bash
 brew install --cask Kian-hdr/nodebay/nodebay

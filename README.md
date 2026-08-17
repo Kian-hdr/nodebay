@@ -95,8 +95,12 @@ Download ImageOptim from its [official website](https://imageoptim.com/mac).
 Install the signed and notarized Apple Silicon release with Homebrew:
 
 ```bash
+brew tap Kian-hdr/nodebay
+brew trust --cask Kian-hdr/nodebay/nodebay
 brew install --cask Kian-hdr/nodebay/nodebay
 ```
+
+Homebrew 6 requires the one-time `brew trust` command for casks from third-party taps. It trusts only the Nodebay cask, not every package in the tap.
 
 See [Homebrew installation](docs/homebrew.md) and the [release packaging details](docs/homebrew-nodebay.md).
 

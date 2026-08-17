@@ -13,6 +13,7 @@ import Sparkle
 class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
     private var updaterController: SPUStandardUpdaterController?
+    private var isExplicitPresentation = false
     
     private init() {
         let window = NSWindow(
@@ -53,8 +54,11 @@ class SettingsWindowController: NSWindowController {
         window.hidesOnDeactivate = false
         window.isExcludedFromWindowsMenu = false
         
-        // Configure window to be a standard document-style window
-        window.isRestorable = true
+        // Settings are transient UI. Restoring this window can make it appear
+        // after launch, wake, or app activation without a user request.
+        window.isRestorable = false
+        window.restorationClass = nil
+        window.disableSnapshotRestoration()
         window.identifier = NSUserInterfaceItemIdentifier("NodebaySettingsWindow")
         
         // Create the SwiftUI content
@@ -67,6 +71,8 @@ class SettingsWindowController: NSWindowController {
     }
     
     func showWindow() {
+        isExplicitPresentation = true
+
         // Set app to regular mode first
         NSApp.setActivationPolicy(.regular)
         
@@ -98,6 +104,7 @@ class SettingsWindowController: NSWindowController {
     }
     
     private func relinquishFocus() {
+        isExplicitPresentation = false
         window?.orderOut(nil)
         
         // Set app back to accessory mode immediately
@@ -115,6 +122,12 @@ extension SettingsWindowController: NSWindowDelegate {
     }
     
     func windowDidBecomeKey(_ notification: Notification) {
+        guard isExplicitPresentation else {
+            window?.orderOut(nil)
+            NSApp.setActivationPolicy(.accessory)
+            return
+        }
+
         // Ensure app is in regular mode when window becomes key
         NSApp.setActivationPolicy(.regular)
     }

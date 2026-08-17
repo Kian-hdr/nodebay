@@ -12,7 +12,7 @@ Nodebay welcomes focused code, documentation, accessibility, design, and testing
 6. Open a pull request into `dev` with screenshots for visible changes.
 
 ```bash
-python3 -m unittest discover -s Tests -p 'test_*.py' -v
+python3 -m unittest discover -s tests -p 'test_*.py' -v
 python3 scripts/generate_nodebay_notices.py --check
 zsh -n scripts/*.sh
 xcodebuild \

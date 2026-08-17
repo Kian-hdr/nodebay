@@ -6,6 +6,8 @@ Nodebay is a native, local-first macOS utility bay for MacBook displays with a p
 
 Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch) at exact commit [`44dd999f70493da48209c99e9f873c47f2e55c83`](https://github.com/TheBoredTeam/boring.notch/commit/44dd999f70493da48209c99e9f873c47f2e55c83). The original project and contributors remain credited. Nodebay is GPL-3.0 software and is not affiliated with or endorsed by Microsoft, YouTube, ImageOptim, Spotify, Apple, or the other service and engine providers it can work with.
 
+Created by **Kian Konrad Tajbakhsh**.
+
 ## Current release status
 
 Nodebay is under release preparation. No public Nodebay release, Homebrew tap, update feed, browser bridge, or pull request has been published from this branch. Reproducible build and cask templates are included, but publication requires explicit final approval after review of the artifact, checksum, screenshots, notices, and verification report.
@@ -67,7 +69,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
 | Browser media bridge | Not shipped | Optional future extension and native bridge | Intended | No server |
 
-Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES_NODEBAY.md](THIRD_PARTY_NOTICES_NODEBAY.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
+Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
 
 ## Requirements
 
@@ -190,3 +192,11 @@ Nodebay does not fork or modify MarkItDown, yt-dlp, FFmpeg, or ImageOptim.
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Use [SUPPORT.md](SUPPORT.md) for privacy-safe reporting guidance and [SECURITY.md](SECURITY.md) for private vulnerability disclosure.
 
 Nodebay is an independent project. Questions about the Boring Notch foundation should be directed to its [upstream repository](https://github.com/TheBoredTeam/boring.notch).
+
+## Documentation
+
+- [Installation](docs/installation.md), [Homebrew](docs/homebrew.md), and [permissions](docs/permissions.md)
+- [Privacy and security](docs/privacy-and-security.md), [architecture](docs/architecture.md), and [troubleshooting](docs/troubleshooting.md)
+- [Building from source](docs/building-from-source.md) and [reproducible release process](docs/release-process.md)
+- [Migration from Boring Notch](docs/migration-from-boring-notch.md), [acknowledgements](ACKNOWLEDGEMENTS.md), and [changelog](CHANGELOG.md)
+- [Security reports](SECURITY.md), [issue reporting](https://github.com/Kian-hdr/nodebay/issues), and [releases](https://github.com/Kian-hdr/nodebay/releases)

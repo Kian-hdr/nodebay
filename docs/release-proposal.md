@@ -1,4 +1,4 @@
-# Nodebay 0.1.0 current release proposal
+# Nodebay 0.1.1 final publication proposal
 
 This document records the current state and remaining approval-gated work. It does not authorize external publication by itself.
 
@@ -13,26 +13,29 @@ This document records the current state and remaining approval-gated work. It do
 - Public Homebrew tap: not created
 - Obsolete repositories: archived and still public pending the requested visibility change
 
-## Proposed source update
+## Root cause and proposed source update
 
-Publish the reviewed browser-media feature commits to `dev`, open a release pull request from `dev` to `main`, and merge only after the checks and final copy are approved. The update adds an optional first-party Chrome bridge for independently selecting compatible YouTube and YouTube Music tabs. It does not modify or fork any processing engine.
+The installed Developer ID build had a stable designated requirement, but macOS Accessibility still held an older ad-hoc CDHash. The running executable therefore failed `AXIsProcessTrusted()`, so Nodebay never created its modifying media-key event tap. The release detects that authorization change, presents one reauthorization path, monitors the current signed executable, and automatically recreates a missing or disabled event tap after wake, activation, and display changes.
+
+The HUD now routes to Nodebay's configured display mode, passes unsupported controls through to macOS, exposes privacy-safe diagnostics, and retains the existing BetterDisplay and Lunar companion behavior for external brightness. About Nodebay links now use the canonical repository and `main` branch.
 
 ## Proposed release
 
-- Tag: `nodebay-v0.1.0`
-- Application archive: `Nodebay-0.1.0-arm64.zip`
-- Checksum file: `Nodebay-0.1.0-checksums.txt`
+- Tag: `nodebay-v0.1.1`
+- Application version and build: `0.1.1 (2)`
+- Application archive: `Nodebay-0.1.1-arm64.zip`
+- Checksum file: `Nodebay-0.1.1-checksums.txt`
 - Architecture: Apple Silicon
 - Minimum macOS: 15.0
 - Signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)`
 
-The exact Developer ID candidate must be submitted to Apple, notarized, stapled, re-zipped, and verified before its final SHA-256 can be placed in the Homebrew cask. No unnotarized archive should be advertised as the public Homebrew release.
+Apple accepted notarization submission `d75f3e51-238c-4e83-973f-cdfffcd16881`. The ticket is stapled, `spctl` reports `Notarized Developer ID`, and the final archive passes deep signature, hardened-runtime, timestamp, designated-requirement, architecture, version, notice, staple, and Gatekeeper checks.
 
-Current pre-notarization candidate SHA-256: `94a49fe621eaf1d1b9fa5dedabeca56d17dd3e294b2308d2ff71f44593c3ce47`. This value will change after stapling and re-zipping.
+Final SHA-256: `c497711aebcc549666f5f607e1c6c789d70c28d2636352ed918409f7197fb2a7`.
 
 ## Proposed Homebrew publication
 
-Create public `Kian-hdr/homebrew-nodebay` with the reviewed `Casks/nodebay.rb` and README. The cask must install exactly `Nodebay.app`, use the final notarized archive checksum, require Apple Silicon and macOS 15, and preserve normal quarantine behavior.
+Create public `Kian-hdr/homebrew-nodebay` with the reviewed `Casks/nodebay.rb` and README. The cask installs exactly `Nodebay.app`, uses the final notarized archive checksum, requires Apple Silicon and macOS 15, and preserves normal quarantine behavior.
 
 ```bash
 brew tap Kian-hdr/nodebay
@@ -46,10 +49,6 @@ The fully qualified equivalent is `brew install --cask Kian-hdr/nodebay/nodebay`
 - `Kian-hdr/homebrew-boring-notch-markitdown` can change directly from archived public to archived private.
 - `Kian-hdr/boring.notch` is a public fork. GitHub requires it to leave the fork network before it can become private. Detachment is permanent, preserves Git commit metadata, and removes the fork relationship. The repository currently has no issues, pull requests, releases, child forks, stars, or watchers.
 
-## Remaining gates
+## Remaining gate
 
-1. Explicit confirmation for Chrome extension installation and live multi-tab verification.
-2. Apple notarization credentials or an already configured `notarytool` profile.
-3. Final post-notarization archive verification and SHA-256 calculation.
-4. Final review of the tag, release notes, cask, social-preview upload, repository visibility changes, and public destinations.
-5. Explicit approval immediately before public writes and access changes.
+Review the exact commits, release text, artifact, checksum, Homebrew cask, results, and limitations, then obtain explicit approval immediately before public writes. No push, tag, release, tap creation, or Homebrew publication occurs before that approval.

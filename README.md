@@ -10,11 +10,11 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay is under release preparation. No release, Homebrew tap, update feed, or pull request has been published from this feature branch. The optional Browser Media Bridge is implemented locally but has not been published from this branch. Reproducible build and cask templates are included, and further publication still requires explicit final approval.
+Nodebay 0.1.1 is the current Apple Silicon release. Its archive is Developer ID signed, notarized by Apple, stapled, and distributed through GitHub Releases and the official Homebrew tap. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
 
 ## Screenshots
 
-These privacy-safe dark-mode screenshots come from an ad-hoc signed Release QA copy built from the same source as the Developer ID candidate. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after the explicit Chrome installation and end-to-end UI verification pass.
+These privacy-safe dark-mode screenshots come from the release source. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after an explicit Chrome installation and end-to-end UI verification pass.
 
 | Local engines and conversion | Downloads and safe image copies |
 |---|---|
@@ -91,17 +91,15 @@ Download ImageOptim from its [official website](https://imageoptim.com/mac).
 
 ## Installation
 
-There is no approved public Nodebay binary yet. Build the current branch from source or use the locally produced artifact after reviewing it.
-
-The proposed public Homebrew command, after a release and tap are approved and published, is:
+Install the signed and notarized Apple Silicon release with Homebrew:
 
 ```bash
 brew install --cask Kian-hdr/nodebay/nodebay
 ```
 
-See [Homebrew installation](docs/homebrew.md) and the [release packaging details](docs/homebrew-nodebay.md). This command is intentionally documented as proposed and will not work until the approved public release and tap exist.
+See [Homebrew installation](docs/homebrew.md) and the [release packaging details](docs/homebrew-nodebay.md).
 
-After the first approved GitHub release is published, direct installation will be available from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases). Download the Apple Silicon archive, move `Nodebay.app` to Applications, and verify the published SHA-256 checksum. This link is prepared in advance and contains no Nodebay release yet.
+For manual installation, download the Apple Silicon archive from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases), verify the published SHA-256 checksum, and move `Nodebay.app` to Applications.
 
 ## Build from source
 

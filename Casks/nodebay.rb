@@ -1,7 +1,6 @@
 cask "nodebay" do
-  version "0.1.0"
-  # Pre-notarization candidate. Replace after stapling and re-zipping.
-  sha256 "94a49fe621eaf1d1b9fa5dedabeca56d17dd3e294b2308d2ff71f44593c3ce47"
+  version "0.1.1"
+  sha256 "c497711aebcc549666f5f607e1c6c789d70c28d2636352ed918409f7197fb2a7"
 
   url "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v#{version}/Nodebay-#{version}-arm64.zip"
   name "Nodebay"

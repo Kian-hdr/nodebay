@@ -1,6 +1,6 @@
 # Homebrew
 
-The proposed public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed Apple Silicon GitHub release.
+The official public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed, notarized Apple Silicon GitHub release.
 
 ```bash
 brew tap Kian-hdr/nodebay

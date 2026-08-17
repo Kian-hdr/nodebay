@@ -2,7 +2,7 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
-## [Unreleased]
+## [0.1.1] - 2026-08-17
 
 ### Added
 
@@ -18,10 +18,13 @@ All notable Nodebay changes are recorded here. The project follows semantic vers
 ### Changed
 
 - User-facing product identity migrated from Boring Notch to Nodebay while retaining migration-safe internal identifiers.
+- HUD interception now checks Accessibility for the signed main executable, recovers after event-tap disablement and lifecycle changes, and follows Nodebay's configured display placement.
+- Unsupported volume, brightness, and keyboard-backlight events pass through to macOS instead of being swallowed.
+- About Nodebay now links to the canonical source, releases, issues, license, acknowledgements, third-party notices, privacy policy, security policy, and Boring Notch upstream.
 
 ### Security
 
 - External processes use structured arguments, allowlisted executables, bounded output, cancellation, and no shell interpolation.
 - The browser bridge uses native messaging, loopback-only transport, a fixed control allowlist, and site access limited to YouTube and YouTube Music.
 
-No public Nodebay version has been released yet.
+This is the first public Nodebay release.

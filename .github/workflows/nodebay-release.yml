@@ -114,4 +114,4 @@ jobs:
             "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt" \
             --verify-tag \
             --title "Nodebay $VERSION for Apple Silicon" \
-            --notes-file docs/release-notes-nodebay-0.1.0.md
+            --notes-file docs/release-notes-nodebay-0.1.1.md

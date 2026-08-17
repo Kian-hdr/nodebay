@@ -1,10 +1,8 @@
 # Homebrew distribution
 
-Nodebay is prepared as an Apple Silicon cask. It is not published yet.
+Nodebay is distributed as an Apple Silicon cask through `Kian-hdr/homebrew-nodebay`.
 
-## Proposed installation
-
-After a signed or explicitly approved public release and tap are created, the intended command is:
+## Installation
 
 ```bash
 brew install --cask Kian-hdr/nodebay/nodebay
@@ -18,7 +16,7 @@ The cask installs `Nodebay.app` into `/Applications` and verifies the release ar
 ./scripts/package_homebrew_arm64.sh
 ```
 
-The script rebuilds and tests the pinned MarkItDown 0.1.7 runtime, performs a clean Release build outside file-provider storage, validates both arm64 executables, and produces a ZIP plus SHA-256 file under `build/nodebay-homebrew-arm64-release/`. It uses an ad-hoc signature by default for local verification.
+The script rebuilds and tests the pinned MarkItDown 0.1.7 runtime, performs a clean Release build outside file-provider storage, validates the Apple Silicon application and runtime, and produces a ZIP plus SHA-256 file under `build/nodebay-homebrew-arm64-release/`. It uses an ad-hoc signature by default for local verification.
 
 For a public candidate, provide the installed Developer ID identity and team:
 
@@ -28,7 +26,7 @@ DEVELOPMENT_TEAM="TEAMID" \
 ./scripts/package_homebrew_arm64.sh
 ```
 
-This signs the application, XPC service, and bundled MarkItDown Mach-O components with the hardened runtime. Notarization and stapling remain separate approval-gated release steps.
+This signs the application, XPC service, frameworks, nested updater tools, MediaRemoteAdapter client, and bundled MarkItDown Mach-O components with the hardened runtime and secure timestamps. Notarization and stapling remain separate approval-gated release steps.
 
 Before public distribution, verify the final cask checksum and download URL, notarize and staple the app, and rerun the complete release checklist. Publication requires the repository owner's explicit final approval.
 

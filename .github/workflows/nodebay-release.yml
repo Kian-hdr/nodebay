@@ -45,8 +45,18 @@ jobs:
           test "$GITHUB_REF_NAME" = "nodebay-v$VERSION"
           test "$(git status --porcelain)" = ""
 
-      - name: Install reproducible toolchain
-        run: brew install python@3.13
+      - name: Install pinned Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: 3.13.15
+
+      - name: Stage pinned CPython license
+        run: |
+          license="$RUNNER_TEMP/cpython-3.13.15-LICENSE"
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/python/cpython/v3.13.15/LICENSE \
+            --output "$license"
+          echo "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb  $license" | shasum -a 256 --check
 
       - name: Install Developer ID certificate
         env:
@@ -70,6 +80,8 @@ jobs:
           RELEASE_TAG: nodebay-v${{ inputs.version }}
           SIGNING_IDENTITY: "Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)"
           DEVELOPMENT_TEAM: HZWY8HT54D
+          PYTHON_COMMAND: ${{ env.pythonLocation }}/bin/python3
+          PYTHON_LICENSE: ${{ runner.temp }}/cpython-3.13.15-LICENSE
         run: ./scripts/package_homebrew_arm64.sh
 
       - name: Notarize and staple

@@ -31,14 +31,19 @@ struct ShelfDropService {
     }
     
     private static func processProvider(_ provider: NSItemProvider) async -> [ShelfItem] {
-        if let actualFileURL = await provider.extractFileURL() {
-            if let internetURL = internetShortcutURL(at: actualFileURL) {
-                return [await ShelfItem(kind: .link(url: internetURL), isTemporary: false)]
+        if let droppedFile = await provider.extractDroppedFileReference() {
+            let bookmark = Bookmark(data: droppedFile.bookmarkData)
+            if let accessibleURL = bookmark.resolvedURL {
+                let didStartAccessing = accessibleURL.startAccessingSecurityScopedResource()
+                let internetURL = internetShortcutURL(at: accessibleURL)
+                if didStartAccessing {
+                    accessibleURL.stopAccessingSecurityScopedResource()
+                }
+                if let internetURL {
+                    return [await ShelfItem(kind: .link(url: internetURL), isTemporary: false)]
+                }
             }
-            if let bookmark = createBookmark(for: actualFileURL) {
-                return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
-            }
-            return []
+            return [await ShelfItem(kind: .file(bookmark: droppedFile.bookmarkData), isTemporary: false)]
         }
         
         if let url = await provider.extractURL() {
@@ -76,12 +81,6 @@ struct ShelfDropService {
                 return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: true)]
             }
             return []
-        }
-        
-        if let fileURL = await provider.extractItem() {
-            if let bookmark = createBookmark(for: fileURL) {
-                return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
-            }
         }
         
         return []

@@ -10,7 +10,64 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+struct DroppedFileReference: Sendable {
+    let url: URL
+    let bookmarkData: Data
+}
+
 extension NSItemProvider {
+    /// Captures a persistent bookmark while the item-provider completion
+    /// handler still owns the drag's temporary sandbox extension. This is
+    /// required for files on external volumes, whose transient access may be
+    /// revoked before an asynchronously returned URL is used by the shelf.
+    func extractDroppedFileReference() async -> DroppedFileReference? {
+        let identifiers = [
+            UTType.fileURL.identifier,
+            UTType.url.identifier,
+            UTType.item.identifier,
+        ]
+
+        for identifier in identifiers where hasItemConformingToTypeIdentifier(identifier) {
+            if let reference = await loadDroppedFileReference(typeIdentifier: identifier) {
+                return reference
+            }
+        }
+        return nil
+    }
+
+    private func loadDroppedFileReference(typeIdentifier: String) async -> DroppedFileReference? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<DroppedFileReference?, Never>) in
+            loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, error in
+                guard error == nil,
+                      let url = Self.fileURL(fromProviderItem: item),
+                      url.isFileURL else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let didStartAccessing = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                do {
+                    let bookmark = try Bookmark(url: url)
+                    continuation.resume(
+                        returning: DroppedFileReference(url: url, bookmarkData: bookmark.data)
+                    )
+                } catch {
+                    NSLog(
+                        "Nodebay could not retain a dropped file reference (%@:%ld)",
+                        (error as NSError).domain,
+                        (error as NSError).code
+                    )
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
     
     func extractItem() async -> URL? {
         return await loadFileURL(typeIdentifier: UTType.item.identifier)
@@ -108,35 +165,36 @@ extension NSItemProvider {
                     cont.resume(returning: nil)
                     return
                 }
-                var resolvedURL: URL?
-                if let url = item as? URL {
-                    // Direct URL provided
-                    resolvedURL = url
-                } else if let data = item as? Data {
-                    // Some providers hand out a UTF-8 file URL string, others a bookmark. Prefer parsing string first.
-                    if let string = String(data: data, encoding: .utf8) {
-                        if let url = URL(string: string) {
-                            resolvedURL = url
-                        } else if string.hasPrefix("/") {
-                            // Plain file system path
-                            resolvedURL = URL(fileURLWithPath: string)
-                        }
-                    }
-                    if resolvedURL == nil {
-                        // Fallback: try treating the data as a bookmark
-                        let bookmark = Bookmark(data: data)
-                        resolvedURL = bookmark.resolvedURL
-                    }
-                } else if let string = item as? String {
-                    if let url = URL(string: string) {
-                        resolvedURL = url
-                    } else if string.hasPrefix("/") {
-                        resolvedURL = URL(fileURLWithPath: string)
-                    }
-                }
-                cont.resume(returning: resolvedURL)
+                cont.resume(returning: Self.fileURL(fromProviderItem: item))
             }
         }
+    }
+
+    private static func fileURL(fromProviderItem item: NSSecureCoding?) -> URL? {
+        if let url = item as? URL {
+            return url.isFileURL ? url.standardizedFileURL : nil
+        }
+        if let string = item as? String {
+            return fileURL(fromProviderString: string)
+        }
+        if let data = item as? Data {
+            if let string = String(data: data, encoding: .utf8),
+               let url = fileURL(fromProviderString: string) {
+                return url
+            }
+            return Bookmark(data: data).resolvedURL?.standardizedFileURL
+        }
+        return nil
+    }
+
+    private static func fileURL(fromProviderString value: String) -> URL? {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines.union(.controlCharacters))
+        guard !value.isEmpty else { return nil }
+        if value.hasPrefix("/") {
+            return URL(fileURLWithPath: value).standardizedFileURL
+        }
+        guard let url = URL(string: value), url.isFileURL else { return nil }
+        return url.standardizedFileURL
     }
 
     /// Loads a URL from the provider for the given type identifier.

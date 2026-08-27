@@ -32,7 +32,7 @@ jobs:
           python-version: 3.13.15
 
       - name: Install companion tools
-        run: brew install yt-dlp ffmpeg
+        run: brew install ripgrep yt-dlp ffmpeg
 
       - name: Stage pinned CPython license
         run: |

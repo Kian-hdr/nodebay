@@ -50,6 +50,9 @@ jobs:
         with:
           python-version: 3.13.15
 
+      - name: Install release utilities
+        run: brew install ripgrep
+
       - name: Stage pinned CPython license
         run: |
           license="$RUNNER_TEMP/cpython-3.13.15-LICENSE"

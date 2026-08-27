@@ -17,7 +17,7 @@ permissions:
 jobs:
   verify:
     name: Apple Silicon build and verification
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - name: Checkout

@@ -13,7 +13,11 @@ struct ShelfView: View {
     @EnvironmentObject var vm: BoringViewModel
     @StateObject var tvm = ShelfStateViewModel.shared
     @StateObject var selection = ShelfSelectionModel.shared
+    @StateObject private var downloadCoordinator = DownloadCoordinator.shared
     @StateObject private var quickLookService = QuickLookService()
+    @State private var showsAddLink = false
+    @State private var linkDraft = ""
+    @State private var addLinkInteractionActive = false
     private let spacing: CGFloat = 8
 
     var body: some View {
@@ -68,6 +72,16 @@ struct ShelfView: View {
         .onChange(of: vm.notchState) { _, _ in
             tvm.dismissRemovalNotice()
         }
+        .onChange(of: showsAddLink) { _, isPresented in
+            if isPresented {
+                beginAddLinkInteractionIfNeeded()
+            } else {
+                endAddLinkInteractionIfNeeded()
+            }
+        }
+        .onDisappear {
+            endAddLinkInteractionIfNeeded()
+        }
         // Bind Quick Look to shelf selection
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
@@ -119,11 +133,75 @@ struct ShelfView: View {
                 content
                     .padding()
             }
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    if showsAddLink {
+                        showsAddLink = false
+                    } else {
+                        // The popover is a separate window outside the notch's
+                        // hover region, so acquire the lease before presenting.
+                        beginAddLinkInteractionIfNeeded()
+                        showsAddLink = true
+                    }
+                } label: {
+                    Image(systemName: "link.badge.plus")
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .padding(8)
+                .help("Add media link")
+                .accessibilityLabel("Add media download link")
+                .popover(isPresented: $showsAddLink, arrowEdge: .top) {
+                    addLinkPopover
+                }
+            }
             .transaction { transaction in
                 transaction.animation = vm.animation
             }
             .contentShape(Rectangle())
             .onTapGesture { selection.clear() }
+    }
+
+    private var addLinkPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Add Download").font(.headline)
+            Text("Paste one or more HTTP or HTTPS media links.")
+                .font(.caption).foregroundStyle(.secondary)
+            TextEditor(text: $linkDraft)
+                .font(.body)
+                .frame(width: 320, height: 90)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
+                .accessibilityLabel("Media links")
+            HStack {
+                Spacer()
+                Button("Cancel") { showsAddLink = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Inspect") {
+                    let urls = MediaDownloaderService.validatedURLs(in: linkDraft)
+                    guard !urls.isEmpty else { return }
+                    downloadCoordinator.add(urls: urls)
+                    linkDraft = ""
+                    showsAddLink = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(MediaDownloaderService.validatedURLs(in: linkDraft).isEmpty)
+            }
+        }
+        .padding(14)
+    }
+
+    private func beginAddLinkInteractionIfNeeded() {
+        guard !addLinkInteractionActive else { return }
+        addLinkInteractionActive = true
+        SharingStateManager.shared.beginInteraction()
+    }
+
+    private func endAddLinkInteractionIfNeeded() {
+        guard addLinkInteractionActive else { return }
+        addLinkInteractionActive = false
+        SharingStateManager.shared.endInteraction()
     }
 
     var content: some View {

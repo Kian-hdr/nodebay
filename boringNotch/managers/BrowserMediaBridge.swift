@@ -5,6 +5,7 @@ import Network
 struct BrowserMediaSession: Identifiable, Hashable {
     let id: String
     let tabID: Int
+    let pageURL: URL?
     let browserName: String
     let siteName: String
     let title: String
@@ -46,7 +47,7 @@ final class BrowserMediaBridge: ObservableObject {
     static let shared = BrowserMediaBridge()
     nonisolated static let nativeHostName = "com.nodebay.browser_bridge"
     nonisolated static let extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"
-    nonisolated static let bridgeVersion = "0.1.0"
+    nonisolated static let bridgeVersion = "0.1.1"
     private static let port: NWEndpoint.Port = 47_321
     private static let maximumBufferedBytes = 1_048_576
 
@@ -252,6 +253,7 @@ final class BrowserMediaBridge: ObservableObject {
             sessionsByID[id] = BrowserMediaSession(
                 id: id,
                 tabID: wire.tabID,
+                pageURL: wire.pageURL.flatMap { try? MediaDownloaderService.validatedURL(from: $0) },
                 browserName: "Google Chrome",
                 siteName: wire.siteName,
                 title: wire.title,
@@ -317,6 +319,7 @@ private struct IncomingMessage: Decodable {
 
 private struct WireBrowserMediaSession: Decodable {
     let tabID: Int
+    let pageURL: String?
     let siteName: String
     let title: String
     let artist: String

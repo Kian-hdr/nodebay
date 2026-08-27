@@ -8,6 +8,8 @@
 import Foundation
 
 enum AppleScriptHelper {
+    static let errorDomain = "AppleScriptError"
+
     /// `NSAppleScript` compilation is not safe to run concurrently. Keeping all
     /// scripting work on one private queue prevents independent media sources
     /// from entering the AppleScript parser at the same time.
@@ -26,18 +28,22 @@ enum AppleScriptHelper {
                     if let descriptor = script?.executeAndReturnError(&error) {
                         continuation.resume(returning: descriptor)
                     } else if let error {
+                        let errorNumber = (error["NSAppleScriptErrorNumber"] as? NSNumber)?.intValue ?? 1
+                        let errorMessage = error["NSAppleScriptErrorMessage"] as? String
+                            ?? "AppleScript execution failed"
+                        var userInfo = error as? [String: Any] ?? [:]
+                        userInfo[NSLocalizedDescriptionKey] = errorMessage
                         continuation.resume(
                             throwing: NSError(
-                                domain: "AppleScriptError",
-                                code: 1,
-                                userInfo: error as? [String: Any]
-                                    ?? [NSLocalizedDescriptionKey: "AppleScript execution failed"]
+                                domain: errorDomain,
+                                code: errorNumber,
+                                userInfo: userInfo
                             )
                         )
                     } else {
                         continuation.resume(
                             throwing: NSError(
-                                domain: "AppleScriptError",
+                                domain: errorDomain,
                                 code: 1,
                                 userInfo: [NSLocalizedDescriptionKey: "Unknown error"]
                             )

@@ -82,7 +82,8 @@ enum SafeProcessRunner {
         executable: URL,
         arguments: [String],
         timeout: Duration = .seconds(15),
-        maximumLogBytes: Int = 32_768
+        maximumLogBytes: Int = 32_768,
+        progress: (@Sendable (MediaDownloadProgress) -> Void)? = nil
     ) async throws -> ProcessResult {
         // The sandboxed app cannot reliably inspect Homebrew symlinks. The
         // unsandboxed XPC helper resolves and validates this exact allowlisted
@@ -92,7 +93,8 @@ enum SafeProcessRunner {
             executable: executable,
             arguments: arguments,
             timeout: timeout,
-            maximumLogBytes: maximumLogBytes
+            maximumLogBytes: maximumLogBytes,
+            progress: progress
         )
     }
 

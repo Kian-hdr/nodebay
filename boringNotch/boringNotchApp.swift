@@ -92,7 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
     private var windowScreenDidChangeObserver: Any?
-    private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
+    private let dragRouter = NotchDragRoutingCoordinator()
     private var observers: [Any] = []
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -114,6 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         MusicManager.shared.destroy()
         cleanupDragDetectors()
+        NotchPasteShortcutMonitor.shared.stop()
         cleanupWindows()
         BetterDisplayManager.shared.stopObserving()
         LunarManager.shared.stopListening()
@@ -206,10 +207,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func cleanupDragDetectors() {
-        dragDetectors.values.forEach { detector in
-            detector.stopMonitoring()
-        }
-        dragDetectors.removeAll()
+        dragRouter.stop()
     }
 
     private func setupDragDetectors() {
@@ -217,61 +215,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard Defaults[.expandedDragDetection] else { return }
 
+        let targets: [NotchDragRoutingCoordinator.Target]
         if Defaults[.showOnAllDisplays] {
-            for screen in NSScreen.screens {
-                setupDragDetectorForScreen(screen)
+            targets = windows.compactMap { uuid, targetWindow in
+                guard viewModels[uuid] != nil else { return nil }
+                return dragTarget(uuid: uuid, window: targetWindow)
             }
+        } else if let targetWindow = window, let uuid = vm.screenUUID ?? targetWindow.screen?.displayUUID {
+            targets = [dragTarget(uuid: uuid, window: targetWindow)]
         } else {
-            let preferredScreen: NSScreen? = window?.screen
-                ?? NSScreen.screen(withUUID: coordinator.selectedScreenUUID)
-                ?? NSScreen.main
-
-            if let screen = preferredScreen {
-                setupDragDetectorForScreen(screen)
-            }
+            targets = []
         }
+        dragRouter.configure(targets)
     }
 
-    private func setupDragDetectorForScreen(_ screen: NSScreen) {
-        guard let uuid = screen.displayUUID else { return }
-        
-        let screenFrame = screen.frame
-        let notchHeight = openNotchSize.height
-        let notchWidth = openNotchSize.width
-        
-        // Create notch region at the top-center of the screen where an open notch would occupy
-        let notchRegion = CGRect(
-            x: screenFrame.midX - notchWidth / 2,
-            y: screenFrame.maxY - notchHeight,
-            width: notchWidth,
-            height: notchHeight
+    private func dragTarget(uuid: String, window: NSWindow) -> NotchDragRoutingCoordinator.Target {
+        NotchDragRoutingCoordinator.Target(
+            displayUUID: uuid,
+            region: { [weak window] in
+                guard let frame = window?.frame else { return .null }
+                return CGRect(
+                    x: frame.midX - openNotchSize.width / 2,
+                    y: frame.maxY - openNotchSize.height,
+                    width: openNotchSize.width,
+                    height: openNotchSize.height
+                )
+            },
+            entered: { [weak self] in
+                Task { @MainActor in self?.handleDragEntersNotchRegion(displayUUID: uuid) }
+            },
+            exited: { [weak self] in
+                Task { @MainActor in self?.setDragTargeting(false, displayUUID: uuid) }
+            }
         )
-        
-        let detector = DragDetector(notchRegion: notchRegion)
-        
-        detector.onDragEntersNotchRegion = { [weak self] in
-            Task { @MainActor in
-                self?.handleDragEntersNotchRegion(onScreen: screen)
-            }
-        }
-        
-        dragDetectors[uuid] = detector
-        detector.startMonitoring()
     }
 
-    private func handleDragEntersNotchRegion(onScreen screen: NSScreen) {
+    private func handleDragEntersNotchRegion(displayUUID uuid: String) {
         guard Defaults[.boringShelf] else { return }
-        guard let uuid = screen.displayUUID else { return }
-        
         if Defaults[.showOnAllDisplays], let viewModel = viewModels[uuid] {
-            if viewModel.open() {
-                coordinator.currentView = .shelf
-            }
-        } else if !Defaults[.showOnAllDisplays], let windowScreen = window?.screen, screen == windowScreen {
-            if vm.open() {
-                coordinator.currentView = .shelf
-            }
+            viewModel.dragDetectorTargeting = true
+            _ = viewModel.open()
+            coordinator.currentView = .shelf
+        } else if !Defaults[.showOnAllDisplays], vm.screenUUID == uuid {
+            vm.dragDetectorTargeting = true
+            _ = vm.open()
+            coordinator.currentView = .shelf
         }
+    }
+
+    private func setDragTargeting(_ targeted: Bool, displayUUID uuid: String) {
+        if Defaults[.showOnAllDisplays] { viewModels[uuid]?.dragDetectorTargeting = targeted }
+        else if vm.screenUUID == uuid { vm.dragDetectorTargeting = targeted }
     }
 
     private func createBoringNotchWindow(for screen: NSScreen, with viewModel: BoringViewModel) -> NSWindow {
@@ -485,6 +479,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupDragDetectors()
+        setupPasteShortcutMonitor()
         installActiveDisplayTracking()
 
         if coordinator.firstLaunch {
@@ -505,6 +500,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // make sure OSD subsystems are in the right state now that initial
         // notch windows have been created/cleaned up
         coordinator.applyOSDSources()
+    }
+
+    private func setupPasteShortcutMonitor() {
+        NotchPasteShortcutMonitor.shared.start(
+            shouldHandle: { [weak self] in self?.canPasteIntoHoveredNotch() == true },
+            handler: { [weak self] urls in
+                guard let self else { return }
+                self.coordinator.currentView = .shelf
+                DownloadCoordinator.shared.add(urls: urls)
+            }
+        )
+    }
+
+    private func canPasteIntoHoveredNotch() -> Bool {
+        if NSApp.keyWindow?.firstResponder is NSTextView { return false }
+        let pointer = NSEvent.mouseLocation
+        if Defaults[.showOnAllDisplays] {
+            return windows.contains { uuid, window in
+                guard viewModels[uuid]?.notchState == .open else { return false }
+                return openNotchRegion(for: window).contains(pointer)
+            }
+        }
+        guard vm.notchState == .open, let window else { return false }
+        return openNotchRegion(for: window).contains(pointer)
+    }
+
+    private func openNotchRegion(for window: NSWindow) -> CGRect {
+        CGRect(
+            x: window.frame.midX - openNotchSize.width / 2,
+            y: window.frame.maxY - openNotchSize.height,
+            width: openNotchSize.width,
+            height: openNotchSize.height
+        )
     }
 
     func playWelcomeSound() {

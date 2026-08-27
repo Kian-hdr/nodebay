@@ -1385,7 +1385,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nodebay uses Apple Events to control the selected Apple Music or Spotify source.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nodebay uses Apple Events to control selected media sources and resolve a YouTube tab only when you request a download.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Nodebay uses Calendar access to show events you choose in the notch.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nodebay uses the camera only for the optional live mirror view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -1451,7 +1451,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nodebay uses Apple Events to control the selected Apple Music or Spotify source.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Nodebay uses Apple Events to control selected media sources and resolve a YouTube tab only when you request a download.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Nodebay uses Calendar access to show events you choose in the notch.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nodebay uses the camera only for the optional live mirror view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

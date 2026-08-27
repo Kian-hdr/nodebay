@@ -46,10 +46,54 @@ class BrowserBridgeContractTests(unittest.TestCase):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
         bridge = (ROOT / "boringNotch/managers/BrowserMediaBridge.swift").read_text()
         helper = (ROOT / "BoringNotchXPCHelper/BoringNotchXPCHelper.swift").read_text()
-        self.assertEqual(manifest["version"], "0.1.0")
+        self.assertEqual(manifest["version"], "0.1.1")
         self.assertIn('extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', bridge)
         self.assertIn('browserBridgeExtensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', helper)
         self.assertIn('nativeHostName = "com.nodebay.browser_bridge"', bridge)
+
+    def test_downloadable_tab_url_is_forwarded_without_broad_browser_permissions(self):
+        background = (EXTENSION / "background.js").read_text()
+        bridge = (ROOT / "boringNotch/managers/BrowserMediaBridge.swift").read_text()
+        manager = (ROOT / "boringNotch/managers/MusicManager.swift").read_text()
+        home = (ROOT / "boringNotch/components/Notch/NotchHomeView.swift").read_text()
+        self.assertIn("pageURL: sender.tab.url", background)
+        self.assertIn("let pageURL: URL?", bridge)
+        self.assertIn("activeDownloadableURL", manager)
+        self.assertIn("resolveChromeYouTubeURL", manager)
+        self.assertIn("resolveYouTubeSearchURL", manager)
+        self.assertIn("downloadableYouTubeMediaURL", manager)
+        self.assertIn("matches.count == 1", manager)
+        self.assertIn("canDownloadActiveMedia", manager)
+        self.assertIn("Download current media to Nodebay", home)
+        self.assertIn('Image(systemName: "arrow.down.circle")', home)
+        self.assertIn(".frame(width: 30, height: 30)", home)
+        self.assertIn(".overlay(alignment: .trailing)", home)
+        self.assertNotIn('Text(musicManager.isResolvingCurrentMediaDownload', home)
+        self.assertIn("downloadActiveMediaToNodebay", home)
+        self.assertIn("DownloadCoordinator.shared.add", manager)
+
+    def test_now_playing_search_fallback_is_bounded_and_cookie_free(self):
+        downloader = (ROOT / "boringNotch/components/Shelf/Services/MediaDownloaderService.swift").read_text()
+        manager = (ROOT / "boringNotch/managers/MusicManager.swift").read_text()
+        self.assertIn('"ytsearch5:\\(query)"', downloader)
+        self.assertIn("titleTokens.isSubset(of: candidateTokens)", downloader)
+        self.assertIn("artistTokens.isDisjoint", downloader)
+        self.assertIn('"--no-cookies-from-browser"', downloader)
+        self.assertIn("case .noYouTubeTab, .noMatchingYouTubeTab:", manager)
+        self.assertIn('url.path == "/watch"', manager)
+        self.assertNotIn('url.path == "/"', manager)
+        self.assertNotIn("if candidates.count == 1", manager)
+
+    def test_chrome_automation_permission_has_recovery_path(self):
+        entitlements = (ROOT / "boringNotch/boringNotch.entitlements").read_text()
+        music = (ROOT / "boringNotch/managers/MusicManager.swift").read_text()
+        helper = (ROOT / "boringNotch/helpers/AppleScriptHelper.swift").read_text()
+
+        self.assertIn("com.google.Chrome", entitlements)
+        self.assertIn("code: errorNumber", helper)
+        self.assertIn("userInfo[NSLocalizedDescriptionKey] = errorMessage", helper)
+        self.assertIn("nsError.code == -1743", music)
+        self.assertIn("Privacy_Automation", music)
 
     def test_extension_exposes_no_arbitrary_command_channel(self):
         background = (EXTENSION / "background.js").read_text()
@@ -88,7 +132,7 @@ class BrowserBridgeContractTests(unittest.TestCase):
             env=environment,
         )
         try:
-            hello = {"type": "hello", "extensionVersion": "0.1.0"}
+            hello = {"type": "hello", "extensionVersion": "0.1.1"}
             process.stdin.write(native_frame(hello))
             process.stdin.flush()
 

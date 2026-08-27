@@ -11,6 +11,30 @@ import Foundation
 @objc protocol BoringNotchXPCHelperLunarListener {
     func lunarEventDidUpdate(_ event: BNLunarBrightnessEvent)
     func lunarStreamDidStop(_ reason: String?)
+    func approvedProcessDidUpdate(_ event: BNApprovedProcessProgressEvent)
+}
+
+@objc(BNApprovedProcessProgressEvent)
+final class BNApprovedProcessProgressEvent: NSObject, NSSecureCoding {
+    static var supportsSecureCoding: Bool { true }
+    let jobID: String, stage: String
+    let percentage: Double, downloadedBytes: Int64, totalBytes: Int64, speed: Double, eta: Double
+    init(jobID: String, stage: String, percentage: Double, downloadedBytes: Int64, totalBytes: Int64, speed: Double, eta: Double) {
+        self.jobID = jobID; self.stage = stage; self.percentage = percentage; self.downloadedBytes = downloadedBytes
+        self.totalBytes = totalBytes; self.speed = speed; self.eta = eta; super.init()
+    }
+    required init?(coder: NSCoder) {
+        guard let jobID = coder.decodeObject(of: NSString.self, forKey: "jobID") as String?,
+              let stage = coder.decodeObject(of: NSString.self, forKey: "stage") as String? else { return nil }
+        self.jobID = jobID; self.stage = stage; percentage = coder.decodeDouble(forKey: "percentage")
+        downloadedBytes = coder.decodeInt64(forKey: "downloadedBytes"); totalBytes = coder.decodeInt64(forKey: "totalBytes")
+        speed = coder.decodeDouble(forKey: "speed"); eta = coder.decodeDouble(forKey: "eta"); super.init()
+    }
+    func encode(with coder: NSCoder) {
+        coder.encode(jobID, forKey: "jobID"); coder.encode(stage, forKey: "stage"); coder.encode(percentage, forKey: "percentage")
+        coder.encode(downloadedBytes, forKey: "downloadedBytes"); coder.encode(totalBytes, forKey: "totalBytes")
+        coder.encode(speed, forKey: "speed"); coder.encode(eta, forKey: "eta")
+    }
 }
 
 @objc(BNLunarBrightnessEvent)

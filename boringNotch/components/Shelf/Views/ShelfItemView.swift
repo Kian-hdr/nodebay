@@ -17,6 +17,7 @@ struct ShelfItemView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var selection = ShelfSelectionModel.shared
     @ObservedObject private var shelfState = ShelfStateViewModel.shared
+    @ObservedObject private var downloadCoordinator = DownloadCoordinator.shared
     @StateObject private var viewModel: ShelfItemViewModel
     @EnvironmentObject private var quickLookService: QuickLookService
     @State private var showStack = false
@@ -198,7 +199,9 @@ struct ShelfItemView: View {
 
     private var conversionButton: some View {
         Button {
-            if item.stackMembers != nil {
+            if viewModel.canDownloadMedia && shelfState.isConverting(item) {
+                downloadCoordinator.cancel(item)
+            } else if item.stackMembers != nil {
                 showStack = true
             } else if viewModel.canCompressImage {
                 viewModel.compressImage()
@@ -236,13 +239,16 @@ struct ShelfItemView: View {
         }
         .frame(height: 20)
         .buttonStyle(.plain)
-        .disabled(shelfState.isConverting(item))
+        .disabled(shelfState.isConverting(item) && !viewModel.canDownloadMedia)
         .help(viewModel.canDownloadMedia ? "Download media locally" : "Create a separate output copy")
         .accessibilityLabel(actionButtonTitle)
     }
 
     private var actionButtonTitle: String {
+        if viewModel.canDownloadMedia && shelfState.isConverting(item) { return "Cancel" }
         if let progress = shelfState.conversionProgress[item.id] { return progress }
+        if downloadCoordinator.jobs[item.id]?.state == .failed { return "Retry Download" }
+        if downloadCoordinator.jobs[item.id]?.state == .cancelled { return "Retry Download" }
         if shelfState.isConverting(item) { return "Converting…" }
         if item.stackMembers != nil { return "Stack Actions" }
         if viewModel.canDownloadMedia { return "Download Media" }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Nodebay Browser Media Bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Exposes explicitly permitted YouTube media tabs to the local Nodebay app.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzuk5/7cnp5kbrYnIen5aZQJMM0Hv38S8bilaq6sIhCextCcnNu/iSUF2CDc7TAmyGeL3CP2DICbGF2fHq1WUe+qblgO5lYYDoKym17da/nrZGwSY3uC6KPC1fbbM1WFkMfiHXDNEN/FJ0Id53EZCi3Mo7lCNMONu3zDZpk1i6WrQNw7ExoDdsX8fLiuQfV1zmxoEw5uAPqYm7BFFQYMAt4BBkU7Mv1QB2KtwBBwYow21DigvgTercgG+z2gFUFqYUW5u0+UumXAyBH73Zy+YqBHzVkxjl9nyeLJ0la04GdsRygGItsFkk8qwGLE6aFeWcMorry+diog6/CIzIh9VPwIDAQAB",
   "permissions": [

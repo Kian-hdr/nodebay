@@ -396,6 +396,8 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             let stderr = Pipe()
             let stdoutBuffer = ProcessOutputBuffer(limit: maximumLogBytes)
             let stderrBuffer = ProcessOutputBuffer(limit: maximumLogBytes)
+            let progressParser = engine == "yt-dlp" ? ApprovedProcessProgressParser(jobID: jobID) : nil
+            let progressListener = self.connection?.remoteObjectProxy as? BoringNotchXPCHelperLunarListener
             let finishLock = NSLock()
             var didFinish = false
 
@@ -427,7 +429,11 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                 }
             }
             process.environment = environment
-            stdout.fileHandleForReading.readabilityHandler = { stdoutBuffer.append($0.availableData) }
+            stdout.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                stdoutBuffer.append(data)
+                progressParser?.append(data) { event in progressListener?.approvedProcessDidUpdate(event) }
+            }
             stderr.fileHandleForReading.readabilityHandler = { stderrBuffer.append($0.availableData) }
             process.terminationHandler = { finished in finish(code: finished.terminationStatus) }
 
@@ -664,6 +670,37 @@ private final class ProcessOutputBuffer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private final class ApprovedProcessProgressParser: @unchecked Sendable {
+    private let jobID: String
+    private let lock = NSLock()
+    private var pending = Data()
+    private var lastEmission = Date.distantPast
+
+    init(jobID: String) { self.jobID = jobID }
+
+    func append(_ data: Data, emit: (BNApprovedProcessProgressEvent) -> Void) {
+        guard !data.isEmpty else { return }
+        lock.lock(); defer { lock.unlock() }
+        pending.append(data)
+        while let newline = pending.firstIndex(of: 0x0A) {
+            let lineData = pending.prefix(upTo: newline)
+            pending.removeSubrange(...newline)
+            guard let line = String(data: lineData, encoding: .utf8), line.hasPrefix("nodebay-progress:") else { continue }
+            let now = Date()
+            guard now.timeIntervalSince(lastEmission) >= 0.25 || line.contains("100%") else { continue }
+            lastEmission = now
+            let values = line.dropFirst("nodebay-progress:".count).split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            guard values.count == 5 else { continue }
+            let percent = Double(values[0].replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)).map { $0 / 100 } ?? -1
+            emit(BNApprovedProcessProgressEvent(
+                jobID: jobID, stage: "downloading", percentage: percent,
+                downloadedBytes: Int64(values[1]) ?? -1, totalBytes: Int64(values[2]) ?? -1,
+                speed: Double(values[3]) ?? -1, eta: Double(values[4]) ?? -1
+            ))
+        }
     }
 }
 

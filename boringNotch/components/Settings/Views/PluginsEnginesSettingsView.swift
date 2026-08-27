@@ -198,8 +198,7 @@ struct DownloaderSettingsView: View {
     @State private var input = ""
     @State private var status = "Ready"
     @State private var isWorking = false
-    @State private var inspections: [MediaInspection] = []
-    @State private var workTask: Task<Void, Never>?
+    @StateObject private var downloads = DownloadCoordinator.shared
 
     var body: some View {
         Form {
@@ -208,19 +207,8 @@ struct DownloaderSettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { inspectInput() }
                 HStack {
-                    Button(isWorking ? "Working…" : "Inspect URL") { inspectInput() }
+                    Button(isWorking ? "Adding…" : "Add to Nodebay") { inspectInput() }
                         .disabled(isWorking || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    if !inspections.isEmpty {
-                        Button("Download \(inspections.count == 1 ? "Item" : "\(inspections.count) Items")") { startDownloads() }
-                            .disabled(isWorking)
-                    }
-                    if isWorking {
-                        Button("Cancel") {
-                            workTask?.cancel()
-                            status = "Cancelled"
-                            isWorking = false
-                        }
-                    }
                 }
                 LabeledContent("Status", value: status)
                 Text("Inspection and downloads run locally. Network connections go directly from yt-dlp on this Mac to the source service.")
@@ -273,6 +261,24 @@ struct DownloaderSettingsView: View {
                 LabeledContent("FFmpeg", value: registry.diagnostics["ffmpeg"]?.version ?? "Checking")
                 Button("Run Diagnostics") { Task { await registry.refresh() } }
             }
+
+            if !downloads.jobs.isEmpty {
+                Section("Recent Downloads") {
+                    ForEach(downloads.jobs.values.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }) { job in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Text(job.title).lineLimit(1)
+                                Spacer()
+                                Text(job.state.rawValue.capitalized).foregroundStyle(.secondary)
+                            }
+                            if let error = job.lastError {
+                                Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("Downloader")
@@ -280,87 +286,13 @@ struct DownloaderSettingsView: View {
     }
 
     private func inspectInput() {
-        workTask?.cancel()
         isWorking = true
-        status = "Inspecting"
-        inspections = []
-        workTask = Task {
-            do {
-                let rawURLs = input.components(separatedBy: .newlines)
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                guard !rawURLs.isEmpty else { throw MediaDownloaderError.invalidURL }
-                for (index, rawURL) in rawURLs.enumerated() {
-                    try Task.checkCancellation()
-                    status = "Inspecting \(index + 1) of \(rawURLs.count)"
-                    let url = try MediaDownloaderService.validatedURL(from: rawURL)
-                    inspections.append(try await MediaDownloaderService.shared.inspect(url))
-                }
-                let playlists = inspections.filter(\.isPlaylist).count
-                status = "Ready: \(inspections.count) item\(inspections.count == 1 ? "" : "s")\(playlists > 0 ? ", \(playlists) playlist\(playlists == 1 ? "" : "s")" : "")"
-            } catch is CancellationError {
-                status = "Cancelled"
-            } catch {
-                status = error.localizedDescription
-            }
-            isWorking = false
-        }
-    }
-
-    private func startDownloads() {
-        guard !inspections.isEmpty else { return }
-        let playlistCount = inspections.filter(\.isPlaylist).count
-        if playlistCount > 0, askPlaylist {
-            let alert = NSAlert()
-            alert.messageText = "Download playlist content?"
-            alert.informativeText = "\(playlistCount) inspected URL\(playlistCount == 1 ? " is" : "s are") a playlist. Each playlist item will be downloaded as a separate file."
-            alert.addButton(withTitle: "Download")
-            alert.addButton(withTitle: "Cancel")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-        }
-        workTask?.cancel()
-        isWorking = true
-        workTask = Task {
-            var files: [URL] = []
-            var failures: [String] = []
-            let destination = configuredDirectory()
-            let accessed = destination.startAccessingSecurityScopedResource()
-            defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
-            let format = MediaDownloadFormat(rawValue: defaultFormat) ?? .bestOriginal
-            for (index, inspection) in inspections.enumerated() {
-                if Task.isCancelled { break }
-                status = "Downloading \(index + 1) of \(inspections.count)"
-                do {
-                    let result = try await MediaDownloaderService.shared.download(
-                        inspection,
-                        format: format,
-                        destination: destination,
-                        playlistConfirmed: true,
-                        preserveMetadata: preserveMetadata,
-                        preserveThumbnail: preserveThumbnail
-                    )
-                    files.append(contentsOf: result.files)
-                } catch {
-                    failures.append("\(inspection.title): \(error.localizedDescription)")
-                }
-            }
-            if !files.isEmpty {
-                do {
-                    let shelfItems = try files.map { ShelfItem(kind: .file(bookmark: try Bookmark(url: $0).data)) }
-                    if shelfItems.count == 1 {
-                        ShelfStateViewModel.shared.add(shelfItems)
-                    } else {
-                        ShelfStateViewModel.shared.add([ShelfItem(kind: .stack(name: "Downloaded Media", members: shelfItems))])
-                    }
-                } catch {
-                    failures.append("Nodebay could not add a completed file to the shelf: \(error.localizedDescription)")
-                }
-            }
-            status = Task.isCancelled
-                ? "Cancelled. Completed files were preserved."
-                : "Completed \(files.count) file\(files.count == 1 ? "" : "s")\(failures.isEmpty ? "" : "; \(failures.count) failed")"
-            isWorking = false
-        }
+        let urls = MediaDownloaderService.validatedURLs(in: input)
+        guard !urls.isEmpty else { status = MediaDownloaderError.invalidURL.localizedDescription; isWorking = false; return }
+        downloads.add(urls: urls)
+        status = "Added \(urls.count) download\(urls.count == 1 ? "" : "s") to Nodebay"
+        input = ""
+        isWorking = false
     }
 
     private func configuredDirectory() -> URL {
@@ -368,8 +300,9 @@ struct DownloaderSettingsView: View {
            let url = Bookmark(data: data).resolvedURL {
             return url
         }
-        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
+        return (FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads"))
+            .appending(path: "Nodebay", directoryHint: .isDirectory)
     }
 
     private func displayPath(_ url: URL) -> String {

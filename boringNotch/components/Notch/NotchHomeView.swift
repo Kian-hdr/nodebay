@@ -121,11 +121,12 @@ struct MusicControlsView: View {
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
+    @State private var isHoveringDownload = false
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 4) {
             songInfoAndSlider
             slotToolbar
         }
@@ -200,6 +201,38 @@ struct MusicControlsView: View {
         }
     }
 
+    private var currentMediaDownloadButton: some View {
+        Button {
+            Task { await musicManager.downloadActiveMediaToNodebay() }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(isHoveringDownload ? Color.gray.opacity(0.2) : .clear)
+                if musicManager.isResolvingCurrentMediaDownload {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(isHoveringDownload ? .primary : .secondary)
+                }
+            }
+            .frame(width: 30, height: 30)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(musicManager.isResolvingCurrentMediaDownload)
+        .opacity(musicManager.isResolvingCurrentMediaDownload ? 0.65 : 1)
+        .onHover { hovering in
+            withAnimation(.smooth(duration: 0.2)) {
+                isHoveringDownload = hovering
+            }
+        }
+        .help(musicManager.isResolvingCurrentMediaDownload ? "Preparing download…" : "Download current media to Nodebay")
+        .accessibilityLabel("Download current media to Nodebay")
+        .accessibilityHint("Adds the downloaded file to the Nodebay shelf")
+    }
+
     private var musicSlider: some View {
         TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
             MusicSliderView(
@@ -230,6 +263,12 @@ struct MusicControlsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
+        .overlay(alignment: .trailing) {
+            if musicManager.canDownloadActiveMedia {
+                currentMediaDownloadButton
+                    .padding(.trailing, 4)
+            }
+        }
     }
 
     private var activeSlots: [MusicControlButton] {

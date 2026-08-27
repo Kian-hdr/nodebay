@@ -24,6 +24,12 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
             argumentIndex: 0,
             ofReply: false
         )
+        listenerInterface.setClasses(
+            NSSet(array: [BNApprovedProcessProgressEvent.self]) as! Set<AnyHashable>,
+            for: #selector(BoringNotchXPCHelperLunarListener.approvedProcessDidUpdate(_:)),
+            argumentIndex: 0,
+            ofReply: false
+        )
         newConnection.remoteObjectInterface = listenerInterface
         
         // Next, set the object that the connection exports. All messages sent on the connection to this service will be sent to the exported object to handle. The connection retains the exported object.

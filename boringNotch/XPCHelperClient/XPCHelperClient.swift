@@ -13,6 +13,8 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     private var monitoringTask: Task<Void, Never>?
     private var lunarListener: BoringNotchXPCHelperLunarListener?
     private var hasLunarListener: Bool = false
+    private let progressLock = NSLock()
+    private var progressHandlers: [String: @Sendable (MediaDownloadProgress) -> Void] = [:]
     
     deinit {
         connection?.invalidate()
@@ -23,7 +25,7 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
     
     @MainActor
     private func ensureRemoteService(needsListener: Bool = false) -> RemoteXPCService<BoringNotchXPCHelperProtocol> {
-        if let existing = remoteService, (!needsListener || hasLunarListener) {
+        if let existing = remoteService, hasLunarListener {
             return existing
         }
 
@@ -35,14 +37,10 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         
         let conn = NSXPCConnection(serviceName: serviceName)
 
-        if needsListener, let lunarListener {
-            let listenerInterface = makeLunarListenerInterface()
-            conn.exportedInterface = listenerInterface
-            conn.exportedObject = lunarListener
-            hasLunarListener = true
-        } else {
-            hasLunarListener = false
-        }
+        let listenerInterface = makeLunarListenerInterface()
+        conn.exportedInterface = listenerInterface
+        conn.exportedObject = self
+        hasLunarListener = true
         
         conn.interruptionHandler = { [weak self] in
             Task { @MainActor in
@@ -82,6 +80,12 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         interface.setClasses(
             NSSet(array: [BNLunarBrightnessEvent.self]) as! Set<AnyHashable>,
             for: #selector(BoringNotchXPCHelperLunarListener.lunarEventDidUpdate(_:)),
+            argumentIndex: 0,
+            ofReply: false
+        )
+        interface.setClasses(
+            NSSet(array: [BNApprovedProcessProgressEvent.self]) as! Set<AnyHashable>,
+            for: #selector(BoringNotchXPCHelperLunarListener.approvedProcessDidUpdate(_:)),
             argumentIndex: 0,
             ofReply: false
         )
@@ -371,9 +375,16 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
         executable: URL,
         arguments: [String],
         timeout: Duration,
-        maximumLogBytes: Int
+        maximumLogBytes: Int,
+        progress: (@Sendable (MediaDownloadProgress) -> Void)? = nil
     ) async throws -> ProcessResult {
         let jobID = UUID().uuidString
+        if let progress {
+            progressLock.withLock { progressHandlers[jobID] = progress }
+        }
+        defer {
+            progressLock.withLock { progressHandlers[jobID] = nil }
+        }
         let seconds = timeout.components.seconds > 0 ? Double(timeout.components.seconds) : 1
         return try await withTaskCancellationHandler {
             let service = await MainActor.run { ensureRemoteService() }
@@ -406,6 +417,26 @@ final class XPCHelperClient: NSObject, @unchecked Sendable {
                 try? await service.withService { $0.cancelApprovedProcess(jobID) }
             }
         }
+    }
+
+    @objc nonisolated func lunarEventDidUpdate(_ event: BNLunarBrightnessEvent) {
+        lunarListener?.lunarEventDidUpdate(event)
+    }
+
+    @objc nonisolated func lunarStreamDidStop(_ reason: String?) {
+        lunarListener?.lunarStreamDidStop(reason)
+    }
+
+    @objc nonisolated func approvedProcessDidUpdate(_ event: BNApprovedProcessProgressEvent) {
+        let handler = progressLock.withLock { progressHandlers[event.jobID] }
+        handler?(MediaDownloadProgress(
+            stage: event.stage == "processing" ? .processing : .downloading,
+            percentage: event.percentage >= 0 ? min(1, max(0, event.percentage)) : nil,
+            downloadedBytes: event.downloadedBytes >= 0 ? event.downloadedBytes : nil,
+            totalBytes: event.totalBytes >= 0 ? event.totalBytes : nil,
+            speed: event.speed >= 0 ? event.speed : nil,
+            eta: event.eta >= 0 ? event.eta : nil
+        ))
     }
 
     nonisolated func firstAvailableApprovedExecutable(

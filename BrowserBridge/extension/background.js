@@ -43,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.type === "nodebay-media-state" && message.available === true) {
     sendNative({
       type: "tabState",
-      session: { ...message.session, tabID: sender.tab.id }
+      session: { ...message.session, tabID: sender.tab.id, pageURL: sender.tab.url }
     });
   } else if (message?.type === "nodebay-media-state" && message.available === false) {
     sendNative({ type: "tabRemoved", id });

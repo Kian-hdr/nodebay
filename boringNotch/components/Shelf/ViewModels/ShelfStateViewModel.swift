@@ -38,9 +38,11 @@ final class ShelfStateViewModel: ObservableObject {
         convertingItemIDs.formUnion(items.map(\.id))
     }
 
-    func finishConverting(_ items: [ShelfItem]) {
+    func finishConverting(_ items: [ShelfItem], preservingProgressForFailures: Bool = false) {
         convertingItemIDs.subtract(items.map(\.id))
-        for item in items { conversionProgress[item.id] = nil }
+        if !preservingProgressForFailures {
+            for item in items { conversionProgress[item.id] = nil }
+        }
     }
 
     func setConversionProgress(_ text: String, for item: ShelfItem) {
@@ -243,16 +245,15 @@ final class ShelfStateViewModel: ObservableObject {
             self.add(dropped)
             self.isLoading = false
 
-            // A dropped HTTP(S) link is a download request. Keep its tile as the
-            // visible progress/retry state, then replace that shelf reference with
-            // the completed local file or result stack.
-            let droppedMediaLinks = dropped.filter { item in
-                guard case .link(let url) = item.kind else { return false }
-                return ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            // A dropped HTTP(S) link is routed through the one shared download
+            // coordinator. This prevents duplicate jobs when multiple notch
+            // windows display the same shelf.
+            let droppedMediaLinks = dropped.compactMap { item -> ShelfItem? in
+                guard case .link(let url) = item.kind else { return nil }
+                guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+                return self.items.first(where: { $0.identityKey == item.identityKey })
             }
-            for link in droppedMediaLinks {
-                await ShelfItemViewModel(item: link).downloadMediaAndWait()
-            }
+            DownloadCoordinator.shared.start(items: droppedMediaLinks)
         }
     }
 

@@ -32,6 +32,9 @@ struct ShelfDropService {
     
     private static func processProvider(_ provider: NSItemProvider) async -> [ShelfItem] {
         if let actualFileURL = await provider.extractFileURL() {
+            if let internetURL = internetShortcutURL(at: actualFileURL) {
+                return [await ShelfItem(kind: .link(url: internetURL), isTemporary: false)]
+            }
             if let bookmark = createBookmark(for: actualFileURL) {
                 return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
             }
@@ -40,6 +43,9 @@ struct ShelfDropService {
         
         if let url = await provider.extractURL() {
             if url.isFileURL {
+                if let internetURL = internetShortcutURL(at: url) {
+                    return [await ShelfItem(kind: .link(url: internetURL), isTemporary: false)]
+                }
                 if let bookmark = createBookmark(for: url) {
                     return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
                 }
@@ -83,5 +89,22 @@ struct ShelfDropService {
     
     private static func createBookmark(for url: URL) -> Data? {
         return (try? Bookmark(url: url))?.data
+    }
+
+    private static func internetShortcutURL(at fileURL: URL) -> URL? {
+        let ext = fileURL.pathExtension.lowercased()
+        guard ext == "url" || ext == "webloc",
+              let data = try? Data(contentsOf: fileURL, options: .mappedIfSafe),
+              data.count <= 1_048_576 else { return nil }
+        if ext == "webloc",
+           let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+           let raw = plist["URL"] as? String {
+            return try? MediaDownloaderService.validatedURL(from: raw)
+        }
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        let raw = text.components(separatedBy: .newlines)
+            .first { $0.range(of: "URL=", options: [.caseInsensitive, .anchored]) != nil }?
+            .dropFirst(4).description
+        return raw.flatMap { try? MediaDownloaderService.validatedURL(from: $0) }
     }
 }

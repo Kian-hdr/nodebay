@@ -14,6 +14,21 @@ let defaultImage: NSImage = .init(
     accessibilityDescription: "Album Art"
 )!
 
+private enum CurrentMediaDownloadError: LocalizedError {
+    case noYouTubeTab, noMatchingYouTubeTab, ambiguousYouTubeTabs
+
+    var errorDescription: String? {
+        switch self {
+        case .noYouTubeTab:
+            "No open YouTube or YouTube Music tab could be read from Chrome."
+        case .noMatchingYouTubeTab:
+            "No open YouTube tab matched the item currently shown in Now Playing."
+        case .ambiguousYouTubeTabs:
+            "More than one YouTube tab matched this title. Select the exact browser tab from Nodebay's media-source menu and try again."
+        }
+    }
+}
+
 class MusicManager: ObservableObject {
     enum MediaSourceID: Hashable, Identifiable {
         case controller(MediaControllerType)
@@ -91,6 +106,7 @@ class MusicManager: ObservableObject {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
     @Published var canFavoriteTrack: Bool = false
+    @Published private(set) var isResolvingCurrentMediaDownload = false
     
     // Lyrics are now managed by LyricsService
     var lyricsService: LyricsService { LyricsService.shared }
@@ -299,6 +315,151 @@ class MusicManager: ObservableObject {
         case .browserTab(let id):
             return browserMediaSessions.first(where: { $0.id == id })?.displayName ?? "Browser tab"
         }
+    }
+
+    /// Prefer the exact selected browser-tab URL. When System Now Playing is
+    /// active, accept only one title-matched browser session so multiple open
+    /// YouTube tabs can never silently resolve to the wrong download.
+    var activeDownloadableURL: URL? {
+        if case .browserTab(let id) = activeSourceID {
+            return browserMediaSessions.first(where: { $0.id == id })?.pageURL.flatMap(Self.downloadableYouTubeMediaURL)
+        }
+        let target = Self.normalizedMediaTitle(songTitle)
+        guard !target.isEmpty else { return nil }
+        let matches = browserMediaSessions.compactMap { session -> URL? in
+            guard let url = session.pageURL.flatMap(Self.downloadableYouTubeMediaURL) else { return nil }
+            let candidate = Self.normalizedMediaTitle(session.title)
+            guard candidate == target || candidate.contains(target) || target.contains(candidate) else { return nil }
+            return url
+        }
+        return matches.count == 1 ? matches[0] : nil
+    }
+
+    var canDownloadActiveMedia: Bool {
+        activeDownloadableURL != nil || (
+            bundleIdentifier == "com.google.Chrome" &&
+            !songTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+    }
+
+    @MainActor
+    func downloadActiveMediaToNodebay() async {
+        guard canDownloadActiveMedia, !isResolvingCurrentMediaDownload else { return }
+        isResolvingCurrentMediaDownload = true
+        defer { isResolvingCurrentMediaDownload = false }
+
+        do {
+            let url: URL
+            if let activeDownloadableURL {
+                url = activeDownloadableURL
+            } else {
+                do {
+                    url = try await Self.resolveChromeYouTubeURL(matching: songTitle)
+                } catch let error as CurrentMediaDownloadError {
+                    switch error {
+                    case .noYouTubeTab, .noMatchingYouTubeTab:
+                        url = try await MediaDownloaderService.shared.resolveYouTubeSearchURL(
+                            title: songTitle,
+                            artist: artistName
+                        )
+                    case .ambiguousYouTubeTabs:
+                        throw error
+                    }
+                }
+            }
+            DownloadCoordinator.shared.add(urls: [url])
+            BoringViewCoordinator.shared.currentView = .shelf
+        } catch {
+            SharingStateManager.shared.beginInteraction()
+            defer { SharingStateManager.shared.endInteraction() }
+            let alert = NSAlert()
+            if Self.isAppleEventsAuthorizationError(error) {
+                alert.messageText = "Allow Nodebay to Read the YouTube Tab"
+                alert.informativeText = "macOS blocked Nodebay from asking Google Chrome for the current YouTube URL. Allow Chrome under System Settings > Privacy & Security > Automation, then try again."
+                alert.addButton(withTitle: "Open Automation Settings")
+                alert.addButton(withTitle: "Cancel")
+                if alert.runModal() == .alertFirstButtonReturn,
+                   let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                    NSWorkspace.shared.open(settingsURL)
+                }
+            } else {
+                alert.messageText = "YouTube Download Unavailable"
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
+    }
+
+    private static func isAppleEventsAuthorizationError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == AppleScriptHelper.errorDomain else { return false }
+        if nsError.code == -1743 { return true }
+        let message = nsError.localizedDescription.lowercased()
+        return message.contains("not authorized")
+            || message.contains("not permitted")
+            || message.contains("not allowed assistive access")
+    }
+
+    private static func resolveChromeYouTubeURL(matching title: String) async throws -> URL {
+        let script = """
+        tell application "Google Chrome"
+            set recordSeparator to ASCII character 30
+            set fieldSeparator to ASCII character 31
+            set resultText to ""
+            repeat with browserWindow in windows
+                repeat with browserTab in tabs of browserWindow
+                    set tabURL to URL of browserTab
+                    if tabURL starts with "https://www.youtube.com/" or tabURL starts with "https://music.youtube.com/" then
+                        set resultText to resultText & (title of browserTab) & fieldSeparator & tabURL & recordSeparator
+                    end if
+                end repeat
+            end repeat
+            return resultText
+        end tell
+        """
+        guard let value = try await AppleScriptHelper.execute(script)?.stringValue else {
+            throw CurrentMediaDownloadError.noYouTubeTab
+        }
+        let target = normalizedMediaTitle(title)
+        let candidates: [(title: String, url: URL)] = value
+            .split(separator: "\u{001E}", omittingEmptySubsequences: true)
+            .compactMap { record in
+                let fields = record.split(separator: "\u{001F}", maxSplits: 1, omittingEmptySubsequences: false)
+                guard fields.count == 2,
+                      let rawURL = try? MediaDownloaderService.validatedURL(from: String(fields[1])),
+                      let url = downloadableYouTubeMediaURL(rawURL) else { return nil }
+                return (String(fields[0]), url)
+            }
+        let matches = candidates.filter { candidate in
+            let normalized = normalizedMediaTitle(candidate.title)
+            return normalized == target || normalized.contains(target) || target.contains(normalized)
+        }
+        if matches.count == 1 { return matches[0].url }
+        if matches.count > 1 { throw CurrentMediaDownloadError.ambiguousYouTubeTabs }
+        throw CurrentMediaDownloadError.noMatchingYouTubeTab
+    }
+
+    private static func downloadableYouTubeMediaURL(_ url: URL) -> URL? {
+        guard let host = url.host?.lowercased(),
+              host == "youtube.com" || host.hasSuffix(".youtube.com") else { return nil }
+        if url.path == "/watch" {
+            let videoID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "v" })?.value
+            return videoID?.isEmpty == false ? url : nil
+        }
+        let components = url.path.split(separator: "/")
+        return components.count == 2 && components[0] == "shorts" && !components[1].isEmpty ? url : nil
+    }
+
+    private static func normalizedMediaTitle(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: #"^\(\d+\)\s*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+YouTube$"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     var selectableSourceChoices: [MediaSourceChoice] {

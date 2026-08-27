@@ -29,10 +29,10 @@ final class DragDetector {
     private var isContentDragging: Bool = false
     private var hasEnteredNotchRegion: Bool = false
 
-    private let notchRegion: CGRect
+    private let notchRegion: () -> CGRect
     private let dragPasteboard = NSPasteboard(name: .drag)
 
-    init(notchRegion: CGRect) {
+    init(notchRegion: @escaping () -> CGRect) {
         self.notchRegion = notchRegion
     }
 
@@ -45,10 +45,10 @@ final class DragDetector {
             NSPasteboard.PasteboardType(UTType.url.identifier),
             .string
         ]
-        let isValid = dragPasteboard.pasteboardItems?.allSatisfy { item in
-            item.types.allSatisfy { validTypes.contains($0) }
+        guard let items = dragPasteboard.pasteboardItems, !items.isEmpty else { return false }
+        return items.allSatisfy { item in
+            item.types.contains { validTypes.contains($0) }
         }
-        return isValid ?? false
     }
 
     func startMonitoring() {
@@ -68,10 +68,10 @@ final class DragDetector {
             guard let self = self else { return }
             guard self.isDragging else { return }
 
-            let newContent = self.dragPasteboard.changeCount != self.pasteboardChangeCount
-            
-            // Detect if actual content is being dragged AND it's valid content
-            if newContent && !self.isContentDragging && self.hasValidDragContent() {
+            // Finder and browsers can populate the drag pasteboard before or
+            // after the first global drag event. Inspect the current types on
+            // every move instead of relying on changeCount timing.
+            if !self.isContentDragging && self.hasValidDragContent() {
                 self.isContentDragging = true
             }
 
@@ -81,7 +81,7 @@ final class DragDetector {
                 self.onDragMove?(mouseLocation)
                 
                 // Track notch region entry/exit
-                let containsMouse = self.notchRegion.contains(mouseLocation)
+                let containsMouse = self.notchRegion().contains(mouseLocation)
                 if containsMouse && !self.hasEnteredNotchRegion {
                     self.hasEnteredNotchRegion = true
                     self.onDragEntersNotchRegion?()
@@ -96,6 +96,7 @@ final class DragDetector {
             guard let self = self else { return }
             guard self.isDragging else { return }
             
+            if self.hasEnteredNotchRegion { self.onDragExitsNotchRegion?() }
             self.isDragging = false
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
@@ -119,5 +120,89 @@ final class DragDetector {
 
     deinit {
         stopMonitoring()
+    }
+}
+
+/// Owns one dynamic edge detector per stable display identifier. The real drop
+/// remains handled by SwiftUI/AppKit on the opened notch window.
+@MainActor
+final class NotchDragRoutingCoordinator {
+    struct Target {
+        let displayUUID: String
+        let region: () -> CGRect
+        let entered: () -> Void
+        let exited: () -> Void
+    }
+
+    private var detectors: [String: DragDetector] = [:]
+
+    func configure(_ targets: [Target]) {
+        stop()
+        for target in targets {
+            let detector = DragDetector(notchRegion: target.region)
+            detector.onDragEntersNotchRegion = target.entered
+            detector.onDragExitsNotchRegion = target.exited
+            detectors[target.displayUUID] = detector
+            detector.startMonitoring()
+        }
+    }
+
+    func stop() {
+        detectors.values.forEach { $0.stopMonitoring() }
+        detectors.removeAll()
+    }
+}
+
+/// Handles Command-V only when Nodebay explicitly confirms that the pointer is
+/// inside an open notch and the clipboard contains safe HTTP(S) URLs.
+final class NotchPasteShortcutMonitor {
+    static let shared = NotchPasteShortcutMonitor()
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    private var shouldHandle: (() -> Bool)?
+    private var handler: (([URL]) -> Void)?
+
+    func start(shouldHandle: @escaping () -> Bool, handler: @escaping ([URL]) -> Void) {
+        stop()
+        self.shouldHandle = shouldHandle
+        self.handler = handler
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: { _, type, event, context in
+                guard let context else { return Unmanaged.passUnretained(event) }
+                let monitor = Unmanaged<NotchPasteShortcutMonitor>.fromOpaque(context).takeUnretainedValue()
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    if let eventTap = monitor.eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+                    return Unmanaged.passUnretained(event)
+                }
+                guard type == .keyDown,
+                      event.getIntegerValueField(.keyboardEventKeycode) == 9,
+                      event.flags.contains(.maskCommand),
+                      !event.flags.contains(.maskAlternate),
+                      !event.flags.contains(.maskControl),
+                      monitor.shouldHandle?() == true,
+                      let text = NSPasteboard.general.string(forType: .string) else {
+                    return Unmanaged.passUnretained(event)
+                }
+                let urls = MediaDownloaderService.validatedURLs(in: text)
+                guard !urls.isEmpty else { return Unmanaged.passUnretained(event) }
+                monitor.handler?(urls)
+                return nil
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return }
+        eventTap = tap
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    func stop() {
+        if let source = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: false) }
+        runLoopSource = nil; eventTap = nil; shouldHandle = nil; handler = nil
     }
 }

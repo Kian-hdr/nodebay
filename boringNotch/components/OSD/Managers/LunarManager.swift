@@ -132,6 +132,7 @@ final class LunarManager: @unchecked Sendable {
 }
 
 @objc final class LunarEventListener: NSObject, BoringNotchXPCHelperLunarListener, @unchecked Sendable {
+    func approvedProcessDidUpdate(_ event: BNApprovedProcessProgressEvent) { }
     weak var manager: LunarManager?
 
     init(manager: LunarManager) {

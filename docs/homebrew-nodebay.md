@@ -32,7 +32,7 @@ Before public distribution, verify the final cask checksum and download URL, not
 
 ## Dependencies
 
-MarkItDown is bundled. yt-dlp and FFmpeg are separate Homebrew companion tools. ImageOptim is a separately installed companion application. Nodebay does not bundle those three companions in the current packaging model.
+MarkItDown is bundled. The cask declares yt-dlp and FFmpeg as separate Homebrew formula dependencies. ImageOptim remains a separately installed companion application. Nodebay does not bundle or modify those three companions.
 
 ## Migration and uninstall
 

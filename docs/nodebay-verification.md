@@ -11,7 +11,7 @@ This record separates completed checks from checks that still require hardware, 
 - Bundled MarkItDown: 0.1.7
 - Bundled Python: 3.13.15
 - PyInstaller: 6.22.1
-- Tested companion yt-dlp: 2026.7.4
+- Tested companion yt-dlp: 2026.8.19
 - Tested companion FFmpeg: Homebrew 9.0.1
 - Tested companion ImageOptim: locally installed application
 
@@ -50,7 +50,7 @@ This record separates completed checks from checks that still require hardware, 
 - The local Release QA build launches and remains running on macOS 26.6.1 after removing a `MusicManager.shared` and Defaults-key initialization cycle.
 - The native Nodebay application menu exposes **Settings…**, and `Command-,` opens the settings window.
 - General settings render the built-in display, follow-active-display mode, virtual-notch fallback, and notch sizing controls.
-- Plugins & Engines diagnostics report bundled MarkItDown 0.1.7, installed yt-dlp 2026.07.04, FFmpeg 9.0.1, ImageOptim 1.9.3, and Browser Media Bridge 0.1.0 installation and connection state.
+- Plugins & Engines diagnostics report bundled MarkItDown 0.1.7, installed yt-dlp 2026.08.19, FFmpeg 9.0.1, ImageOptim 1.9.3, and Browser Media Bridge 0.1.0 installation and connection state.
 - Converter and image-compressor details are consolidated into one Plugins & Engines destination with Overview, Documents, and Images sections; the obsolete duplicate sidebar presentation is not present in the refreshed capture.
 - Homebrew engine detection runs through the allowlisted XPC helper, avoiding false unavailable results caused by the main-app sandbox.
 - The Converters page reports a healthy bundled runtime and its generated, local-only test conversion completed with **Passed**.

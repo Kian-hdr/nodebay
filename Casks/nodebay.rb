@@ -15,6 +15,8 @@ cask "nodebay" do
 
   depends_on arch: :arm64
   depends_on macos: :sequoia
+  depends_on formula: "yt-dlp"
+  depends_on formula: "ffmpeg"
 
   app "Nodebay.app"
 

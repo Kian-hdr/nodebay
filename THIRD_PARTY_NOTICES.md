@@ -7,12 +7,12 @@ The exact Boring Notch foundation is commit `44dd999f70493da48209c99e9f873c47f2e
 The bundled Microsoft MarkItDown 0.1.7 runtime and its complete Python package notices are in `THIRD_PARTY_LICENSES_MARKITDOWN`.
 MediaRemoteAdapter 0.1.0 is a bundled BSD-3-Clause framework from https://github.com/ungive/mediaremote-adapter; its license text is in `THIRD_PARTY_LICENSES`. The bundled binary SHA-256 is `91eb19837ca9f2779e476dc8e67d12bc28331dd557c87a19b0e45463c739c2fc`.
 
-## yt-dlp 2026.07.04 (companion, not bundled)
+## yt-dlp 2026.08.19 (companion, not bundled)
 
 - Source: https://github.com/yt-dlp/yt-dlp
 - License: Unlicense core; distribution-dependent third-party licenses; PyInstaller builds are GPLv3+
 - Distribution status: Detected separately on the development Mac. Nodebay does not redistribute this tool.
-- License source: https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.07.04/LICENSE
+- License source: https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.08.19/LICENSE
 
 ```text
 This is free and unencumbered software released into the public domain.

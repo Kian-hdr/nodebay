@@ -1,7 +1,7 @@
 # Browser media bridge
 
 - Purpose: opt-in enumeration and control of individual compatible browser media tabs
-- Version: 0.1.0
+- Version: 0.1.1
 - Status: first-party extension and native host bundled with Nodebay; extension installation remains explicit
 - Browser: Google Chrome
 - Behavior: Chrome native messaging plus a loopback-only connection to the running Nodebay app

@@ -68,7 +68,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | Integration | Version or status | Packaging | Local | Network |
 |---|---:|---|---:|---:|
 | [Microsoft MarkItDown](https://github.com/microsoft/markitdown) | 0.1.7 | Bundled, unmodified runtime | Yes | No |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.7.4 | Separate Homebrew companion | Yes | Yes, direct to source |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.8.19 | Separate Homebrew companion | Yes | Yes, direct to source |
 | [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
 | Browser media bridge | 0.1.0 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |

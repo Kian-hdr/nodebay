@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "companions": [
-    {"id":"yt-dlp","name":"yt-dlp","version":"2026.07.04","source":"https://github.com/yt-dlp/yt-dlp","license":"Unlicense core; distribution-dependent third-party licenses; PyInstaller builds are GPLv3+","licenseURL":"https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.07.04/LICENSE","bundled":false},
+    {"id":"yt-dlp","name":"yt-dlp","version":"2026.08.19","source":"https://github.com/yt-dlp/yt-dlp","license":"Unlicense core; distribution-dependent third-party licenses; PyInstaller builds are GPLv3+","licenseURL":"https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.08.19/LICENSE","bundled":false},
     {"id":"ffmpeg","name":"FFmpeg","version":"9.0.1 Homebrew build","source":"https://ffmpeg.org","license":"GPLv3+ for the detected Homebrew build because --enable-gpl and --enable-version3 are active","licenseURL":"https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.1/COPYING.GPLv3","bundled":false},
     {"id":"imageoptim","name":"ImageOptim","version":"1.9.3","source":"https://imageoptim.com/mac","license":"GPL-2.0-or-later","licenseURL":"https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt","bundled":false}
   ],

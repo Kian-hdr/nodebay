@@ -3,10 +3,10 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-0.1.2-arm64.zip}
+artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-1.0.0-arm64.zip}
 require_notarized=${REQUIRE_NOTARIZED:-0}
-expected_version=${EXPECTED_VERSION:-0.1.2}
-expected_build=${EXPECTED_BUILD:-3}
+expected_version=${EXPECTED_VERSION:-1.0.0}
+expected_build=${EXPECTED_BUILD:-21}
 expected_team=${EXPECTED_TEAM:-HZWY8HT54D}
 expected_identifier=${EXPECTED_IDENTIFIER:-theboringteam.boringnotch}
 

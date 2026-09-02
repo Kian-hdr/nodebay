@@ -10,7 +10,7 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay 0.1.2 is the prepared Apple Silicon maintenance release. It prevents the Settings window from reopening without an explicit user action. Its archive is Developer ID signed, notarized by Apple, and stapled for publication. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
+Nodebay 1.0.0 is the first stable Apple Silicon release line. It includes the completed downloader workflow, external-display and external-volume drag routing, safe MP4 compression, bounded video-to-GIF conversion, durable Markdown outputs, and corrected PDF bullets. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
 
 ## Screenshots
 
@@ -39,6 +39,8 @@ The following capabilities are implemented in the current source. Automated chec
 - Batch conversion into a separate Markdown result stack with progress, cancellation, partial success, and aggregate errors
 - Local yt-dlp downloads with explicit MP4, MP3, or best-original selection and optional FFmpeg processing
 - Copy-first ImageOptim integration that never sends an original file to ImageOptim
+- [Local MP4 video compression](docs/features/video-compression.md) into separate H.264/AAC copies, with cancellation and size comparisons
+- [Bounded video-to-GIF conversion](docs/features/video-to-gif.md) for short MP4, MOV, and M4V files
 - Independent Apple Music, Spotify, YouTube Music, and system Now Playing source state with an explicit active control target
 - Optional independent Chrome tab sources for playable YouTube and YouTube Music tabs through a local first-party bridge
 - Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, and license links
@@ -50,7 +52,8 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
 
 - Removing a tile removes only Nodebay's reference and supports Undo.
 - Dissolving a stack preserves every member reference.
-- Markdown conversion creates a collision-safe `.md` copy.
+- Markdown conversion creates a collision-safe, persistent `.md` copy in Nodebay-managed storage.
+- MP4 compression and video-to-GIF conversion create separate outputs and never modify the source video.
 - Image compression first creates a collision-safe copy and passes only that copy to ImageOptim.
 - Downloaded media remains in the configured download directory while Nodebay stores a reference.
 - Generated files remain regular file URLs that can be dragged into Finder or another app.

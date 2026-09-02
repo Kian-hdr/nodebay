@@ -30,6 +30,8 @@ Existing file stacks, multi-file dragging, PDF/DOCX conversion, image-copy compr
 
 ## Install or upgrade
 
+Release verification passed: 146 local automated tests, clean Apple Silicon Debug and Release builds, [independent GitHub CI](https://github.com/Kian-hdr/nodebay/actions/runs/33692504735), Developer ID signing, Apple notarization, stapling and Gatekeeper. Both public downloads match the published checksums. The Homebrew 1.0.0-to-1.1.0 upgrade and non-zap reinstall were exercised on the same Mac with preserved managed data. Finder rendered both Markdown extensions with Nodebay quit. These checks do not replace the manual coverage limitations listed above.
+
 ```sh
 brew tap Kian-hdr/nodebay
 brew trust --cask Kian-hdr/nodebay/nodebay

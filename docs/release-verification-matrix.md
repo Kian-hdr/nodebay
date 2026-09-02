@@ -31,7 +31,7 @@ metadata and test assertions only; the compiled application source is unchanged.
 | Homebrew online audit | Passed | `brew audit --cask --strict --online Kian-hdr/nodebay/nodebay` completed successfully |
 | Installed Finder preview | Passed interactive | Public Homebrew app rendered both `.md` and `.markdown` with main Nodebay quit; extension process ran from Applications; Escape dismissed the preview |
 | App registrations | Passed | Only `/Applications/Nodebay.app` and its embedded preview remain registered as Nodebay; removed temporary/Trash registration records only, not files |
-| GitHub CI | Running at publication readback | Independent run `33692504735`; local clean build and tests passed. Its result must not be inferred from local success |
+| GitHub CI | Passed | Independent Apple Silicon run [33692504735](https://github.com/Kian-hdr/nodebay/actions/runs/33692504735) completed successfully: tests/notices, pinned runtime, local downloader, clean Release build and generated-artifact exclusion |
 | Remaining UI/hardware checks | Not rerun | Full VoiceOver, all supported OS versions, media-key presses, wake/clamshell, multi-monitor matrix, live YouTube and complete hover-paste/destination-app drag matrix |
 
 Privacy-safe current screenshots: [About](screenshots/nodebay-about-1.1.0-dark.png),

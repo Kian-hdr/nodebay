@@ -40,9 +40,10 @@ class DownloaderSecurityContractTests(unittest.TestCase):
         self.assertIn("values.isSymbolicLink != true", SOURCE)
         self.assertNotIn('standardizedFileURL.path.hasPrefix(staging.path + "/")', SOURCE)
 
-    def test_default_download_directory_is_sandbox_authorized_and_errors_are_visible(self):
+    def test_default_download_directory_is_app_owned_and_errors_are_visible(self):
         entitlements = (ROOT / "boringNotch/boringNotch.entitlements").read_text()
-        self.assertIn("com.apple.security.files.downloads.read-write", entitlements)
+        self.assertNotIn("com.apple.security.files.downloads.read-write", entitlements)
+        self.assertIn("NodebayManagedFileStorage.directory(for: .downloads)", SOURCE)
         self.assertIn("presentFailure(error)", SOURCE)
         self.assertIn('alert.messageText = "Download Failed"', SOURCE)
         self.assertIn("SharingStateManager.shared.beginInteraction()", SOURCE)

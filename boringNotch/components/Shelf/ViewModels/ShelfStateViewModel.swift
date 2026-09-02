@@ -50,7 +50,36 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     private init() {
-        items = ShelfPersistenceService.shared.load()
+        items = ShelfPersistenceService.shared.load().map(Self.migrateLegacyTemporaryMarkdown)
+    }
+
+    /// Older Nodebay builds stored generated Markdown in the temporary folder
+    /// and exported it as a file promise. Copy those results into durable
+    /// app-owned storage once, preserving shelf identity and stack membership.
+    private static func migrateLegacyTemporaryMarkdown(_ item: ShelfItem) -> ShelfItem {
+        switch item.kind {
+        case .file(let bookmarkData):
+            guard item.isTemporary,
+                  let sourceURL = Bookmark(data: bookmarkData).resolvedURL,
+                  ["md", "markdown"].contains(sourceURL.pathExtension.lowercased()),
+                  let outputURL = try? NodebayManagedFileStorage.persistentMarkdownCopy(of: sourceURL),
+                  let bookmark = try? Bookmark(url: outputURL) else {
+                return item
+            }
+            return ShelfItem(id: item.id, kind: .file(bookmark: bookmark.data), isTemporary: false)
+
+        case .stack(let name, let members):
+            let migratedMembers = members.map(migrateLegacyTemporaryMarkdown)
+            guard migratedMembers != members else { return item }
+            return ShelfItem(
+                id: item.id,
+                kind: .stack(name: name, members: migratedMembers),
+                isTemporary: item.isTemporary
+            )
+
+        case .link, .text:
+            return item
+        }
     }
     
     private func schedulePersistence() {

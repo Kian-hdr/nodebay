@@ -15,6 +15,86 @@ enum TempFileType {
     case url(URL)
 }
 
+/// Storage owned by Nodebay that does not require broad access to a user's
+/// Downloads folder. Generated results remain available after the shelf
+/// reference is removed so another app can finish copying a dragged file.
+enum NodebayManagedFileStorage {
+    enum Category: String {
+        case markdown = "Generated/Markdown"
+        case media = "Generated/Media"
+        case downloads = "Downloads"
+    }
+
+    static func directory(for category: Category) throws -> URL {
+        let applicationSupport = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let directory = applicationSupport
+            .appendingPathComponent("Nodebay", isDirectory: true)
+            .appendingPathComponent(category.rawValue, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    static func uniqueOutputURL(for category: Category, suggestedName: String) throws -> URL {
+        let safeName = URL(fileURLWithPath: suggestedName).lastPathComponent
+        let filename = safeName.isEmpty || safeName == "." || safeName == ".."
+            ? "Nodebay Output"
+            : safeName
+        let outputDirectory = try directory(for: category)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        return outputDirectory.appendingPathComponent(filename, isDirectory: false)
+    }
+
+    static func persistentMarkdownCopy(of sourceURL: URL) throws -> URL {
+        let outputURL = try uniqueOutputURL(
+            for: .markdown,
+            suggestedName: sourceURL.lastPathComponent
+        )
+        do {
+            try sourceURL.accessSecurityScopedResource { accessibleURL in
+                try FileManager.default.copyItem(at: accessibleURL, to: outputURL)
+            }
+            try normalizeLegacyPDFGlyphPlaceholders(at: outputURL)
+            return outputURL
+        } catch {
+            removeFailedOutput(at: outputURL, category: .markdown)
+            throw error
+        }
+    }
+
+    /// MarkItDown versions previously bundled by Nodebay could emit PDF bullet
+    /// glyphs as line-leading `(cid:N)` placeholders. This method is used only
+    /// while rescuing Nodebay-owned legacy Markdown from temporary storage.
+    private static func normalizeLegacyPDFGlyphPlaceholders(at url: URL) throws {
+        guard ["md", "markdown"].contains(url.pathExtension.lowercased()) else { return }
+
+        let markdown = try String(contentsOf: url, encoding: .utf8)
+        let pattern = "(?m)^(\u{000C}?)([ \\t]*)\\(cid:\\d+\\)[ \\t]*"
+        let expression = try NSRegularExpression(pattern: pattern)
+        let range = NSRange(markdown.startIndex..<markdown.endIndex, in: markdown)
+        let normalized = expression.stringByReplacingMatches(
+            in: markdown,
+            range: range,
+            withTemplate: "$1$2- "
+        )
+        guard normalized != markdown else { return }
+        try normalized.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    static func removeFailedOutput(at url: URL, category: Category = .markdown) {
+        guard let managedRoot = try? directory(for: category),
+              url.standardizedFileURL.path.hasPrefix(managedRoot.standardizedFileURL.path + "/") else {
+            return
+        }
+        try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+    }
+}
+
 class TemporaryFileStorageService {
     static let shared = TemporaryFileStorageService()
     

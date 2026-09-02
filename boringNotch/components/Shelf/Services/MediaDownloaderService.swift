@@ -480,7 +480,8 @@ private actor MediaDownloadLimiter {
 
     private func configuredDownloadDirectory() -> URL {
         if let data = UserDefaults.standard.data(forKey: "nodebay.downloader.directoryBookmark"), let url = Bookmark(data: data).resolvedURL { return url }
-        return (FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")).appending(path: "Nodebay", directoryHint: .isDirectory)
+        return (try? NodebayManagedFileStorage.directory(for: .downloads))
+            ?? FileManager.default.temporaryDirectory.appending(path: "Nodebay Downloads", directoryHint: .isDirectory)
     }
     private func update(_ id: UUID, _ change: (inout MediaDownloadJob) -> Void) { guard var job = jobs[id] else { return }; change(&job); jobs[id] = job; persist() }
     private func persist() { if let data = try? JSONEncoder().encode(jobs.values.sorted { $0.id.uuidString < $1.id.uuidString }) { UserDefaults.standard.set(data, forKey: persistenceKey) } }

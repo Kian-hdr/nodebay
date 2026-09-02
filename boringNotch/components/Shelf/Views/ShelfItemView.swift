@@ -29,7 +29,7 @@ struct ShelfItemView: View {
     private let removalControlOffset = CGSize(width: 42, height: -50)
     private var conversionTint: Color { Color(red: 0.24, green: 0.56, blue: 0.96) }
     private var showsActionButton: Bool {
-        viewModel.canConvertToMarkdown || viewModel.canCompressImage || viewModel.canDownloadMedia
+        viewModel.canConvertToMarkdown || viewModel.canCompressImage || viewModel.canCompressVideo || viewModel.canDownloadMedia
             || viewModel.canBatchConvertStack || viewModel.canBatchCompressStack
     }
     
@@ -199,12 +199,16 @@ struct ShelfItemView: View {
 
     private var conversionButton: some View {
         Button {
-            if viewModel.canDownloadMedia && shelfState.isConverting(item) {
+            if viewModel.isCompressingVideo {
+                viewModel.cancelVideoCompression()
+            } else if viewModel.canDownloadMedia && shelfState.isConverting(item) {
                 downloadCoordinator.cancel(item)
             } else if item.stackMembers != nil {
                 showStack = true
             } else if viewModel.canCompressImage {
                 viewModel.compressImage()
+            } else if viewModel.canCompressVideo {
+                viewModel.compressVideo()
             } else if viewModel.canDownloadMedia {
                 viewModel.downloadMedia()
             } else {
@@ -217,7 +221,7 @@ struct ShelfItemView: View {
                         .controlSize(.mini)
                         .tint(conversionTint.opacity(0.85))
                 } else {
-                    Image(systemName: viewModel.canDownloadMedia ? "arrow.down.circle" : (viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up"))
+                    Image(systemName: viewModel.canDownloadMedia ? "arrow.down.circle" : (viewModel.canCompressVideo ? "film" : (viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up")))
                 }
 
                 Text(actionButtonTitle)
@@ -239,12 +243,13 @@ struct ShelfItemView: View {
         }
         .frame(height: 20)
         .buttonStyle(.plain)
-        .disabled(shelfState.isConverting(item) && !viewModel.canDownloadMedia)
-        .help(viewModel.canDownloadMedia ? "Download media locally" : "Create a separate output copy")
+        .disabled(shelfState.isConverting(item) && !viewModel.canDownloadMedia && !viewModel.isCompressingVideo)
+        .help(viewModel.canCompressVideo ? "Create a smaller, lossy MP4 copy up to 1080p. The original stays unchanged." : (viewModel.canDownloadMedia ? "Download media locally" : "Create a separate output copy"))
         .accessibilityLabel(actionButtonTitle)
     }
 
     private var actionButtonTitle: String {
+        if viewModel.isCompressingVideo { return "Cancel Compression" }
         if viewModel.canDownloadMedia && shelfState.isConverting(item) { return "Cancel" }
         if let progress = shelfState.conversionProgress[item.id] { return progress }
         if downloadCoordinator.jobs[item.id]?.state == .failed { return "Retry Download" }
@@ -252,6 +257,7 @@ struct ShelfItemView: View {
         if shelfState.isConverting(item) { return "Converting…" }
         if item.stackMembers != nil { return "Stack Actions" }
         if viewModel.canDownloadMedia { return "Download Media" }
+        if viewModel.canCompressVideo { return "Compress Video" }
         return viewModel.canCompressImage ? "Compress Image" : "Convert to MD"
     }
 

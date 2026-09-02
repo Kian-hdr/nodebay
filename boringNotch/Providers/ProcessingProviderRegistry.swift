@@ -352,10 +352,10 @@ final class ProcessingProviderRegistry: ObservableObject {
             AnyProcessingProvider(ExecutableProvider(
                 descriptor: .init(
                     id: "ffmpeg", name: "FFmpeg", systemImage: "film.stack",
-                    purpose: "Merge, remux, and extract downloaded media.", provider: "FFmpeg project",
+                    purpose: "Compress MP4 copies locally, create bounded GIFs, and process downloaded media.", provider: "FFmpeg project",
                     officialURL: URL(string: "https://ffmpeg.org")!, license: "Depends on exact build configuration",
                     runsLocally: true, requiresNetwork: false, inputTypes: ["Audio and video streams"],
-                    outputTypes: ["MP4", "MP3", "Original containers"], pinnedVersion: nil, configurable: false
+                    outputTypes: ["GIF", "MP4", "MP3", "Original containers"], pinnedVersion: nil, configurable: false
                 ), candidateURLs: [resources.appending(path: "engines/ffmpeg"), homebrew.appending(path: "ffmpeg"), intelHomebrew.appending(path: "ffmpeg")], versionArguments: ["-version"], bundled: false, engineID: "ffmpeg"
             )),
             AnyProcessingProvider(ImageOptimProvider()),

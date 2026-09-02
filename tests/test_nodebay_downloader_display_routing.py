@@ -27,7 +27,7 @@ class NodebayDownloaderDisplayRoutingTests(unittest.TestCase):
     def test_output_is_staged_and_collision_safe(self):
         self.assertIn('".nodebay-download-', DOWNLOADER)
         self.assertIn("collisionSafeURL", DOWNLOADER)
-        self.assertIn('appending(path: "Nodebay"', DOWNLOADER)
+        self.assertIn("NodebayManagedFileStorage.directory(for: .downloads)", DOWNLOADER)
         self.assertNotIn("/bin/sh", DOWNLOADER)
 
     def test_format_quality_and_progress_are_applied(self):

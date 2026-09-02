@@ -56,6 +56,8 @@ final class ShelfItemViewModel: ObservableObject {
     @Published var draftTitle: String = ""
     @Published private(set) var isBatchConverting = false
     private var batchConversionTask: Task<Void, Never>?
+    @Published private(set) var isCompressingVideo = false
+    private var videoCompressionTask: Task<Void, Never>?
     private var sharingLifecycle: SharingLifecycleDelegate?
     private var quickShareLifecycle: SharingLifecycleDelegate?
     private var sharingAccessingURLs: [URL] = []
@@ -173,6 +175,50 @@ final class ShelfItemViewModel: ObservableObject {
         return ["http", "https"].contains(url.scheme?.lowercased() ?? "")
     }
 
+    var canConvertVideoToGIF: Bool {
+        guard let url = item.fileURL else { return false }
+        return VideoToGIFConversionService.supports(url)
+    }
+
+    func convertVideoToGIF() {
+        guard let inputURL = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) else { return }
+        ShelfStateViewModel.shared.beginConverting([item])
+        ShelfStateViewModel.shared.setConversionProgress("Checking video duration…", for: item)
+
+        Task {
+            do {
+                let result = try await VideoToGIFConversionService.shared.convertIfEligible(inputURL)
+                switch result {
+                case .gif(let outputURL, let duration, let frameCount):
+                    let bookmark = try Bookmark(url: outputURL)
+                    let outputItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false)
+                    ShelfStateViewModel.shared.insertResult(outputItem, beside: item)
+
+                    let alert = NSAlert()
+                    alert.messageText = "GIF Created"
+                    alert.informativeText = "Created a \(duration.formatted(.number.precision(.fractionLength(1))))-second GIF with \(frameCount) frames. The original video was not changed."
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+
+                case .keptOriginalVideo(let videoURL, let duration, let maximumDuration):
+                    let alert = NSAlert()
+                    alert.messageText = "Kept as Video"
+                    alert.informativeText = "This video is \(duration.formatted(.number.precision(.fractionLength(1)))) seconds long. Nodebay creates GIFs only up to \(Int(maximumDuration)) seconds, so the original video remains on the shelf instead."
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "Open Video")
+                    alert.addButton(withTitle: "OK")
+                    if alert.runModal() == .alertFirstButtonReturn {
+                        NSWorkspace.shared.open(videoURL)
+                    }
+                }
+            } catch {
+                presentProcessingError(title: "GIF Creation Failed", error: error)
+            }
+            ShelfStateViewModel.shared.finishConverting([item])
+        }
+    }
+
     func downloadMedia() {
         if let state = DownloadCoordinator.shared.jobs[item.id]?.state,
            state == .failed || state == .cancelled {
@@ -202,6 +248,64 @@ final class ShelfItemViewModel: ObservableObject {
     var canCompressImage: Bool {
         guard let url = item.fileURL else { return false }
         return ImageOptimCompressionService.isInstalled && ImageOptimCompressionService.supports(url)
+    }
+
+    var canCompressVideo: Bool {
+        item.fileURL.map(VideoCompressionService.supports) ?? false
+    }
+
+    func cancelVideoCompression() {
+        videoCompressionTask?.cancel()
+    }
+
+    func compressVideo() {
+        guard canCompressVideo, !ShelfStateViewModel.shared.isConverting(item),
+              let inputURL = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) else { return }
+        let sourceItem = item
+        isCompressingVideo = true
+        ShelfStateViewModel.shared.beginConverting([sourceItem])
+        ShelfStateViewModel.shared.setConversionProgress("Compressing…", for: sourceItem)
+        videoCompressionTask = Task {
+            defer {
+                isCompressingVideo = false
+                videoCompressionTask = nil
+                ShelfStateViewModel.shared.finishConverting([sourceItem])
+            }
+            var generatedURL: URL?
+            do {
+                let result = try await VideoCompressionService.shared.compressCopy(of: inputURL)
+                generatedURL = result.outputURL
+                try Task.checkCancellation()
+                let bookmark = try Bookmark(url: result.outputURL)
+                let outputItem = ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false)
+                let alert = NSAlert()
+                alert.messageText = result.isSmaller ? "Video Compressed" : "No Size Reduction"
+                alert.informativeText = "Original: \(ByteCountFormatter.string(fromByteCount: result.originalSize, countStyle: .file))\nCopy: \(ByteCountFormatter.string(fromByteCount: result.compressedSize, countStyle: .file))\nSaved: \(result.percentageSaved.formatted(.number.precision(.fractionLength(1))))%\n\nLossy H.264 video, up to 1080p, with the first audio track encoded as AAC. Extra tracks, subtitles, chapters, and source metadata are omitted. Your original is unchanged."
+                alert.alertStyle = .informational
+                if result.isSmaller {
+                    ShelfStateViewModel.shared.insertResult(outputItem, beside: sourceItem)
+                    generatedURL = nil
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                } else {
+                    alert.addButton(withTitle: "Discard Copy")
+                    alert.addButton(withTitle: "Keep Copy")
+                    if alert.runModal() == .alertSecondButtonReturn {
+                        ShelfStateViewModel.shared.insertResult(outputItem, beside: sourceItem)
+                        generatedURL = nil
+                    }
+                }
+            } catch is CancellationError {
+                // Cancellation is normal and never removes the source or a previously retained result.
+            } catch {
+                if !Task.isCancelled { presentProcessingError(title: "Video Compression Failed", error: error) }
+            }
+            if let generatedURL {
+                await Task.detached(priority: .utility) {
+                    try? FileManager.default.removeItem(at: generatedURL.deletingLastPathComponent())
+                }.value
+            }
+        }
     }
 
     var canBatchCompressStack: Bool {
@@ -341,7 +445,7 @@ final class ShelfItemViewModel: ObservableObject {
                 do {
                     let outputURL = try await MarkItDownConversionService.shared.convert(inputURL)
                     let bookmark = try Bookmark(url: outputURL)
-                    results.append(ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true))
+                    results.append(ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false))
                 } catch {
                     failures.append("\(source.displayName): \(error.localizedDescription)")
                 }
@@ -391,12 +495,12 @@ final class ShelfItemViewModel: ObservableObject {
                 }
 
                 do {
-                    // The service always writes into a new UUID-named temporary
-                    // directory. The source document is never modified or replaced.
+                    // The service writes a collision-safe persistent copy inside
+                    // Nodebay's own storage. The source is never modified or replaced.
                     let outputURL = try await MarkItDownConversionService.shared.convert(inputURL)
                     let bookmark = try Bookmark(url: outputURL)
                     convertedItems.append(
-                        ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: true)
+                        ShelfItem(kind: .file(bookmark: bookmark.data), isTemporary: false)
                     )
                 } catch {
                     failures.append("\(sourceItem.displayName): \(error.localizedDescription)")
@@ -661,6 +765,20 @@ final class ShelfItemViewModel: ObservableObject {
             menu.addItem(NSMenuItem.separator())
         }
 
+        let videoURLs = selectedFileURLs.filter(VideoToGIFConversionService.supports)
+        if selectedItems.count == 1, videoURLs.count == 1 {
+            menu.addItem(NSMenuItem.separator())
+            let videoActions = NSMenuItem(title: "Video Actions", action: nil, keyEquivalent: "")
+            let videoSubmenu = NSMenu()
+            if canCompressVideo {
+                videoSubmenu.addItem(NSMenuItem(title: "Compress Video", action: nil, keyEquivalent: ""))
+            }
+            videoSubmenu.addItem(NSMenuItem(title: "Create GIF", action: nil, keyEquivalent: ""))
+            videoActions.submenu = videoSubmenu
+            menu.addItem(videoActions)
+            menu.addItem(NSMenuItem.separator())
+        }
+
         // Add compression option for files/folders (single or multiple)
         if !selectedFileURLs.isEmpty {
             let compressItem = NSMenuItem(title: "Compress", action: nil, keyEquivalent: "")
@@ -888,8 +1006,14 @@ final class ShelfItemViewModel: ObservableObject {
             case "Compress Image":
                 viewModel?.compressImage()
 
+            case "Compress Video":
+                viewModel?.compressVideo()
+
             case "Download Media":
                 viewModel?.downloadMedia()
+
+            case "Create GIF":
+                viewModel?.convertVideoToGIF()
                 
             case "Create PDF":
                 handleCreatePDF()

@@ -117,7 +117,7 @@ private struct MarkItDownConfigurationSections: View {
             }
             try? FileManager.default.removeItem(at: source)
             if let output {
-                TemporaryFileStorageService.shared.removeTemporaryFileIfNeeded(at: output)
+                NodebayManagedFileStorage.removeFailedOutput(at: output)
             }
             isTesting = false
             await registry.refresh()
@@ -300,9 +300,8 @@ struct DownloaderSettingsView: View {
            let url = Bookmark(data: data).resolvedURL {
             return url
         }
-        return (FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads"))
-            .appending(path: "Nodebay", directoryHint: .isDirectory)
+        return (try? NodebayManagedFileStorage.directory(for: .downloads))
+            ?? FileManager.default.temporaryDirectory.appending(path: "Nodebay Downloads", directoryHint: .isDirectory)
     }
 
     private func displayPath(_ url: URL) -> String {

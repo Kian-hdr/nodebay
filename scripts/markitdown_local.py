@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import mimetypes
 import os
+import re
 import socket
 import sys
 from pathlib import Path
@@ -17,6 +18,15 @@ SUPPORTED_EXTENSIONS = {
     ".msg", ".zip", ".txt", ".md", ".markdown", ".rst", ".log",
 }
 MARKITDOWN_VERSION = "0.1.7"
+PDF_GLYPH_PLACEHOLDER = re.compile(r"(?m)^\f?([ \t]*)\(cid:\d+\)[ \t]*")
+
+
+def _normalize_markdown(markdown: str, source_suffix: str) -> str:
+    """Repair PDF bullet glyphs that text extraction exposes as `(cid:N)`."""
+
+    if source_suffix.lower() != ".pdf":
+        return markdown
+    return PDF_GLYPH_PLACEHOLDER.sub(r"\1- ", markdown)
 
 
 def _disable_network() -> None:
@@ -73,7 +83,7 @@ def convert(input_path: Path, output_path: Path) -> None:
 
     converter = MarkItDown(enable_plugins=False)
     result = converter.convert_local(input_path)
-    markdown = result.markdown
+    markdown = _normalize_markdown(result.markdown, input_path.suffix)
     if not markdown or not markdown.strip():
         raise ValueError(
             "No text was extracted. The document may be scanned, image-only, empty, or protected."

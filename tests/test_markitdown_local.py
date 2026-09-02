@@ -93,6 +93,17 @@ class LocalWrapperTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(), b"original source bytes")
             self.assertEqual(output.read_text(encoding="utf-8"), "# Converted locally\n")
 
+    def test_pdf_cid_placeholders_are_normalized_to_markdown_bullets(self) -> None:
+        markdown = "Heading\n\n(cid:127) First item\n\f(cid:8226) Second item\n"
+        self.assertEqual(
+            MODULE._normalize_markdown(markdown, ".pdf"),
+            "Heading\n\n- First item\n- Second item\n",
+        )
+
+    def test_non_pdf_content_is_not_rewritten(self) -> None:
+        markdown = "(cid:127) Literal document text\n"
+        self.assertEqual(MODULE._normalize_markdown(markdown, ".docx"), markdown)
+
     def test_source_cannot_be_used_as_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.txt"

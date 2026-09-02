@@ -1,54 +1,105 @@
-# Nodebay 0.1.1 final publication proposal
+# Nodebay 1.0.0 final publication proposal
 
-This document records the current state and remaining approval-gated work. It does not authorize external publication by itself.
+This document records the complete local release candidate. It does not authorize external publication by itself.
 
-## Completed repository migration
+## Destinations
 
-- Canonical standalone source: `https://github.com/Kian-hdr/nodebay`
-- Visibility: public
+- Canonical source and release: `https://github.com/Kian-hdr/nodebay`
 - Stable branch: `main`
 - Development branch: `dev`
+- Homebrew tap: `https://github.com/Kian-hdr/homebrew-nodebay`
+- Release tag: `nodebay-v1.0.0`
 - Exact Boring Notch foundation: `44dd999f70493da48209c99e9f873c47f2e55c83`
-- Public release tags and releases: none
-- Public Homebrew tap: not created
-- Obsolete repositories: archived and still public pending the requested visibility change
 
-## Root cause and proposed source update
+## Source changes
 
-The installed Developer ID build had a stable designated requirement, but macOS Accessibility still held an older ad-hoc CDHash. The running executable therefore failed `AXIsProcessTrusted()`, so Nodebay never created its modifying media-key event tap. The release detects that authorization change, presents one reauthorization path, monitors the current signed executable, and automatically recreates a missing or disabled event tap after wake, activation, and display changes.
+The proposed source promotes the complete downloader and display-routing work, automatic audio-or-video selection with safe ambiguity fallback, per-item playlist classification, external-volume shelf access, safe MP4 compression, bounded video-to-GIF conversion, durable generated Markdown and GIF storage, corrected PDF bullets, release documentation, and the 1.0.0 cask.
 
-The HUD now routes to Nodebay's configured display mode, passes unsupported controls through to macOS, exposes privacy-safe diagnostics, and retains the existing BetterDisplay and Lunar companion behavior for external brightness. About Nodebay links now use the canonical repository and `main` branch.
+The existing commit history remains intact. The proposed commits beyond public `main` are:
 
-## Proposed release
+1. `1de9b43` Fix shelf tab switching while dragging content
+2. `b932f81` Add hardened local downloads and display-aware routing
+3. `9169c6d` Document downloader behavior and engine requirements
+4. `8114a71` Install the pinned runtime in CI
+5. `5dcf453` Add runtime verification tools to CI
+6. `dcd637b` Update CI for Swift 6.2
+7. `9af365a` Retain external-volume drag access
+8. `5e44f12` Add safe video processing and durable generated outputs
+9. `1b29e7b` Prepare the Nodebay 1.0.0 documentation and version metadata
+10. `6f5102f` Choose media type automatically with safe classification and overrides
+11. Final release-evidence commit containing the DMG cask, verification matrix, and publication proposal
 
-- Tag: `nodebay-v0.1.1`
-- Application version and build: `0.1.1 (2)`
-- Application archive: `Nodebay-0.1.1-arm64.zip`
-- Checksum file: `Nodebay-0.1.1-checksums.txt`
-- Architecture: Apple Silicon
-- Minimum macOS: 15.0
+The unrelated untracked drafts `docs/proposals/video-to-gif.md` and `docs/release-proposal 2.md` are explicitly excluded.
+
+## Primary release artifact
+
+- File: `Nodebay-1.0.0-arm64.dmg`
+- Version and build: `1.0.0 (21)`
+- Architecture: Apple Silicon arm64
+- Minimum macOS: 15.0 Sequoia
+- Size: 86,731,065 bytes
+- SHA-256: `e33c60cbcf7aa2b80780b8f8c285e051fa94afe21f0b8db7cdaea9d8e0d4e772`
 - Signing identity: `Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)`
+- Apple notarization: accepted, submission `3cf0388f-b757-49f2-a7e2-657887e62aab`
+- Stapling and Gatekeeper: passed
+- DMG layout: `Nodebay.app` and Applications shortcut, plus hidden Finder presentation metadata
 
-Apple accepted notarization submission `d75f3e51-238c-4e83-973f-cdfffcd16881`. The ticket is stapled, `spctl` reports `Notarized Developer ID`, and the final archive passes deep signature, hardened-runtime, timestamp, designated-requirement, architecture, version, notice, staple, and Gatekeeper checks.
+The DMG was verified, mounted read-only, installed into `/Applications`, and launched. The installed application reports 1.0.0 build 21. Only one installed Nodebay app and no installed Boring Notch app were found.
 
-Final SHA-256: `c497711aebcc549666f5f607e1c6c789d70c28d2636352ed918409f7197fb2a7`.
+## Homebrew publication
 
-## Proposed Homebrew publication
+The cask installs only `Nodebay.app`, requires Apple Silicon and macOS Sequoia, verifies the final DMG checksum, and installs unmodified yt-dlp and FFmpeg as formula dependencies. It preserves the current migration-safe bundle identifier and user data.
 
-Create public `Kian-hdr/homebrew-nodebay` with the reviewed `Casks/nodebay.rb` and README. The cask installs exactly `Nodebay.app`, uses the final notarized archive checksum, requires Apple Silicon and macOS 15, and preserves normal quarantine behavior.
+```ruby
+cask "nodebay" do
+  version "1.0.0"
+  sha256 "e33c60cbcf7aa2b80780b8f8c285e051fa94afe21f0b8db7cdaea9d8e0d4e772"
+
+  url "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v#{version}/Nodebay-#{version}-arm64.dmg"
+  name "Nodebay"
+  desc "Local-first utility bay for the MacBook notch and external displays"
+  homepage "https://github.com/Kian-hdr/nodebay"
+
+  livecheck do
+    url :url
+    regex(/^nodebay-v?(\d+(?:\.\d+)+)$/i)
+    strategy :github_latest
+  end
+
+  depends_on arch: :arm64
+  depends_on macos: :sequoia
+  depends_on formula: "yt-dlp"
+  depends_on formula: "ffmpeg"
+
+  app "Nodebay.app"
+
+  uninstall quit: "theboringteam.boringnotch"
+
+  zap trash: [
+    "~/Library/Application Support/Nodebay",
+    "~/Library/Caches/theboringteam.boringnotch",
+    "~/Library/Preferences/theboringteam.boringnotch.plist",
+  ]
+end
+```
+
+After publication, both commands will be tested against the public asset:
 
 ```bash
 brew tap Kian-hdr/nodebay
 brew install --cask nodebay
 ```
 
-The fully qualified equivalent is `brew install --cask Kian-hdr/nodebay/nodebay`.
+```bash
+brew install --cask Kian-hdr/nodebay/nodebay
+```
 
-## Obsolete repository visibility
+## Verification and limitations
 
-- `Kian-hdr/homebrew-boring-notch-markitdown` can change directly from archived public to archived private.
-- `Kian-hdr/boring.notch` is a public fork. GitHub requires it to leave the fork network before it can become private. Detachment is permanent, preserves Git commit metadata, and removes the fork relationship. The repository currently has no issues, pull requests, releases, child forks, stars, or watchers.
+Automated tests, Debug and Release builds, signing, notarization, stapling, Gatekeeper, local PDF and DOCX conversion, local downloader, ImageOptim safe-copy processing, repository validation, notice validation, and the installed-app launch passed. The complete evidence classification is in `docs/release-verification-matrix.md`.
 
-## Remaining gate
+Physical media-key, external-monitor, external-SSD, context-menu, multi-tab browser bridge, accessibility, and stress tests were not rerun on the final 1.0.0 binary. Prior user demonstrations and automated contracts are recorded separately and are not presented as current physical verification. Homebrew online audit, clean install, and upgrade can run only after the release URL exists.
 
-Review the exact commits, release text, artifact, checksum, Homebrew cask, results, and limitations, then obtain explicit approval immediately before public writes. No push, tag, release, tap creation, or Homebrew publication occurs before that approval.
+## Approval gate
+
+No commit push, branch update, tag, GitHub release, asset upload, or public Homebrew change occurs until the repository owner reviews this package and gives explicit final publication approval.

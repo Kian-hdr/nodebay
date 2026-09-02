@@ -74,7 +74,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.8.19 | Separate Homebrew companion | Yes | Yes, direct to source |
 | [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
-| Browser media bridge | 0.1.0 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |
+| Browser media bridge | 0.1.1 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |
 
 Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
 

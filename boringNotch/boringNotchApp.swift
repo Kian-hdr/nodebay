@@ -505,10 +505,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupPasteShortcutMonitor() {
         NotchPasteShortcutMonitor.shared.start(
             shouldHandle: { [weak self] in self?.canPasteIntoHoveredNotch() == true },
-            handler: { [weak self] urls in
-                guard let self else { return }
+            handler: { [weak self] in
+                guard let self, QuickNotesCoordinator.shared.pasteIfSupported() else { return false }
                 self.coordinator.currentView = .shelf
-                DownloadCoordinator.shared.add(urls: urls)
+                return true
             }
         )
     }

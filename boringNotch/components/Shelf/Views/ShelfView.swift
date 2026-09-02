@@ -15,6 +15,10 @@ struct ShelfView: View {
     @StateObject var selection = ShelfSelectionModel.shared
     @StateObject private var downloadCoordinator = DownloadCoordinator.shared
     @StateObject private var quickLookService = QuickLookService()
+    @StateObject private var quickNotes = QuickNotesCoordinator.shared
+    @AppStorage("nodebay.quickNotes.enabled") private var quickNotesEnabled = true
+    @State private var showsNewNote = false
+    @State private var noteInteractionActive = false
     @State private var showsAddLink = false
     @State private var linkDraft = ""
     @State private var addLinkInteractionActive = false
@@ -31,7 +35,21 @@ struct ShelfView: View {
                 }
         }
         .overlay(alignment: .bottom) {
-            if tvm.canUndoRemoval {
+            if let notice = quickNotes.notice {
+                HStack(spacing: 8) {
+                    Text(notice).lineLimit(3)
+                    Button { quickNotes.dismissNotice() } label: {
+                        Image(systemName: "xmark").frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Dismiss Quick Note notification")
+                }
+                .font(.caption)
+                .padding(8)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.bottom, 6)
+                .gesture(DragGesture(minimumDistance: 20).onEnded { _ in quickNotes.dismissNotice() })
+            } else if tvm.canUndoRemoval {
                 HStack(spacing: 8) {
                     Text("Removed from Nodebay")
                     Button("Undo") { tvm.undoLastRemoval() }
@@ -71,6 +89,7 @@ struct ShelfView: View {
         .animation(.easeOut(duration: 0.18), value: tvm.canUndoRemoval)
         .onChange(of: vm.notchState) { _, _ in
             tvm.dismissRemovalNotice()
+            quickNotes.dismissNotice()
         }
         .onChange(of: showsAddLink) { _, isPresented in
             if isPresented {
@@ -81,6 +100,11 @@ struct ShelfView: View {
         }
         .onDisappear {
             endAddLinkInteractionIfNeeded()
+            endNoteInteraction()
+            quickNotes.dismissNotice()
+        }
+        .onChange(of: showsNewNote) { _, visible in
+            if !visible { endNoteInteraction() }
         }
         // Bind Quick Look to shelf selection
         .onChange(of: selection.selectedIDs) {
@@ -134,6 +158,25 @@ struct ShelfView: View {
                     .padding()
             }
             .overlay(alignment: .topTrailing) {
+                HStack(spacing: 2) {
+                if quickNotesEnabled {
+                    Button {
+                        if !noteInteractionActive {
+                            SharingStateManager.shared.beginInteraction()
+                            noteInteractionActive = true
+                        }
+                        showsNewNote = true
+                    } label: {
+                        Image(systemName: "square.and.pencil").frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("New Note")
+                    .accessibilityLabel("New Quick Note")
+                    .popover(isPresented: $showsNewNote, arrowEdge: .top) {
+                        QuickNoteEditor { showsNewNote = false }
+                    }
+                }
                 Button {
                     if showsAddLink {
                         showsAddLink = false
@@ -150,12 +193,13 @@ struct ShelfView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .padding(8)
                 .help("Add media link")
                 .accessibilityLabel("Add media download link")
                 .popover(isPresented: $showsAddLink, arrowEdge: .top) {
                     addLinkPopover
                 }
+                }
+                .padding(8)
             }
             .transaction { transaction in
                 transaction.animation = vm.animation
@@ -204,6 +248,12 @@ struct ShelfView: View {
         SharingStateManager.shared.endInteraction()
     }
 
+    private func endNoteInteraction() {
+        guard noteInteractionActive else { return }
+        noteInteractionActive = false
+        SharingStateManager.shared.endInteraction()
+    }
+
     var content: some View {
         Group {
             if tvm.isEmpty {
@@ -220,11 +270,13 @@ struct ShelfView: View {
                         .fontWeight(.medium)
                 }
             } else {
+                ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: spacing) {
                         ForEach(Defaults[.reverseShelfOrdering] ? tvm.items.reversed() : tvm.items) { item in
                             ShelfItemView(item: item)
                                 .environmentObject(quickLookService)
+                                .id(item.id)
                         }
                     }
                 }
@@ -232,6 +284,13 @@ struct ShelfView: View {
                 .scrollIndicators(.never)
                 .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
                     handleDrop(providers: providers)
+                }
+                .onChange(of: quickNotes.lastCreatedID) { _, id in
+                    if let id { proxy.scrollTo(id, anchor: .center) }
+                }
+                .onAppear {
+                    if let id = quickNotes.lastCreatedID { proxy.scrollTo(id, anchor: .center) }
+                }
                 }
             }
         }

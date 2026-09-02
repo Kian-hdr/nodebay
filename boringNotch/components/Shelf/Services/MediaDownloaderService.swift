@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 
 enum MediaDownloadFormat: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -18,16 +19,19 @@ struct MediaDownloadOptions: Codable, Equatable, Sendable {
     var audioBitrate: Int?
 
     static var storedDefault: Self {
-        let defaults = UserDefaults.standard
+        stored(in: .standard)
+    }
+
+    static func stored(in defaults: UserDefaults) -> Self {
         return Self(
             format: defaults.string(forKey: "nodebay.downloader.defaultFormat").flatMap(MediaDownloadFormat.init(rawValue:)) ?? .bestOriginal,
-            maximumVideoHeight: integer(from: defaults.string(forKey: "nodebay.downloader.preferredResolution")),
-            audioBitrate: integer(from: defaults.string(forKey: "nodebay.downloader.audioBitrate"))
+            maximumVideoHeight: integer(from: defaults.string(forKey: "nodebay.downloader.preferredResolution"), allowed: [720, 1080, 1440, 2160]),
+            audioBitrate: integer(from: defaults.string(forKey: "nodebay.downloader.audioBitrate"), allowed: [128, 192, 256, 320])
         )
     }
 
-    static func automatic(for kind: MediaDownloadKind) -> Self {
-        let stored = storedDefault
+    static func automatic(for kind: MediaDownloadKind, defaults: UserDefaults = .standard) -> Self {
+        let stored = stored(in: defaults)
         return Self(
             format: kind == .audio ? .mp3 : .mp4,
             maximumVideoHeight: stored.maximumVideoHeight,
@@ -35,8 +39,7 @@ struct MediaDownloadOptions: Codable, Equatable, Sendable {
         )
     }
 
-    func saveAsDefault() {
-        let defaults = UserDefaults.standard
+    func saveAsDefault(in defaults: UserDefaults = .standard) {
         defaults.set(format.rawValue, forKey: "nodebay.downloader.defaultFormat")
         defaults.set(maximumVideoHeight.map { "\($0)p" } ?? "Best available", forKey: "nodebay.downloader.preferredResolution")
         defaults.set(audioBitrate.map { "\($0) kbps" } ?? "Best available", forKey: "nodebay.downloader.audioBitrate")
@@ -45,9 +48,9 @@ struct MediaDownloadOptions: Codable, Equatable, Sendable {
         defaults.set(mode.rawValue, forKey: "nodebay.downloader.selectionMode")
     }
 
-    private static func integer(from value: String?) -> Int? {
-        guard let value else { return nil }
-        return Int(value.prefix { $0.isNumber })
+    private static func integer(from value: String?, allowed: [Int]) -> Int? {
+        guard let value, let number = Int(value.prefix { $0.isNumber }), allowed.contains(number) else { return nil }
+        return number
     }
 }
 
@@ -119,6 +122,16 @@ struct MediaDownloadJob: Identifiable, Codable, Sendable {
     var classificationKind: MediaDownloadKind?
     var classificationConfidence: MediaClassificationConfidence?
     var classificationReason: String?
+    var selectionMode: MediaDownloadSelectionMode?
+    var itemClassifications: [MediaPlaylistItemDecision]?
+
+    var choiceLabel: String? {
+        if let options {
+            return options.format == .mp3 ? "Audio · MP3" : (options.format == .mp4 ? "Video · MP4" : "Original")
+        }
+        if isPlaylist && selectionMode == .automatic { return "Auto · Per item" }
+        return classificationKind.map { $0 == .audio ? "Audio · MP3" : "Video · MP4" }
+    }
 }
 
 enum MediaDownloaderError: LocalizedError {
@@ -143,7 +156,15 @@ enum MediaDownloaderError: LocalizedError {
     }
 }
 
-actor MediaDownloaderService {
+protocol MediaDownloading: Sendable {
+    func isFFmpegAvailable() async -> Bool
+    func inspect(_ url: URL) async throws -> MediaInspection
+    func download(_ inspection: MediaInspection, options: MediaDownloadOptions, destination: URL,
+                  playlistConfirmed: Bool, preserveMetadata: Bool, preserveThumbnail: Bool,
+                  progress: (@Sendable (MediaDownloadProgress) -> Void)?) async throws -> MediaDownloadResult
+}
+
+actor MediaDownloaderService: MediaDownloading {
     static let shared = MediaDownloaderService()
     static let pinnedTestedVersion = "2026.8.19"
     static let candidateExecutables = [URL(fileURLWithPath: "/opt/homebrew/bin/yt-dlp"), URL(fileURLWithPath: "/usr/local/bin/yt-dlp")]
@@ -207,18 +228,10 @@ actor MediaDownloaderService {
     }
 
     private nonisolated static func classificationMetadata(from object: [String: Any], url: URL) -> MediaClassificationMetadata {
-        MediaClassificationMetadata(
-            url: url,
-            categories: object["categories"] as? [String] ?? [],
-            track: object["track"] as? String,
-            artist: (object["artist"] as? String) ?? (object["creator"] as? String),
-            mediaType: object["media_type"] as? String,
-            videoCodec: object["vcodec"] as? String,
-            audioCodec: object["acodec"] as? String
-        )
+        MediaClassificationMetadata.from(object, url: url)
     }
 
-    private nonisolated static func inspectionEntry(
+    nonisolated static func inspectionEntry(
         from object: [String: Any],
         parentURL: URL,
         parent: [String: Any]
@@ -238,7 +251,16 @@ actor MediaDownloaderService {
         } else {
             entryURL = nil
         }
-        guard let entryURL else { return nil }
+        guard var entryURL else { return nil }
+        // Flat YouTube Music playlists often expose ordinary youtube.com URLs.
+        // Preserve the user's Music source without rewriting third-party hosts.
+        if parentURL.host?.lowercased() == "music.youtube.com",
+           let host = entryURL.host?.lowercased(),
+           host == "youtube.com" || host.hasSuffix(".youtube.com"),
+           var components = URLComponents(url: entryURL, resolvingAgainstBaseURL: false) {
+            components.host = "music.youtube.com"
+            entryURL = components.url ?? entryURL
+        }
         return MediaInspectionEntry(
             url: entryURL,
             title: String(((object["title"] as? String) ?? "Playlist item").prefix(300)),
@@ -324,7 +346,7 @@ actor MediaDownloaderService {
         ]
         if let ffmpeg { arguments += ["--ffmpeg-location", ffmpeg.deletingLastPathComponent().path] }
         arguments += Self.formatArguments(options: options, ffmpegAvailable: ffmpeg != nil)
-        arguments.append(preserveMetadata ? "--embed-metadata" : "--no-embed-metadata")
+        arguments.append(preserveMetadata && ffmpeg != nil ? "--embed-metadata" : "--no-embed-metadata")
         arguments.append(preserveThumbnail && ffmpeg != nil ? "--embed-thumbnail" : "--no-write-thumbnail")
         arguments.append(inspection.url.absoluteString)
 
@@ -382,11 +404,11 @@ actor MediaDownloaderService {
                 : ["--format", "best\(height)"]
         case .mp4:
             return ffmpegAvailable
-                ? ["--format", "bestvideo*[ext=mp4]\(height)+bestaudio[ext=m4a]/best[ext=mp4]\(height)/best\(height)", "--merge-output-format", "mp4"]
+                ? ["--format", "bestvideo*[ext=mp4]\(height)+bestaudio[ext=m4a]/best[ext=mp4]\(height)", "--merge-output-format", "mp4"]
                 : ["--format", "best[ext=mp4]\(height)"]
         case .mp3:
             var result = ["--extract-audio", "--audio-format", "mp3"]
-            if let bitrate = options.audioBitrate { result += ["--audio-quality", "\(bitrate)K"] }
+            result += ["--audio-quality", options.audioBitrate.map { "\($0)K" } ?? "0"]
             return result
         }
     }
@@ -442,13 +464,28 @@ private enum MediaDownloadPlan {
 @MainActor final class DownloadCoordinator: ObservableObject {
     static let shared = DownloadCoordinator()
     @Published private(set) var jobs: [UUID: MediaDownloadJob] = [:]
+    @Published private(set) var ffmpegAvailable = false
+    private let service: any MediaDownloading
+    private let defaults: UserDefaults
+    private let playlistConfirmation: ((MediaInspection) -> Bool)?
+    private let formatPicker: ((MediaInspection, Bool) -> MediaDownloadOptions?)?
+    private let failurePresenter: ((Error) -> Void)?
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var runTokens: [UUID: UUID] = [:]
     private var requestedOverrides: [UUID: MediaDownloadFormat] = [:]
     private let persistenceKey = "nodebay.downloader.jobs.v1"
 
-    private init() {
-        guard let data = UserDefaults.standard.data(forKey: persistenceKey),
+    init(service: any MediaDownloading = MediaDownloaderService.shared,
+         defaults: UserDefaults = .standard,
+         playlistConfirmation: ((MediaInspection) -> Bool)? = nil,
+         formatPicker: ((MediaInspection, Bool) -> MediaDownloadOptions?)? = nil,
+         failurePresenter: ((Error) -> Void)? = nil) {
+        self.service = service
+        self.defaults = defaults
+        self.playlistConfirmation = playlistConfirmation
+        self.formatPicker = formatPicker
+        self.failurePresenter = failurePresenter
+        guard let data = defaults.data(forKey: persistenceKey),
               let saved = try? JSONDecoder().decode([MediaDownloadJob].self, from: data) else { return }
         for var job in saved {
             if [.queued, .inspecting, .awaitingFormat, .downloading, .processing].contains(job.state) {
@@ -457,6 +494,14 @@ private enum MediaDownloadPlan {
             }
             jobs[job.id] = job
         }
+    }
+
+    func refreshEngineAvailability() async {
+        ffmpegAvailable = await service.isFFmpegAvailable()
+    }
+
+    func showEngineHelp() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/Kian-hdr/nodebay/blob/main/docs/engines/ffmpeg.md")!)
     }
 
     func add(rawText: String) { add(urls: MediaDownloaderService.validatedURLs(in: rawText)) }
@@ -476,14 +521,18 @@ private enum MediaDownloadPlan {
         ShelfStateViewModel.shared.add(items)
         start(items: items)
     }
-    func start(items: [ShelfItem]) {
+    func start(items: [ShelfItem], after previousTask: Task<Void, Never>? = nil) {
         for item in items where jobs[item.id] == nil {
             guard case .link(let url) = item.kind else { continue }
             jobs[item.id] = MediaDownloadJob(id: item.id, url: url, title: url.host ?? "Media", sourceService: url.host ?? "Unknown", state: .queued, isPlaylist: false, itemCount: nil, options: nil, progress: nil, lastError: nil, completedPaths: [], classificationKind: nil, classificationConfidence: nil, classificationReason: nil)
             persist()
             let token = UUID()
             runTokens[item.id] = token
-            tasks[item.id] = Task { [weak self] in await self?.run(item: item, token: token) }
+            tasks[item.id] = Task { [weak self] in
+                await previousTask?.value
+                guard !Task.isCancelled, self?.runTokens[item.id] == token else { return }
+                await self?.run(item: item, token: token)
+            }
         }
     }
     func retry(_ item: ShelfItem) { restart(item, override: nil) }
@@ -495,11 +544,12 @@ private enum MediaDownloadPlan {
     }
 
     private func restart(_ item: ShelfItem, override: MediaDownloadFormat?) {
+        let previousTask = tasks[item.id]
         runTokens[item.id] = nil
-        tasks[item.id]?.cancel()
+        previousTask?.cancel()
         jobs[item.id] = nil
-        if let override { requestedOverrides[item.id] = override }
-        start(items: [item])
+        requestedOverrides[item.id] = override
+        start(items: [item], after: previousTask)
     }
 
     private func run(item: ShelfItem, token: UUID) async {
@@ -508,7 +558,7 @@ private enum MediaDownloadPlan {
         shelf.beginConverting([item]); shelf.setConversionProgress("Inspecting…", for: item)
         update(item.id) { $0.state = .inspecting }
         do {
-            let inspection = try await MediaDownloaderService.shared.inspect(MediaDownloaderService.validatedURL(from: sourceURL.absoluteString))
+            let inspection = try await service.inspect(MediaDownloaderService.validatedURL(from: sourceURL.absoluteString))
             try Task.checkCancellation()
             guard runTokens[item.id] == token else { return }
             let classification = MediaDownloaderService.classification(for: inspection)
@@ -521,6 +571,7 @@ private enum MediaDownloadPlan {
                 $0.classificationKind = classification.kind
                 $0.classificationConfidence = classification.confidence
                 $0.classificationReason = classification.reason
+                $0.selectionMode = MediaDownloadSelectionMode.stored(in: defaults)
             }
             shelf.setConversionProgress("Selecting format…", for: item)
             let override = requestedOverrides.removeValue(forKey: item.id)
@@ -534,7 +585,7 @@ private enum MediaDownloadPlan {
             if case .oneFormat(let options) = plan { update(item.id) { $0.options = options } }
             update(item.id) { $0.state = .downloading }
             shelf.setConversionProgress("Downloading…", for: item)
-            let limit = UserDefaults.standard.object(forKey: "nodebay.downloader.maximumConcurrent") as? Int ?? 2
+            let limit = defaults.object(forKey: "nodebay.downloader.maximumConcurrent") as? Int ?? 2
             await MediaDownloadLimiter.shared.acquire(limit: limit)
             defer { Task { await MediaDownloadLimiter.shared.release() } }
             try Task.checkCancellation()
@@ -548,12 +599,16 @@ private enum MediaDownloadPlan {
                 item: item,
                 token: token
             )
+            if Task.isCancelled || runTokens[item.id] != token {
+                retainCompletedFiles(result.files, title: inspection.title)
+                return
+            }
             try Task.checkCancellation()
             guard runTokens[item.id] == token else { return }
             update(item.id) { $0.state = .processing; $0.completedPaths = result.files.map(\.path); $0.lastError = result.partialFailure }
             shelf.setConversionProgress("Adding to Nodebay…", for: item)
             let outputItems = try result.files.map { ShelfItem(kind: .file(bookmark: try Bookmark(url: $0).data)) }
-            let completed = outputItems.count == 1 ? outputItems[0] : ShelfItem(kind: .stack(name: "\(inspection.title) Downloads", members: outputItems))
+            let completed = outputItems.count == 1 && !inspection.isPlaylist ? outputItems[0] : ShelfItem(kind: .stack(name: "\(inspection.title) Downloads", members: outputItems))
             shelf.replaceReference(item, with: [completed])
             update(item.id) { $0.state = .completed; $0.progress = 1 }
         } catch is CancellationError {
@@ -574,9 +629,19 @@ private enum MediaDownloadPlan {
         }
     }
 
-    private func receive(_ progress: MediaDownloadProgress, for item: ShelfItem) {
+    private func receive(_ progress: MediaDownloadProgress, for item: ShelfItem, token: UUID) {
+        guard runTokens[item.id] == token else { return }
         update(item.id) { $0.state = progress.stage; $0.progress = progress.percentage }
         ShelfStateViewModel.shared.setConversionProgress(progress.percentage.map { "\(Int($0 * 100))%" } ?? "Downloading…", for: item)
+    }
+
+    private func retainCompletedFiles(_ files: [URL], title: String) {
+        let members = files.compactMap { url -> ShelfItem? in
+            guard let bookmark = try? Bookmark(url: url) else { return nil }
+            return ShelfItem(kind: .file(bookmark: bookmark.data))
+        }
+        guard !members.isEmpty else { return }
+        ShelfStateViewModel.shared.add([ShelfItem(kind: .stack(name: "\(title) Downloads", members: members))])
     }
 
     private func choosePlan(
@@ -584,31 +649,32 @@ private enum MediaDownloadPlan {
         override: MediaDownloadFormat?
     ) async throws -> MediaDownloadPlan? {
         if inspection.isPlaylist && !confirmPlaylist(inspection) { return nil }
-        let ffmpegAvailable = await MediaDownloaderService.shared.isFFmpegAvailable()
+        await refreshEngineAvailability()
         if let override {
             if override == .mp3 && !ffmpegAvailable { throw MediaDownloaderError.ffmpegUnavailable }
-            var options = MediaDownloadOptions.storedDefault
+            var options = MediaDownloadOptions.stored(in: defaults)
             options.format = override
             return .oneFormat(options)
         }
 
-        switch MediaDownloadSelectionMode.stored {
+        switch MediaDownloadSelectionMode.stored(in: defaults) {
         case .automatic:
-            if inspection.isPlaylist && !inspection.entries.isEmpty { return .classifyPlaylistItems }
+            if inspection.isPlaylist { return .classifyPlaylistItems }
             let classification = MediaDownloaderService.classification(for: inspection)
             if classification.kind == .audio && !ffmpegAvailable { throw MediaDownloaderError.ffmpegUnavailable }
-            return .oneFormat(.automatic(for: classification.kind))
+            return .oneFormat(.automatic(for: classification.kind, defaults: defaults))
         case .alwaysVideo:
-            return .oneFormat(.automatic(for: .video))
+            return .oneFormat(.automatic(for: .video, defaults: defaults))
         case .alwaysAudio:
             guard ffmpegAvailable else { throw MediaDownloaderError.ffmpegUnavailable }
-            return .oneFormat(.automatic(for: .audio))
+            return .oneFormat(.automatic(for: .audio, defaults: defaults))
         case .askEveryTime:
             return await presentFormatPicker(for: inspection, ffmpegAvailable: ffmpegAvailable).map(MediaDownloadPlan.oneFormat)
         }
     }
 
     private func confirmPlaylist(_ inspection: MediaInspection) -> Bool {
+        if let playlistConfirmation { return playlistConfirmation(inspection) }
         let alert = NSAlert()
         alert.messageText = "Download Playlist?"
         let count = inspection.itemCount.map(String.init) ?? "an unknown number of"
@@ -624,13 +690,20 @@ private enum MediaDownloadPlan {
         for inspection: MediaInspection,
         ffmpegAvailable: Bool
     ) async -> MediaDownloadOptions? {
-        let defaults = MediaDownloadOptions.storedDefault
+        if let formatPicker { return formatPicker(inspection, ffmpegAvailable) }
+        let defaults = MediaDownloadOptions.stored(in: self.defaults)
         let alert = NSAlert()
         alert.messageText = inspection.title
         alert.informativeText = "Source: \(inspection.sourceService) • \(inspection.isYouTube ? "YouTube" : "Experimental yt-dlp support")\nChoose a one-time local output format."
         alert.addButton(withTitle: inspection.isPlaylist ? "Download Playlist" : "Download"); alert.addButton(withTitle: "Cancel")
         let format = NSPopUpButton(frame: NSRect(x: 0, y: 64, width: 280, height: 26))
-        format.addItems(withTitles: MediaDownloadFormat.allCases.filter { ffmpegAvailable || $0 != .mp3 }.map(\.rawValue)); format.selectItem(withTitle: defaults.format.rawValue)
+        format.addItems(withTitles: MediaDownloadFormat.allCases.map(\.rawValue))
+        format.menu?.autoenablesItems = false
+        format.item(withTitle: MediaDownloadFormat.mp3.rawValue)?.isEnabled = ffmpegAvailable
+        format.selectItem(withTitle: !ffmpegAvailable && defaults.format == .mp3 ? MediaDownloadFormat.bestOriginal.rawValue : defaults.format.rawValue)
+        if !ffmpegAvailable {
+            alert.informativeText += "\nMP3 and stream merging require FFmpeg. Video uses a combined stream only. Open Downloader Settings for installation help."
+        }
         let resolution = NSPopUpButton(frame: NSRect(x: 0, y: 34, width: 135, height: 26)); resolution.addItems(withTitles: ["Best", "2160p", "1440p", "1080p", "720p"]); resolution.selectItem(withTitle: defaults.maximumVideoHeight.map { "\($0)p" } ?? "Best")
         let bitrate = NSPopUpButton(frame: NSRect(x: 145, y: 34, width: 135, height: 26)); bitrate.addItems(withTitles: ["Best", "320 kbps", "256 kbps", "192 kbps", "128 kbps"]); bitrate.selectItem(withTitle: defaults.audioBitrate.map { "\($0) kbps" } ?? "Best")
         let remember = NSButton(checkboxWithTitle: "Always use this media type", target: nil, action: nil); remember.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
@@ -639,7 +712,7 @@ private enum MediaDownloadPlan {
         defer { SharingStateManager.shared.endInteraction() }
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let chosen = MediaDownloadOptions(format: MediaDownloadFormat(rawValue: format.titleOfSelectedItem ?? "") ?? .bestOriginal, maximumVideoHeight: Int((resolution.titleOfSelectedItem ?? "").prefix { $0.isNumber }), audioBitrate: Int((bitrate.titleOfSelectedItem ?? "").prefix { $0.isNumber }))
-        if remember.state == .on { chosen.saveAsDefault() }
+        if remember.state == .on { chosen.saveAsDefault(in: self.defaults) }
         return chosen
     }
 
@@ -650,58 +723,77 @@ private enum MediaDownloadPlan {
         item: ShelfItem,
         token: UUID
     ) async throws -> MediaDownloadResult {
-        let preserveMetadata = UserDefaults.standard.object(forKey: "nodebay.downloader.preserveMetadata") as? Bool ?? true
-        let preserveThumbnail = UserDefaults.standard.bool(forKey: "nodebay.downloader.preserveThumbnail")
+        let preserveMetadata = defaults.object(forKey: "nodebay.downloader.preserveMetadata") as? Bool ?? true
+        let preserveThumbnail = defaults.bool(forKey: "nodebay.downloader.preserveThumbnail")
         switch plan {
         case .oneFormat(let options):
-            return try await MediaDownloaderService.shared.download(
+            return try await service.download(
                 inspection,
                 options: options,
                 destination: destination,
                 playlistConfirmed: true,
                 preserveMetadata: preserveMetadata,
                 preserveThumbnail: preserveThumbnail
-            ) { progress in Task { @MainActor [weak self] in self?.receive(progress, for: item) } }
+            ) { progress in Task { @MainActor [weak self] in self?.receive(progress, for: item, token: token) } }
 
         case .classifyPlaylistItems:
-            let ffmpegAvailable = await MediaDownloaderService.shared.isFFmpegAvailable()
+            let ffmpegAvailable = await service.isFFmpegAvailable()
             var files: [URL] = []
             var failures: [String] = []
+            defer {
+                if Task.isCancelled || runTokens[item.id] != token {
+                    retainCompletedFiles(files, title: inspection.title)
+                }
+            }
             for (index, entry) in inspection.entries.enumerated() {
                 try Task.checkCancellation()
                 guard runTokens[item.id] == token else { throw CancellationError() }
                 do {
                     ShelfStateViewModel.shared.setConversionProgress("Inspecting \(index + 1) of \(inspection.entries.count)", for: item)
-                    let itemInspection = try await MediaDownloaderService.shared.inspect(entry.url)
+                    let itemInspection = try await service.inspect(entry.url)
+                    try Task.checkCancellation()
+                    guard runTokens[item.id] == token else { throw CancellationError() }
+                    guard !itemInspection.isPlaylist else { throw MediaDownloaderError.inspectionFailed("Nested playlists are not downloaded automatically.") }
                     let classification = MediaDownloaderService.classification(for: itemInspection)
+                    update(item.id) {
+                        $0.classificationKind = classification.kind
+                        $0.classificationConfidence = classification.confidence
+                        $0.classificationReason = classification.reason
+                        $0.options = .automatic(for: classification.kind, defaults: defaults)
+                        $0.itemClassifications = ($0.itemClassifications ?? []) + [.init(index: index + 1, classification: classification)]
+                    }
                     if classification.kind == .audio && !ffmpegAvailable {
-                        failures.append("\(entry.title): FFmpeg is unavailable for MP3 conversion.")
+                        failures.append("Item \(index + 1): FFmpeg is unavailable for MP3 conversion.")
                         continue
                     }
                     ShelfStateViewModel.shared.setConversionProgress("Downloading \(index + 1) of \(inspection.entries.count)", for: item)
-                    let result = try await MediaDownloaderService.shared.download(
+                    let result = try await service.download(
                         itemInspection,
-                        options: .automatic(for: classification.kind),
+                        options: .automatic(for: classification.kind, defaults: defaults),
                         destination: destination,
                         playlistConfirmed: true,
                         preserveMetadata: preserveMetadata,
                         preserveThumbnail: preserveThumbnail
                     ) { _ in }
                     files.append(contentsOf: result.files)
-                    if let partial = result.partialFailure { failures.append("\(entry.title): \(partial)") }
+                    if result.partialFailure != nil { failures.append("Item \(index + 1): partially downloaded.") }
+                } catch is CancellationError {
+                    throw CancellationError()
                 } catch {
-                    failures.append("\(entry.title): \(error.localizedDescription)")
+                    failures.append("Item \(index + 1): inspection or download failed.")
                 }
             }
             guard !files.isEmpty else {
-                throw MediaDownloaderError.downloadFailed(failures.prefix(3).joined(separator: " "))
+                throw MediaDownloaderError.downloadFailed(failures.isEmpty ? "No inspectable playlist entries were returned." : failures.prefix(3).joined(separator: " "))
             }
+            try Task.checkCancellation()
             let report = failures.isEmpty ? nil : "\(failures.count) playlist item(s) failed. " + failures.prefix(3).joined(separator: " ")
             return MediaDownloadResult(inspection: inspection, files: files, partialFailure: report)
         }
     }
 
     private func presentFailure(_ error: Error) {
+        if let failurePresenter { failurePresenter(error); return }
         SharingStateManager.shared.beginInteraction()
         defer { SharingStateManager.shared.endInteraction() }
         let alert = NSAlert()
@@ -709,14 +801,17 @@ private enum MediaDownloadPlan {
         alert.messageText = "Download Failed"
         alert.informativeText = error.localizedDescription
         alert.addButton(withTitle: "OK")
-        alert.runModal()
+        if case MediaDownloaderError.ffmpegUnavailable = error {
+            alert.addButton(withTitle: "FFmpeg Setup")
+        }
+        if alert.runModal() == .alertSecondButtonReturn { showEngineHelp() }
     }
 
     private func configuredDownloadDirectory() -> URL {
-        if let data = UserDefaults.standard.data(forKey: "nodebay.downloader.directoryBookmark"), let url = Bookmark(data: data).resolvedURL { return url }
+        if let data = defaults.data(forKey: "nodebay.downloader.directoryBookmark"), let url = Bookmark(data: data).resolvedURL { return url }
         return (try? NodebayManagedFileStorage.directory(for: .downloads))
             ?? FileManager.default.temporaryDirectory.appending(path: "Nodebay Downloads", directoryHint: .isDirectory)
     }
     private func update(_ id: UUID, _ change: (inout MediaDownloadJob) -> Void) { guard var job = jobs[id] else { return }; change(&job); jobs[id] = job; persist() }
-    private func persist() { if let data = try? JSONEncoder().encode(jobs.values.sorted { $0.id.uuidString < $1.id.uuidString }) { UserDefaults.standard.set(data, forKey: persistenceKey) } }
+    private func persist() { if let data = try? JSONEncoder().encode(jobs.values.sorted { $0.id.uuidString < $1.id.uuidString }) { defaults.set(data, forKey: persistenceKey) } }
 }

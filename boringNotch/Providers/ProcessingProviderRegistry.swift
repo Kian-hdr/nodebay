@@ -359,6 +359,7 @@ final class ProcessingProviderRegistry: ObservableObject {
                 ), candidateURLs: [resources.appending(path: "engines/ffmpeg"), homebrew.appending(path: "ffmpeg"), intelHomebrew.appending(path: "ffmpeg")], versionArguments: ["-version"], bundled: false, engineID: "ffmpeg"
             )),
             AnyProcessingProvider(ImageOptimProvider()),
+            AnyProcessingProvider(STLRepairProvider()),
             AnyProcessingProvider(BrowserBridgeProvider()),
         ]
     }

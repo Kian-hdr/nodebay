@@ -154,15 +154,15 @@ final class NotchDragRoutingCoordinator {
 }
 
 /// Handles Command-V only when Nodebay explicitly confirms that the pointer is
-/// inside an open notch and the clipboard contains safe HTTP(S) URLs.
+/// inside an open notch. The explicit-paste handler owns clipboard routing.
 final class NotchPasteShortcutMonitor {
     static let shared = NotchPasteShortcutMonitor()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var shouldHandle: (() -> Bool)?
-    private var handler: (([URL]) -> Void)?
+    private var handler: (() -> Bool)?
 
-    func start(shouldHandle: @escaping () -> Bool, handler: @escaping ([URL]) -> Void) {
+    func start(shouldHandle: @escaping () -> Bool, handler: @escaping () -> Bool) {
         stop()
         self.shouldHandle = shouldHandle
         self.handler = handler
@@ -182,13 +182,12 @@ final class NotchPasteShortcutMonitor {
                       event.flags.contains(.maskCommand),
                       !event.flags.contains(.maskAlternate),
                       !event.flags.contains(.maskControl),
-                      monitor.shouldHandle?() == true,
-                      let text = NSPasteboard.general.string(forType: .string) else {
+                      !event.flags.contains(.maskShift),
+                      event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
+                      monitor.shouldHandle?() == true else {
                     return Unmanaged.passUnretained(event)
                 }
-                let urls = MediaDownloaderService.validatedURLs(in: text)
-                guard !urls.isEmpty else { return Unmanaged.passUnretained(event) }
-                monitor.handler?(urls)
+                guard monitor.handler?() == true else { return Unmanaged.passUnretained(event) }
                 return nil
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()

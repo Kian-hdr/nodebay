@@ -46,4 +46,21 @@ print -r -- "$metadata" | /usr/bin/python3 -c 'import json,sys; data=json.load(s
 
 output_count=$(/usr/bin/find "$fixture_dir/output" -maxdepth 1 -type f -name 'Nodebay-test-*.mp4' | /usr/bin/wc -l | /usr/bin/tr -d ' ')
 [[ "$output_count" == "1" ]] || { print -u2 "Expected one downloaded fixture, found $output_count"; exit 1; }
-print "Local downloader fixture passed"
+
+# Exercise MP3 extraction with the saved-quality argument used by Automatic.
+"$yt_dlp_path" $common --no-playlist --no-overwrites --restrict-filenames \
+  --ffmpeg-location "${ffmpeg_path:h}" \
+  --paths "$fixture_dir/output" \
+  --output 'Nodebay-audio-%(title).180B-[%(id)s].%(ext)s' \
+  --extract-audio --audio-format mp3 --audio-quality 192K \
+  "http://127.0.0.1:$port/fixture.mp4"
+
+"${ffmpeg_path:h}/ffprobe" -v error -show_streams -of json \
+  "$fixture_dir/output/Nodebay-test-fixture-[fixture].mp4" | /usr/bin/python3 -c \
+  'import json,sys; s=json.load(sys.stdin)["streams"]; assert {x["codec_type"] for x in s} == {"video", "audio"}'
+"${ffmpeg_path:h}/ffprobe" -v error -show_streams -of json \
+  "$fixture_dir/output/Nodebay-audio-fixture-[fixture].mp3" | /usr/bin/python3 -c \
+  'import json,sys; s=json.load(sys.stdin)["streams"]; assert len(s)==1 and s[0]["codec_name"]=="mp3"'
+"$ffmpeg_path" -v error -i "$fixture_dir/output/Nodebay-test-fixture-[fixture].mp4" -f null -
+"$ffmpeg_path" -v error -i "$fixture_dir/output/Nodebay-audio-fixture-[fixture].mp3" -f null -
+print "Local MP4 and MP3 downloader fixtures passed; both outputs decoded successfully"

@@ -16,7 +16,9 @@ class NodebayDownloaderDisplayRoutingTests(unittest.TestCase):
     def test_all_entry_points_use_shared_download_coordinator(self):
         self.assertIn("final class DownloadCoordinator", DOWNLOADER)
         self.assertIn("downloadCoordinator.add(urls: urls)", SHELF)
-        self.assertIn("DownloadCoordinator.shared.add(urls: urls)", APP)
+        self.assertIn("QuickNotesCoordinator.shared.pasteIfSupported()", APP)
+        notes = (ROOT / "boringNotch/components/Shelf/Services/QuickNotesCoordinator.swift").read_text()
+        self.assertIn("DownloadCoordinator.shared.add(urls: urls)", notes)
 
     def test_url_parser_rejects_credentials_and_deduplicates(self):
         self.assertIn("components.user == nil", DOWNLOADER)

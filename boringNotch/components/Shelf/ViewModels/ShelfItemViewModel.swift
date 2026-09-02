@@ -72,6 +72,8 @@ final class ShelfItemViewModel: ObservableObject {
     }
 
     var isSelected: Bool { selection.isSelected(item.id) }
+    var canRepairSTL: Bool { STLRepairCoordinator.shared.supports(item) }
+    func repairSTL() { STLRepairCoordinator.shared.start(item) }
 
     func loadThumbnail() async {
         guard let url = item.fileURL else { return }
@@ -786,6 +788,11 @@ final class ShelfItemViewModel: ObservableObject {
         }
 
         if selectedItems.count == 1, case .file(_) = item.kind { addMenuItem(title: "Rename") }
+        if selectedItems.count == 1, canRepairSTL {
+            addMenuItem(title: item.stackMembers == nil ? "Repair STL" : "Repair Compatible Models")
+            addMenuItem(title: "Inspect STL")
+            addMenuItem(title: "Thorough STL Repair…")
+        }
 
         // Always show "Copy" for all item types
         addMenuItem(title: "Copy")
@@ -888,7 +895,7 @@ final class ShelfItemViewModel: ObservableObject {
                                 try await NSWorkspace.shared.open(allSelectedURLs, withApplicationAt: appURL, configuration: config)
                             }
                         } catch {
-                            print("❌ Failed to open with application: \(error.localizedDescription)")
+                            print("Shelf open-with action failed.")
                         }
                 }
                 return
@@ -1014,6 +1021,12 @@ final class ShelfItemViewModel: ObservableObject {
 
             case "Create GIF":
                 viewModel?.convertVideoToGIF()
+            case "Repair STL", "Repair Compatible Models":
+                viewModel?.repairSTL()
+            case "Inspect STL":
+                STLRepairCoordinator.shared.start(item, mode: .inspect)
+            case "Thorough STL Repair…":
+                STLRepairCoordinator.shared.start(item, mode: .thorough)
                 
             case "Create PDF":
                 handleCreatePDF()
@@ -1200,7 +1213,7 @@ final class ShelfItemViewModel: ObservableObject {
                                 try await NSWorkspace.shared.open([fileURL], withApplicationAt: appURL, configuration: config)
                             }
                         } catch {
-                            print("❌ Failed to open with application: \(error.localizedDescription)")
+                            print("Shelf open-with action failed.")
                         }
                     }
                 }
@@ -1228,15 +1241,13 @@ final class ShelfItemViewModel: ObservableObject {
                         if response == .OK, let newURL = savePanel.url {
                             Task {
                                 do {
-                                    NSLog("🔐 Rename: moving from \(fileURL.path) to \(newURL.path) (securityScope=\(didStart))")
-
                                     try FileManager.default.moveItem(at: fileURL, to: newURL)
 
                                     if let newBookmark = try? Bookmark(url: newURL) {
                                         ShelfStateViewModel.shared.updateBookmark(for: item, bookmark: newBookmark.data)
                                     }
                                 } catch {
-                                    print("❌ Failed to rename file: \(error.localizedDescription)")
+                                    print("File rename failed.")
                                 }
                                 if didStart { fileURL.stopAccessingSecurityScopedResource() }
                             }

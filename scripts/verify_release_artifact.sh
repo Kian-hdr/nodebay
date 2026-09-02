@@ -3,10 +3,10 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-1.0.0-arm64.zip}
+artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-1.1.0-arm64.zip}
 require_notarized=${REQUIRE_NOTARIZED:-0}
-expected_version=${EXPECTED_VERSION:-1.0.0}
-expected_build=${EXPECTED_BUILD:-21}
+expected_version=${EXPECTED_VERSION:-1.1.0}
+expected_build=${EXPECTED_BUILD:-24}
 expected_team=${EXPECTED_TEAM:-HZWY8HT54D}
 expected_identifier=${EXPECTED_IDENTIFIER:-theboringteam.boringnotch}
 
@@ -20,10 +20,11 @@ trap 'rm -rf "$verify_root"' EXIT
 ditto -x -k "$artifact" "$verify_root"
 app="$verify_root/Nodebay.app"
 helper="$app/Contents/XPCServices/BoringNotchXPCHelper.xpc"
+preview="$app/Contents/PlugIns/NodebayMarkdownPreview.appex"
 runtime="$app/Contents/Resources/markitdown-runtime"
 licenses="$app/Contents/Resources/Licenses"
 
-[[ -d "$app" && -d "$helper" && -d "$runtime" ]] || {
+[[ -d "$app" && -d "$helper" && -d "$runtime" && -d "$preview" ]] || {
     print -u2 "The archive does not contain the expected Nodebay layout."
     exit 1
 }
@@ -72,13 +73,34 @@ actual_build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Content
 
 app_entitlements=$(codesign -d --entitlements :- "$app" 2>/dev/null)
 helper_entitlements=$(codesign -d --entitlements :- "$helper" 2>/dev/null)
-if print -r -- "$app_entitlements$helper_entitlements" | grep -q 'com.apple.security.get-task-allow'; then
+preview_entitlements=$(codesign -d --entitlements :- "$preview" 2>/dev/null)
+if print -r -- "$app_entitlements$helper_entitlements$preview_entitlements" | grep -q 'com.apple.security.get-task-allow'; then
     print -u2 "Release artifact contains the debug get-task-allow entitlement."
     exit 1
 fi
 
+# The preview must remain sandboxed, read-only and unable to load remote resources.
+print -r -- "$preview_entitlements" > "$verify_root/preview-entitlements.plist"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.app-sandbox' "$verify_root/preview-entitlements.plist")" == "true" &&
+   "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.files.user-selected.read-only' "$verify_root/preview-entitlements.plist")" == "true" ]] || {
+    print -u2 "Markdown preview requires sandbox and read-only file access."
+    exit 1
+}
+if print -r -- "$preview_entitlements" | grep -Eq 'com.apple.security.(network.|files.user-selected.read-write)'; then
+    print -u2 "Markdown preview has unexpected network or writable-file entitlements."
+    exit 1
+fi
+for key in CFBundleShortVersionString CFBundleVersion; do
+    [[ "$(/usr/libexec/PlistBuddy -c "Print :$key" "$preview/Contents/Info.plist")" ==
+       "$(/usr/libexec/PlistBuddy -c "Print :$key" "$app/Contents/Info.plist")" ]] || {
+        print -u2 "Markdown preview version does not match the application."
+        exit 1
+    }
+done
+
 for executable in \
     "$app/Contents/MacOS/Nodebay" \
+    "$preview/Contents/MacOS/NodebayMarkdownPreview" \
     "$runtime/markitdown-local"; do
     file "$executable" | grep -q 'Mach-O 64-bit executable arm64' || {
         print -u2 "Non-arm64 executable: $executable"
@@ -134,6 +156,7 @@ print "Debug entitlement exclusion: passed"
 print "Apple Silicon architecture: passed"
 print "Nested code signing and timestamps: passed"
 print "Bundled notices: passed"
+print "Markdown preview packaging and sandbox: passed"
 if [[ "$require_notarized" == "1" ]]; then
     print "Gatekeeper and staple validation: passed"
 else

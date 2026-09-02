@@ -15,6 +15,7 @@ class NodebayReleasePackagingTests(unittest.TestCase):
         self.assertIn('find "$app_stage/Contents" -type f', PACKAGE)
         self.assertIn("-name '*.framework'", PACKAGE)
         self.assertIn("-name '*.xpc'", PACKAGE)
+        self.assertIn("-name '*.appex'", PACKAGE)
         self.assertIn("-name '*.app'", PACKAGE)
         self.assertIn('--options runtime', PACKAGE)
         self.assertIn('--timestamp', PACKAGE)
@@ -28,6 +29,9 @@ class NodebayReleasePackagingTests(unittest.TestCase):
             "TeamIdentifier=",
             "stapler validate",
             "spctl --assess",
+            "NodebayMarkdownPreview.appex",
+            "Markdown preview version does not match",
+            "Markdown preview has unexpected network",
         ):
             self.assertIn(requirement, VERIFY)
 

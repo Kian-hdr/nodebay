@@ -17,6 +17,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case osd
     case battery
     case shelf
+    case quickNotes
     case plugins
     case downloader
     case mirror
@@ -35,6 +36,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .osd: "OSD"
         case .battery: "Battery"
         case .shelf: "Shelf"
+        case .quickNotes: "Quick Notes"
         case .plugins: "Plugins & Engines"
         case .downloader: "Downloader"
         case .mirror: "Mirror"
@@ -53,6 +55,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .osd: "dial.medium.fill"
         case .battery: "battery.100.bolt"
         case .shelf: "books.vertical"
+        case .quickNotes: "square.and.pencil"
         case .plugins: "puzzlepiece.extension"
         case .downloader: "arrow.down.circle"
         case .mirror: "camera"
@@ -102,6 +105,8 @@ struct SettingsView: View {
                     Charge()
                 case .shelf:
                     Shelf()
+                case .quickNotes:
+                    QuickNotesSettingsView()
                 case .plugins:
                     PluginsEnginesSettingsView()
                 case .downloader:

@@ -18,6 +18,7 @@ struct ShelfItemView: View {
     @ObservedObject var selection = ShelfSelectionModel.shared
     @ObservedObject private var shelfState = ShelfStateViewModel.shared
     @ObservedObject private var downloadCoordinator = DownloadCoordinator.shared
+    @ObservedObject private var stlRepair = STLRepairCoordinator.shared
     @StateObject private var viewModel: ShelfItemViewModel
     @EnvironmentObject private var quickLookService: QuickLookService
     @State private var showStack = false
@@ -30,7 +31,7 @@ struct ShelfItemView: View {
     private var conversionTint: Color { Color(red: 0.24, green: 0.56, blue: 0.96) }
     private var showsActionButton: Bool {
         viewModel.canConvertToMarkdown || viewModel.canCompressImage || viewModel.canCompressVideo || viewModel.canDownloadMedia
-            || viewModel.canBatchConvertStack || viewModel.canBatchCompressStack
+            || viewModel.canBatchConvertStack || viewModel.canBatchCompressStack || viewModel.canRepairSTL
     }
     
     init(item: ShelfItem) {
@@ -135,6 +136,7 @@ struct ShelfItemView: View {
         .onAppear {
             Task { 
                 await viewModel.loadThumbnail()
+                if viewModel.canDownloadMedia { await downloadCoordinator.refreshEngineAvailability() }
             }
             viewModel.onQuickLookRequest = { urls in
                 quickLookService.show(urls: urls, selectFirst: true)
@@ -188,23 +190,40 @@ struct ShelfItemView: View {
     }
 
     private var textView: some View {
-        Text(item.displayName)
+        VStack(spacing: 1) {
+            Text(downloadCoordinator.jobs[item.id]?.title ?? item.displayName)
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.primary)
-            .lineLimit(2)
+            .lineLimit(downloadCoordinator.jobs[item.id]?.choiceLabel == nil ? 2 : 1)
             .truncationMode(.middle)
             .multilineTextAlignment(.center)
-            .frame(height: 30, alignment: .top)
+            if let choice = downloadCoordinator.jobs[item.id]?.choiceLabel {
+                Text(choice)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityLabel("Download choice: \(choice)")
+            }
+        }
+        .frame(height: 30, alignment: .top)
     }
 
+    @ViewBuilder
     private var conversionButton: some View {
+        if viewModel.canDownloadMedia, let job = downloadCoordinator.jobs[item.id], job.choiceLabel != nil {
+            downloadControls(job: job)
+        } else {
         Button {
-            if viewModel.isCompressingVideo {
+            if stlRepair.sourceIDs.contains(item.id) {
+                stlRepair.cancel()
+            } else if viewModel.isCompressingVideo {
                 viewModel.cancelVideoCompression()
             } else if viewModel.canDownloadMedia && shelfState.isConverting(item) {
                 downloadCoordinator.cancel(item)
             } else if item.stackMembers != nil {
                 showStack = true
+            } else if viewModel.canRepairSTL {
+                viewModel.repairSTL()
             } else if viewModel.canCompressImage {
                 viewModel.compressImage()
             } else if viewModel.canCompressVideo {
@@ -221,7 +240,7 @@ struct ShelfItemView: View {
                         .controlSize(.mini)
                         .tint(conversionTint.opacity(0.85))
                 } else {
-                    Image(systemName: viewModel.canDownloadMedia ? "arrow.down.circle" : (viewModel.canCompressVideo ? "film" : (viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up")))
+                    Image(systemName: viewModel.canRepairSTL ? "cube.transparent" : (viewModel.canDownloadMedia ? "arrow.down.circle" : (viewModel.canCompressVideo ? "film" : (viewModel.canCompressImage ? "photo.badge.arrow.down" : "doc.badge.arrow.up"))))
                 }
 
                 Text(actionButtonTitle)
@@ -250,11 +269,15 @@ struct ShelfItemView: View {
         .overlay(alignment: .trailing) {
             if viewModel.canDownloadMedia {
                 Menu {
-                    Button("Automatic") { downloadCoordinator.retry(item) }
+                    Button("Use Saved Mode") { downloadCoordinator.retry(item) }
                     Divider()
                     Button("Download as Video") { downloadCoordinator.override(item, format: .mp4) }
                     Button("Download as Audio") { downloadCoordinator.override(item, format: .mp3) }
+                        .disabled(!downloadCoordinator.ffmpegAvailable)
                     Button("Best Original") { downloadCoordinator.override(item, format: .bestOriginal) }
+                    if !downloadCoordinator.ffmpegAvailable {
+                        Button("FFmpeg Setup…") { downloadCoordinator.showEngineHelp() }
+                    }
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 9, weight: .semibold))
@@ -267,9 +290,58 @@ struct ShelfItemView: View {
                 .accessibilityLabel("Download format options for \(item.displayName)")
             }
         }
+        }
+    }
+
+    private func downloadControls(job: MediaDownloadJob) -> some View {
+        let isAudio = job.options?.format == .mp3 || (job.options == nil && job.classificationKind == .audio)
+        let active = shelfState.isConverting(item)
+        return HStack(spacing: 3) {
+            Button {
+                if active { downloadCoordinator.cancel(item) } else { downloadCoordinator.retry(item) }
+            } label: {
+                Image(systemName: active ? "stop.fill" : "arrow.clockwise")
+                    .frame(width: 22, height: 20)
+            }
+            .help(active ? "Cancel download" : "Retry using saved mode")
+            .accessibilityLabel(active ? "Cancel download" : "Retry download")
+
+            Button(isAudio ? "Video" : "Audio") {
+                downloadCoordinator.override(item, format: isAudio ? .mp4 : .mp3)
+            }
+            .frame(maxWidth: .infinity, minHeight: 20)
+            .disabled(!isAudio && !downloadCoordinator.ffmpegAvailable)
+            .help(isAudio ? "Switch this download to MP4" : "Switch this download to MP3")
+            .accessibilityLabel(isAudio ? "Download as video instead" : "Download as audio instead")
+
+            Menu {
+                Button("Use Saved Mode") { downloadCoordinator.retry(item) }
+                Button("Video (MP4)") { downloadCoordinator.override(item, format: .mp4) }
+                Button("Audio (MP3)") { downloadCoordinator.override(item, format: .mp3) }
+                    .disabled(!downloadCoordinator.ffmpegAvailable)
+                Button("Best Original") { downloadCoordinator.override(item, format: .bestOriginal) }
+                if !downloadCoordinator.ffmpegAvailable {
+                    Divider()
+                    Text("Video: combined streams only")
+                    Button("FFmpeg Setup…") { downloadCoordinator.showEngineHelp() }
+                }
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 22, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .accessibilityLabel("More download options")
+        }
+        .font(.system(size: 10, weight: .semibold))
+        .buttonStyle(.plain)
+        .foregroundStyle(conversionTint)
+        .background(Capsule().fill(conversionTint.opacity(0.1)))
+        .overlay(Capsule().strokeBorder(conversionTint.opacity(0.35), lineWidth: 0.75).allowsHitTesting(false))
+        .frame(height: 20)
     }
 
     private var actionButtonTitle: String {
+        if stlRepair.sourceIDs.contains(item.id) { return "Cancel Repair" }
         if viewModel.isCompressingVideo { return "Cancel Compression" }
         if viewModel.canDownloadMedia && shelfState.isConverting(item) { return "Cancel" }
         if let progress = shelfState.conversionProgress[item.id] { return progress }
@@ -277,6 +349,7 @@ struct ShelfItemView: View {
         if downloadCoordinator.jobs[item.id]?.state == .cancelled { return "Retry Download" }
         if shelfState.isConverting(item) { return "Converting…" }
         if item.stackMembers != nil { return "Stack Actions" }
+        if viewModel.canRepairSTL { return "Repair STL" }
         if viewModel.canDownloadMedia { return "Download Media" }
         if viewModel.canCompressVideo { return "Compress Video" }
         return viewModel.canCompressImage ? "Compress Image" : "Convert to MD"
@@ -415,6 +488,9 @@ private struct StackContentsPopoverView: View {
                 }
             }
 
+            if viewModel.canRepairSTL {
+                Button("Repair Compatible Models") { viewModel.repairSTL() }
+            }
             if viewModel.canBatchCompressStack {
                 HStack {
                     Button("Compress Compatible Images") {
@@ -642,7 +718,6 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
                 // Start accessing security-scoped resource and keep it active during drag
                 if url.startAccessingSecurityScopedResource() {
                     draggedURLs.append(url)
-                    NSLog("🔐 Started security-scoped access for drag: \(url.path)")
                 }
 
                 return url as NSURL
@@ -691,7 +766,6 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             // Stop accessing security-scoped resources after drag completes
             for url in draggedURLs {
                 url.stopAccessingSecurityScopedResource()
-                NSLog("🔐 Stopped security-scoped access after drag: \(url.path)")
             }
             draggedURLs.removeAll()
 

@@ -9,7 +9,11 @@ enum MediaDownloadSelectionMode: String, CaseIterable, Codable, Identifiable, Se
     var id: String { rawValue }
 
     static var stored: Self {
-        UserDefaults.standard.string(forKey: "nodebay.downloader.selectionMode")
+        stored(in: .standard)
+    }
+
+    static func stored(in defaults: UserDefaults) -> Self {
+        defaults.string(forKey: "nodebay.downloader.selectionMode")
             .flatMap(Self.init(rawValue:)) ?? .automatic
     }
 }
@@ -31,6 +35,13 @@ struct MediaDownloadClassification: Codable, Equatable, Sendable {
     let reason: String
 }
 
+/// Diagnostics use only the ordinal and fixed classifier labels, never a title,
+/// artist, video ID, or URL. Optional job storage keeps older jobs decodable.
+struct MediaPlaylistItemDecision: Codable, Equatable, Sendable {
+    let index: Int
+    let classification: MediaDownloadClassification
+}
+
 struct MediaClassificationMetadata: Codable, Equatable, Sendable {
     let url: URL
     let categories: [String]
@@ -39,6 +50,27 @@ struct MediaClassificationMetadata: Codable, Equatable, Sendable {
     let mediaType: String?
     let videoCodec: String?
     let audioCodec: String?
+    // nil means the extractor did not provide a complete format list.
+    var hasVideoFormats: Bool? = nil
+
+    static func from(_ object: [String: Any], url: URL) -> Self {
+        let formats = object["formats"] as? [[String: Any]]
+        let knownFormats = formats?.filter { $0["vcodec"] as? String != nil }
+        let hasVideo = knownFormats?.isEmpty == false ? knownFormats?.contains {
+            let codec = ($0["vcodec"] as? String ?? "").lowercased()
+            return !codec.isEmpty && codec != "none"
+        } : nil
+        return Self(
+            url: url, categories: object["categories"] as? [String] ?? [],
+            track: object["track"] as? String,
+            artist: (object["artist"] as? String) ?? (object["artists"] as? [String])?.first,
+            mediaType: object["media_type"] as? String,
+            // An incomplete list cannot prove that the entire upload is audio-only.
+            videoCodec: formats != nil && knownFormats?.count != formats?.count ? nil : object["vcodec"] as? String,
+            audioCodec: object["acodec"] as? String,
+            hasVideoFormats: hasVideo
+        )
+    }
 }
 
 enum MediaDownloadClassifier {
@@ -51,21 +83,15 @@ enum MediaDownloadClassifier {
         let mediaType = metadata.mediaType?.lowercased()
         let videoCodec = metadata.videoCodec?.lowercased()
         let audioCodec = metadata.audioCodec?.lowercased()
-        if mediaType == "audio" || (videoCodec == "none" && audioCodec != nil && audioCodec != "none") {
+        if metadata.hasVideoFormats != true && (mediaType == "audio" ||
+            (videoCodec == "none" && audioCodec?.isEmpty == false && audioCodec != "none")) {
             return .init(kind: .audio, confidence: .high, reason: "Extractor reports audio-only media")
         }
 
         let hasTrack = metadata.track?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         let hasArtist = metadata.artist?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        let musicCategory = metadata.categories.contains {
-            $0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-                .localizedCaseInsensitiveContains("music")
-        }
         if hasTrack && hasArtist {
             return .init(kind: .audio, confidence: .high, reason: "Extractor provides structured track and artist metadata")
-        }
-        if musicCategory && (hasTrack || hasArtist) {
-            return .init(kind: .audio, confidence: .medium, reason: "Music category with structured track or artist metadata")
         }
 
         if host == "youtu.be" || host == "youtube.com" || host.hasSuffix(".youtube.com") {

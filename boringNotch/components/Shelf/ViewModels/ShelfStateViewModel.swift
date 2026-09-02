@@ -94,6 +94,7 @@ final class ShelfStateViewModel: ObservableObject {
 
     func add(_ newItems: [ShelfItem]) {
         guard !newItems.isEmpty else { return }
+        let originalKeys = Set(items.map(\.identityKey))
         var merged = items
         // Deduplicate by identityKey while preserving order (existing first)
         var seen: Set<String> = Set(merged.map { $0.identityKey })
@@ -105,6 +106,10 @@ final class ShelfStateViewModel: ObservableObject {
             }
         }
         items = merged
+        if UserDefaults.standard.bool(forKey: "nodebay.stlRepair.automatic"), !STLRepairCoordinator.shared.isRunning {
+            let added = newItems.filter { !originalKeys.contains($0.identityKey) }.flatMap { $0.stackMembers ?? [$0] }
+            STLRepairCoordinator.shared.start(items: added, beside: nil, mode: .safe, automatic: true)
+        }
     }
 
     func remove(_ item: ShelfItem) {
@@ -329,7 +334,6 @@ final class ShelfStateViewModel: ObservableObject {
         let bookmark = Bookmark(data: bookmarkData)
         let result = bookmark.resolve()
         if let refreshed = result.refreshedData, refreshed != bookmarkData {
-            NSLog("Bookmark for \(item) stale; refreshing")
             updateBookmark(for: item, bookmark: refreshed)
         }
         return result.url

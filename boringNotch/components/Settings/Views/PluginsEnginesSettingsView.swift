@@ -5,6 +5,7 @@ private enum EngineSettingsArea: String, CaseIterable, Identifiable {
     case overview = "Overview"
     case documents = "Documents"
     case images = "Images"
+    case models = "3D Models"
 
     var id: Self { self }
 }
@@ -31,7 +32,7 @@ struct PluginsEnginesSettingsView: View {
             switch selectedArea {
             case .overview:
                 ForEach(registry.providers) { provider in
-                    EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id])
+                    EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id], configure: provider.id == "stl-repair" ? { selectedArea = .models } : nil)
                 }
 
                 Section {
@@ -51,6 +52,8 @@ struct PluginsEnginesSettingsView: View {
                 MarkItDownConfigurationSections()
             case .images:
                 ImageCompressionConfigurationSections()
+            case .models:
+                STLRepairConfigurationSections()
             }
         }
         .formStyle(.grouped)
@@ -66,6 +69,8 @@ struct PluginsEnginesSettingsView: View {
             "Configure and test local document-to-Markdown conversion. Originals are never modified."
         case .images:
             "Configure ImageOptim safe-copy compression. Original images are never passed to ImageOptim."
+        case .models:
+            "Inspect and repair local STL copies. Models never leave this Mac."
         }
     }
 }
@@ -187,6 +192,7 @@ private struct ImageCompressionConfigurationSections: View {
 struct DownloaderSettingsView: View {
     @StateObject private var registry = ProcessingProviderRegistry.shared
     @AppStorage("nodebay.downloader.selectionMode") private var selectionMode = MediaDownloadSelectionMode.automatic.rawValue
+    @AppStorage("nodebay.downloader.defaultFormat") private var defaultFormat = MediaDownloadFormat.bestOriginal.rawValue
     @AppStorage("nodebay.downloader.preferredResolution") private var preferredResolution = "Best available"
     @AppStorage("nodebay.downloader.audioBitrate") private var audioBitrate = "Best available"
     @AppStorage("nodebay.downloader.maximumConcurrent") private var maximumConcurrent = 2
@@ -224,7 +230,10 @@ struct DownloaderSettingsView: View {
 
             Section("Formats") {
                 Picker("Media selection", selection: $selectionMode) {
-                    ForEach(MediaDownloadSelectionMode.allCases) { mode in Text(mode.rawValue).tag(mode.rawValue) }
+                    ForEach(MediaDownloadSelectionMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode.rawValue)
+                            .disabled(mode == .alwaysAudio && !downloads.ffmpegAvailable)
+                    }
                 }
                 Text("Automatic uses MP3 for YouTube Music and reliable audio-only metadata. Ambiguous YouTube items stay MP4 so video content is not lost. Every playlist is confirmed and classified item by item.")
                     .font(.caption)
@@ -234,6 +243,17 @@ struct DownloaderSettingsView: View {
                 }
                 Picker("Preferred audio bitrate", selection: $audioBitrate) {
                     ForEach(["Best available", "320 kbps", "256 kbps", "192 kbps", "128 kbps"], id: \.self) { Text($0) }
+                }
+                Picker("Ask Every Time starting format", selection: $defaultFormat) {
+                    ForEach(MediaDownloadFormat.allCases) { format in
+                        Text(format.rawValue).tag(format.rawValue)
+                            .disabled(format == .mp3 && !downloads.ffmpegAvailable)
+                    }
+                }
+                if !downloads.ffmpegAvailable {
+                    Text("FFmpeg is required for MP3 extraction and separate audio/video stream merging. Without it, Video and Original use a single combined stream, which may limit resolution.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("FFmpeg Installation Help…") { downloads.showEngineHelp() }
                 }
                 Stepper("Maximum simultaneous downloads: \(maximumConcurrent)", value: $maximumConcurrent, in: 1...4)
             }
@@ -259,7 +279,7 @@ struct DownloaderSettingsView: View {
             Section("Runtime Diagnostics") {
                 LabeledContent("yt-dlp", value: registry.diagnostics["yt-dlp"]?.version ?? "Checking")
                 LabeledContent("FFmpeg", value: registry.diagnostics["ffmpeg"]?.version ?? "Checking")
-                Button("Run Diagnostics") { Task { await registry.refresh() } }
+                Button("Run Diagnostics") { Task { await registry.refresh(); await downloads.refreshEngineAvailability() } }
             }
 
             if !downloads.jobs.isEmpty {
@@ -290,7 +310,7 @@ struct DownloaderSettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Downloader")
-        .task { await registry.refresh() }
+        .task { await registry.refresh(); await downloads.refreshEngineAvailability() }
     }
 
     private func inspectInput() {
@@ -339,6 +359,7 @@ struct DownloaderSettingsView: View {
 private struct EngineProviderSection: View {
     let provider: AnyProcessingProvider
     let diagnostic: EngineDiagnostic?
+    var configure: (() -> Void)? = nil
 
     private var descriptor: ProcessingProviderDescriptor { provider.descriptor }
 
@@ -364,6 +385,7 @@ private struct EngineProviderSection: View {
                 LabeledContent("Pinned version", value: pinned)
             }
             LabeledContent("Provider", value: descriptor.provider)
+            if let configure { Button("Configure STL Repair", action: configure) }
             LabeledContent("License", value: descriptor.license)
             LabeledContent("Processing", value: descriptor.runsLocally ? "Local" : "External")
             LabeledContent("Network", value: descriptor.requiresNetwork ? "Required for its task" : "Not required")

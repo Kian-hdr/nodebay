@@ -22,6 +22,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
     private let processQueue = DispatchQueue(label: "Nodebay.approved-processes", attributes: .concurrent)
     private let processStateQueue = DispatchQueue(label: "Nodebay.approved-processes.state")
     private var approvedProcesses: [String: Process] = [:]
+    private var cancelledProcessIDs: Set<String> = []
 
     init(connection: NSXPCConnection) {
         self.connection = connection
@@ -416,9 +417,23 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
 
             process.executableURL = executableURL
             process.arguments = arguments
+            if engine == "stl-repair" {
+                let app = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                let script = app.appendingPathComponent("Contents/Resources/stl_repair.py")
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
+                let flags = arguments == ["--version"] ? arguments : [
+                    "--background", "--factory-startup", "--disable-autoexec", "--offline-mode", "--threads", "2",
+                    "--python-exit-code", "7", "--python", script.path, "--", "--mode", arguments[0], "--job", arguments[1]
+                ]
+                process.arguments = ["-p", "(version 1) (allow default) (deny network*)", executableURL.path] + flags
+            }
             process.standardOutput = stdout
             process.standardError = stderr
             var environment = ProcessInfo.processInfo.environment
+            if engine == "stl-repair" {
+                // Do not load caller-selected Python modules or Blender scripts.
+                environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory(), "TMPDIR": NSTemporaryDirectory(), "PYTHONNOUSERSITE": "1"]
+            }
             if engine == "markitdown" {
                 environment["MARKITDOWN_LOCAL_ONLY"] = "1"
                 environment["PYTHONNOUSERSITE"] = "1"
@@ -437,10 +452,17 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             stderr.fileHandleForReading.readabilityHandler = { stderrBuffer.append($0.availableData) }
             process.terminationHandler = { finished in finish(code: finished.terminationStatus) }
 
-            self.processStateQueue.sync { self.approvedProcesses[jobID] = process }
             do {
-                try process.run()
+                // Serialize launch with cancellation so cancellation arriving
+                // before Process.run cannot be lost while work is queued.
+                try self.processStateQueue.sync {
+                    guard self.cancelledProcessIDs.remove(jobID) == nil else { throw CancellationError() }
+                    self.approvedProcesses[jobID] = process
+                    try process.run()
+                }
             } catch {
+                try? stdout.fileHandleForWriting.close()
+                try? stderr.fileHandleForWriting.close()
                 finish(code: -1, error: error.localizedDescription)
                 return
             }
@@ -449,6 +471,11 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             self.processQueue.asyncAfter(deadline: .now() + boundedTimeout) {
                 if process.isRunning {
                     process.terminate()
+                    if engine == "stl-repair" {
+                        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+                            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                        }
+                    }
                     finish(code: -2, error: "The engine exceeded its time limit.")
                 }
             }
@@ -470,7 +497,17 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
 
     @objc func cancelApprovedProcess(_ jobID: String) {
         processStateQueue.sync {
-            if let process = approvedProcesses[jobID], process.isRunning { process.terminate() }
+            if let process = approvedProcesses[jobID], process.isRunning {
+                process.terminate()
+                if process.arguments?.contains("(version 1) (allow default) (deny network*)") == true {
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+                        if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                    }
+                }
+            } else {
+                if cancelledProcessIDs.count >= 512 { cancelledProcessIDs.removeAll() }
+                cancelledProcessIDs.insert(jobID)
+            }
         }
     }
 
@@ -571,6 +608,8 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             return url.path == "/Applications/ImageOptim.app/Contents/MacOS/ImageOptim" ? url : nil
         case "ffmpeg":
             return ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].contains(url.path) ? url : nil
+        case "stl-repair":
+            return url.path == "/Applications/Blender.app/Contents/MacOS/Blender" ? url : nil
         default:
             return nil
         }
@@ -588,6 +627,20 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             return arguments == ["--version"] || arguments.prefix(4) == ["--ignore-config", "--no-config-locations", "--no-plugin-dirs", "--no-cookies-from-browser"]
         case "ffmpeg":
             return !arguments.isEmpty
+        case "stl-repair":
+            if arguments == ["--version"] { return true }
+            guard arguments.count == 2, ["safe", "thorough", "inspect"].contains(arguments[0]) else { return false }
+            let job = URL(fileURLWithPath: arguments[1]).standardizedFileURL
+            let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                "Library/Containers/theboringteam.boringnotch/Data/Library/Application Support/Nodebay/STLJobs")
+            guard job.deletingLastPathComponent() == root,
+                  job.resolvingSymlinksInPath() == job,
+                  UUID(uuidString: job.lastPathComponent) != nil,
+                  let input = try? job.appendingPathComponent("input.stl").resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
+                  input.isRegularFile == true, input.isSymbolicLink != true,
+                  let size = input.fileSize, size > 0, size <= 32 * 1024 * 1024 else { return false }
+            return !FileManager.default.fileExists(atPath: job.appendingPathComponent("output.stl").path)
+                && !FileManager.default.fileExists(atPath: job.appendingPathComponent("report.json").path)
         default:
             return false
         }

@@ -3,8 +3,8 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-release_version=${RELEASE_VERSION:-1.0.0}
-build_number=${BUILD_NUMBER:-21}
+release_version=${RELEASE_VERSION:-1.1.0}
+build_number=${BUILD_NUMBER:-24}
 release_tag=${RELEASE_TAG:-nodebay-v$release_version}
 signing_identity=${SIGNING_IDENTITY:--}
 development_team=${DEVELOPMENT_TEAM:-}
@@ -79,7 +79,7 @@ https://github.com/Kian-hdr/nodebay/tree/$release_tag
 Nodebay is distributed under GPL-3.0 and is based on Boring Notch commit
 44dd999f70493da48209c99e9f873c47f2e55c83. Microsoft MarkItDown 0.1.7 is
 bundled unmodified under the MIT License. Companion yt-dlp, FFmpeg, and
-ImageOptim installations are not bundled. Complete notices are included here.
+ImageOptim and Blender installations are not bundled. Complete notices are included here.
 EOF
 
 xattr -cr "$app_stage"
@@ -112,7 +112,7 @@ else
             "$bundle"
     done < <(
         /usr/bin/find "$app_stage/Contents" -type d \
-            \( -name '*.framework' -o -name '*.xpc' -o -name '*.app' \) -print \
+            \( -name '*.framework' -o -name '*.xpc' -o -name '*.appex' -o -name '*.app' \) -print \
             | /usr/bin/awk '{ print length($0), $0 }' \
             | /usr/bin/sort -rn \
             | /usr/bin/cut -d' ' -f2-

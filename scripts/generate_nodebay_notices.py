@@ -45,6 +45,13 @@ def verify_lock(manifest: dict, resolved: dict) -> dict:
 
 
 def check_offline(manifest: dict, components: dict) -> None:
+    if (ROOT / "scripts/stl_repair.py").exists():
+        companion = next((c for c in manifest["companions"] if c["id"] == "stl-repair"), None)
+        if not companion or companion.get("bundled") is not False or "5.0.1" not in companion["version"]:
+            raise SystemExit("STL repair requires an exact Blender companion notice; bundled Blender is not approved")
+        for directory in [ROOT / "boringNotch/vendor", ROOT / "boringNotch/Resources/engines"]:
+            if directory.exists() and any("blender" in p.name.lower() for p in directory.rglob("*")):
+                raise SystemExit("Bundled Blender requires a separate source-distribution/license review")
     if not OUTPUT.exists() or not CHECKSUM.exists():
         raise SystemExit("Generated notices or their checksum are missing")
     data = OUTPUT.read_bytes()

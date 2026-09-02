@@ -24,12 +24,20 @@ metadata and test assertions only; the compiled application source is unchanged.
 | Quick Notes Settings | Passed inspection | Enabled state, privacy controls and storage visible; this is not a new physical Command-V test |
 | About HTTP links | Passed | Source, releases, issues, license, acknowledgements, notices, privacy, security and Boring Notch upstream returned HTTP 200 |
 | Notices / repository / cask style | Passed | Offline notice checksum, local documentation links, tracked-artifact exclusion and Homebrew style checks |
-| Public artifact / Homebrew upgrade | Pending publication | Must be read back and tested after publishing the exact immutable files |
+| Public artifacts | Passed | Re-downloaded both public DMG and ZIP; both match the published checksum file and cask. Release `nodebay-v1.1.0` is public, stable and latest |
+| Homebrew upgrade | Passed | Actual `1.0.0 -> 1.1.0` upgrade on this Mac; installed 1.1.0 (24), signature/Gatekeeper/staple validation and launch passed |
+| Data preservation | Passed sampled local state | All six existing files in managed Application Support and the captured preference files matched pre-upgrade hashes before relaunch; managed data also matched after reinstall. Private backups retained outside Git |
+| Homebrew fresh receipt install | Passed | Non-zap uninstall followed by `brew install --cask Kian-hdr/nodebay/nodebay`; short `brew install --cask nodebay` correctly reports already current. Same account, not a fresh macOS account |
+| Homebrew online audit | Passed | `brew audit --cask --strict --online Kian-hdr/nodebay/nodebay` completed successfully |
+| Installed Finder preview | Passed interactive | Public Homebrew app rendered both `.md` and `.markdown` with main Nodebay quit; extension process ran from Applications; Escape dismissed the preview |
+| App registrations | Passed | Only `/Applications/Nodebay.app` and its embedded preview remain registered as Nodebay; removed temporary/Trash registration records only, not files |
+| GitHub CI | Running at publication readback | Independent run `33692504735`; local clean build and tests passed. Its result must not be inferred from local success |
 | Remaining UI/hardware checks | Not rerun | Full VoiceOver, all supported OS versions, media-key presses, wake/clamshell, multi-monitor matrix, live YouTube and complete hover-paste/destination-app drag matrix |
 
 Privacy-safe current screenshots: [About](screenshots/nodebay-about-1.1.0-dark.png),
 [Quick Notes](screenshots/nodebay-quick-notes-1.1.0-dark.png),
 [STL repair test](screenshots/nodebay-stl-repair-1.1.0-dark.png).
+[Homebrew-installed Finder preview](screenshots/markdown-preview/markdown-homebrew-1.1.0-dark.png).
 Earlier feature-specific reports below are historical evidence, not the current
 installed/published version. No physical print qualification is claimed.
 

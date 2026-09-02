@@ -106,7 +106,7 @@ jobs:
           xcrun stapler staple "$stage/Nodebay.app"
           xcrun stapler validate "$stage/Nodebay.app"
           ditto -c -k --keepParent "$stage/Nodebay.app" "$archive"
-          REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh "$archive"
+          EXPECTED_VERSION="$VERSION" REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh "$archive"
           shasum -a 256 "$archive" > "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt"
 
       - name: Upload workflow artifacts
@@ -129,4 +129,4 @@ jobs:
             "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt" \
             --verify-tag \
             --title "Nodebay $VERSION for Apple Silicon" \
-            --notes-file docs/release-notes-nodebay-0.1.1.md
+            --notes-file "docs/release-notes-$VERSION.md"

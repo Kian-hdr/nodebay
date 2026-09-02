@@ -1,6 +1,6 @@
 cask "nodebay" do
-  version "1.0.0"
-  sha256 "e33c60cbcf7aa2b80780b8f8c285e051fa94afe21f0b8db7cdaea9d8e0d4e772"
+  version "1.1.0"
+  sha256 "fa32abc9e161c936d5f08837cf284ac32e2f919cc478343411a151b9d90b9f4a"
 
   url "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v#{version}/Nodebay-#{version}-arm64.dmg"
   name "Nodebay"

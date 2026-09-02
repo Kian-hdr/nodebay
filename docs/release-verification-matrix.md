@@ -1,5 +1,45 @@
 # Nodebay release verification
 
+## Nodebay 1.1.0 (24): release checks, 2026-09-03
+
+Application source built from clean detached commit `61b508b`. Subsequent
+release commits update documentation, screenshots, workflow validation, cask
+metadata and test assertions only; the compiled application source is unchanged.
+
+| Check | Status | Evidence / boundary |
+|---|---|---|
+| Complete automated suite | Passed | 146 tests, final run 25.155 seconds; includes executable Swift fixtures |
+| Clean Apple Silicon Debug / Release | Passed | Xcode 26.6, macOS 26.6.2; Release in a clean isolated checkout |
+| PDF / DOCX / source preservation | Passed | Fresh pinned MarkItDown runtime and real generated fixtures; local-only guard and notices passed |
+| MP4 / MP3 downloads | Passed | Local fixture server, real yt-dlp and FFmpeg; both results fully decoded; not a live YouTube service test |
+| ImageOptim copy-first processing | Passed | 2,096,587-byte source unchanged; valid optimized copy 1,517,427 bytes |
+| Production signing | Passed | Developer ID team HZWY8HT54D, all nested Mach-O signatures/timestamps, hardened runtime, no debug entitlement; private-build signing failure repaired |
+| Authorization continuity | Passed diagnostic | Exact designated requirement matches installed 1.0.0; signed candidate reports Authorized and event tap Active without another prompt; no hardware key or restart claim |
+| Quick Look extension packaging | Passed | Embedded, arm64, matching 1.1.0 (24), sandboxed read-only file access, no network entitlement; approved transparent renderer unchanged |
+| App notarization | Passed | Submission `b403033c-0f65-470c-a5ab-5a6edf315b98` Accepted; app stapled and Gatekeeper accepted |
+| DMG notarization | Passed | Submission `37a6d196-6ec2-47af-b00a-84d617803ea0` Accepted; DMG stapled and Gatekeeper accepted |
+| Final artifacts | Passed | ZIP contains only Nodebay.app; DMG integrity verified and mounted read-only; visible payload Nodebay.app and Applications shortcut; enclosed app signature/staple passed |
+| Candidate launch / About | Passed | Extracted notarized candidate launched; About shows 1.1.0 (24), Apple Silicon and creator; current screenshot retained |
+| Settings conversion / STL repair | Passed interactive | Candidate's actual local conversion test Passed; XPC-to-Blender test Passed and correctly reported an open boundary |
+| Quick Notes Settings | Passed inspection | Enabled state, privacy controls and storage visible; this is not a new physical Command-V test |
+| About HTTP links | Passed | Source, releases, issues, license, acknowledgements, notices, privacy, security and Boring Notch upstream returned HTTP 200 |
+| Notices / repository / cask style | Passed | Offline notice checksum, local documentation links, tracked-artifact exclusion and Homebrew style checks |
+| Public artifact / Homebrew upgrade | Pending publication | Must be read back and tested after publishing the exact immutable files |
+| Remaining UI/hardware checks | Not rerun | Full VoiceOver, all supported OS versions, media-key presses, wake/clamshell, multi-monitor matrix, live YouTube and complete hover-paste/destination-app drag matrix |
+
+Privacy-safe current screenshots: [About](screenshots/nodebay-about-1.1.0-dark.png),
+[Quick Notes](screenshots/nodebay-quick-notes-1.1.0-dark.png),
+[STL repair test](screenshots/nodebay-stl-repair-1.1.0-dark.png).
+Earlier feature-specific reports below are historical evidence, not the current
+installed/published version. No physical print qualification is claimed.
+
+Final SHA-256:
+
+```text
+fa32abc9e161c936d5f08837cf284ac32e2f919cc478343411a151b9d90b9f4a  Nodebay-1.1.0-arm64.dmg
+67b164501b724dd2e36fcb8f38815edab159bbed82e8dc102da7c5de46143ff0  Nodebay-1.1.0-arm64.zip
+```
+
 ## Publication audit: 2026-09-03
 
 The existing `nodebay-v1.0.0` release was published on 2026-09-02. It must not

@@ -30,8 +30,10 @@ The settings screenshots below are historical captures from earlier Nodebay buil
 | Displays, media, shelf, and attribution | |
 |---|---|
 | ![Nodebay General settings showing display placement and virtual notch fallback](docs/screenshots/nodebay-settings-general-dark.png) | ![Nodebay media settings showing independent source availability](docs/screenshots/nodebay-media-sources-dark.png) |
-| ![Nodebay HUD diagnostics showing current signed-app authorization and active event tap](docs/screenshots/nodebay-hud-diagnostics-dark.png) | ![About Nodebay with canonical links and Boring Notch attribution](docs/screenshots/nodebay-about-0.1.1-dark.png) |
+| ![Nodebay HUD diagnostics showing current signed-app authorization and active event tap](docs/screenshots/nodebay-hud-diagnostics-dark.png) | ![About Nodebay 1.1.0 with canonical links and Boring Notch attribution](docs/screenshots/nodebay-about-1.1.0-dark.png) |
 | ![Nodebay empty file shelf with AirDrop and local drop targets](docs/screenshots/nodebay-shelf-empty-dark.png) | ![About Nodebay foundation overview](docs/screenshots/nodebay-about-dark.png) |
+
+The About 1.1.0 capture above and [Quick Notes settings](docs/screenshots/nodebay-quick-notes-1.1.0-dark.png) are from the signed 1.1.0 candidate. Other settings captures are historical, as noted above.
 
 ## Features
 

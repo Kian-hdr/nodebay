@@ -42,4 +42,4 @@ The one-time trust command is required by Homebrew 6 for third-party casks. Alte
 
 Created by Kian Konrad Tajbakhsh. GPL-3.0, based on Boring Notch commit `44dd999f70493da48209c99e9f873c47f2e55c83`. Engine notices and corresponding-source instructions ship inside the app and in this repository. No provider endorsement is implied.
 
-See [verification](release-verification-matrix.md), [privacy](../PRIVACY.md), [notices](../THIRD_PARTY_NOTICES.md) and [build instructions](release-process.md).
+See [verification](https://github.com/Kian-hdr/nodebay/blob/main/docs/release-verification-matrix.md), [privacy](https://github.com/Kian-hdr/nodebay/blob/nodebay-v1.1.0/PRIVACY.md), [notices](https://github.com/Kian-hdr/nodebay/blob/nodebay-v1.1.0/THIRD_PARTY_NOTICES.md) and [build instructions](https://github.com/Kian-hdr/nodebay/blob/nodebay-v1.1.0/docs/release-process.md).

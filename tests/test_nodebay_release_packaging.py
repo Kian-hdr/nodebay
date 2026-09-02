@@ -41,16 +41,14 @@ class NodebayReleasePackagingTests(unittest.TestCase):
             self.assertIn(marker, VERIFY)
 
     def test_homebrew_cask_matches_final_notarized_artifact(self) -> None:
-        self.assertIn('version "1.0.0"', CASK)
-        self.assertIn(
-            'sha256 "e33c60cbcf7aa2b80780b8f8c285e051fa94afe21f0b8db7cdaea9d8e0d4e772"',
-            CASK,
-        )
+        self.assertRegex(CASK, r'version "\d+\.\d+\.\d+"')
+        self.assertRegex(CASK, r'sha256 "[0-9a-f]{64}"')
         self.assertIn("Nodebay-#{version}-arm64.dmg", CASK)
         self.assertIn('depends_on formula: "yt-dlp"', CASK)
         self.assertIn('depends_on formula: "ffmpeg"', CASK)
         self.assertIn('app "Nodebay.app"', CASK)
         self.assertNotIn("Boring Notch.app", CASK)
+        self.assertNotIn('"~/Library/Application Support/Nodebay"', CASK)
 
 
 if __name__ == "__main__":

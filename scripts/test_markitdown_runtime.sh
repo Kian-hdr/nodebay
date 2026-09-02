@@ -23,7 +23,7 @@ if [[ ! -f "$runtime_notices" ]]; then
     exit 1
 fi
 
-"$python_command" -m unittest "$project_root/tests/test_markitdown_local.py"
+"$python_command" -m unittest discover -s "$project_root/tests" -p test_markitdown_local.py
 
 fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/boring-notch-markitdown-tests.XXXXXX")
 trap 'rm -rf "$fixture_root"' EXIT

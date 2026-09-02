@@ -226,6 +226,7 @@ struct ShelfItemView: View {
 
                 Text(actionButtonTitle)
                     .lineLimit(1)
+                    .padding(.trailing, viewModel.canDownloadMedia ? 16 : 0)
             }
             .font(.system(size: 9, weight: .semibold, design: .rounded))
             .foregroundStyle(conversionTint.opacity(0.9))
@@ -246,6 +247,26 @@ struct ShelfItemView: View {
         .disabled(shelfState.isConverting(item) && !viewModel.canDownloadMedia && !viewModel.isCompressingVideo)
         .help(viewModel.canCompressVideo ? "Create a smaller, lossy MP4 copy up to 1080p. The original stays unchanged." : (viewModel.canDownloadMedia ? "Download media locally" : "Create a separate output copy"))
         .accessibilityLabel(actionButtonTitle)
+        .overlay(alignment: .trailing) {
+            if viewModel.canDownloadMedia {
+                Menu {
+                    Button("Automatic") { downloadCoordinator.retry(item) }
+                    Divider()
+                    Button("Download as Video") { downloadCoordinator.override(item, format: .mp4) }
+                    Button("Download as Audio") { downloadCoordinator.override(item, format: .mp3) }
+                    Button("Best Original") { downloadCoordinator.override(item, format: .bestOriginal) }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 9, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .help("Choose a one-time download format")
+                .accessibilityLabel("Download format options for \(item.displayName)")
+            }
+        }
     }
 
     private var actionButtonTitle: String {

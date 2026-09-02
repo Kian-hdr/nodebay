@@ -10,6 +10,7 @@ All notable Nodebay changes are recorded here. The project follows semantic vers
 
 - Added one persistent local-download workflow for URL drops, Add Link, Command-V inside an open notch, Downloader Settings, and connected YouTube media sources.
 - Added explicit MP4, MP3, original-quality, resolution, and bitrate choices with structured progress, retry, cancellation, playlist confirmation, and completed shelf items.
+- Added Automatic download selection as the default: YouTube Music and reliable audio-only metadata use MP3, while ambiguous YouTube content safely remains MP4. Job tiles provide one-time format overrides and playlists classify each item independently.
 - Added display-aware drag routing based on live notch-window frames so shelf drops work across built-in and external displays.
 - Added local MP4 compression through the separately installed FFmpeg engine, producing a safe H.264/AAC copy with cancellation and size reporting.
 - Added bounded conversion of short MP4, MOV, and M4V videos into persistent GIF copies.

@@ -6,6 +6,7 @@ Nodebay 1.0.0 is the first stable release line for the expanded local-first util
 
 - Download YouTube and other supported media links through drag and drop, Add Link, Command-V inside an open notch, or a connected YouTube media source.
 - Choose MP4, MP3, best original quality, resolution, or bitrate, with retry, cancellation, playlist confirmation, and completed files added to the shelf.
+- Automatic is now the recommended default: YouTube Music and reliable structured music metadata select MP3, ambiguous YouTube content preserves video as MP4, and each playlist item is classified independently. A format control on the job tile provides one-time Video, Audio, or Best Original overrides.
 - Compress local MP4 files into separate H.264/AAC copies through a separately installed FFmpeg engine.
 - Convert short MP4, MOV, and M4V videos into persistent GIF copies.
 

@@ -10,7 +10,7 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay 1.0.0 is the first stable Apple Silicon release line. It includes the completed downloader workflow, external-display and external-volume drag routing, safe MP4 compression, bounded video-to-GIF conversion, durable Markdown outputs, and corrected PDF bullets. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
+Nodebay 1.0.0 is the first stable Apple Silicon release line. It includes automatic audio-or-video download selection, external-display and external-volume drag routing, safe MP4 compression, bounded video-to-GIF conversion, durable Markdown outputs, and corrected PDF bullets. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
 
 ## Screenshots
 
@@ -24,7 +24,7 @@ These privacy-safe dark-mode screenshots come from the release source. The repos
 | Displays, media, shelf, and attribution | |
 |---|---|
 | ![Nodebay General settings showing display placement and virtual notch fallback](docs/screenshots/nodebay-settings-general-dark.png) | ![Nodebay media settings showing independent source availability](docs/screenshots/nodebay-media-sources-dark.png) |
-| ![Nodebay HUD diagnostics showing current signed-app authorization and active event tap](docs/screenshots/nodebay-hud-diagnostics-dark.png) | ![About Nodebay 0.1.1 with canonical links and Boring Notch attribution](docs/screenshots/nodebay-about-0.1.1-dark.png) |
+| ![Nodebay HUD diagnostics showing current signed-app authorization and active event tap](docs/screenshots/nodebay-hud-diagnostics-dark.png) | ![About Nodebay with canonical links and Boring Notch attribution](docs/screenshots/nodebay-about-0.1.1-dark.png) |
 | ![Nodebay empty file shelf with AirDrop and local drop targets](docs/screenshots/nodebay-shelf-empty-dark.png) | ![About Nodebay foundation overview](docs/screenshots/nodebay-about-dark.png) |
 
 ## Features
@@ -37,7 +37,7 @@ The following capabilities are implemented in the current source. Automated chec
 - Persistent named File Stacks with reorder, preview, dissolve, and multi-file Finder drag
 - Local conversion through unmodified Microsoft MarkItDown 0.1.7
 - Batch conversion into a separate Markdown result stack with progress, cancellation, partial success, and aggregate errors
-- Local yt-dlp downloads with explicit MP4, MP3, or best-original selection and optional FFmpeg processing
+- Local yt-dlp downloads with automatic audio-or-video selection, one-click MP4/MP3 overrides, playlist item classification, and optional FFmpeg processing
 - Copy-first ImageOptim integration that never sends an original file to ImageOptim
 - [Local MP4 video compression](docs/features/video-compression.md) into separate H.264/AAC copies, with cancellation and size comparisons
 - [Bounded video-to-GIF conversion](docs/features/video-to-gif.md) for short MP4, MOV, and M4V files
@@ -107,7 +107,7 @@ Homebrew 6 requires the one-time `brew trust` command for casks from third-party
 
 See [Homebrew installation](docs/homebrew.md) and the [release packaging details](docs/homebrew-nodebay.md).
 
-For manual installation, download the Apple Silicon archive from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases), verify the published SHA-256 checksum, and move `Nodebay.app` to Applications.
+For manual installation, download the Apple Silicon DMG from [Nodebay Releases](https://github.com/Kian-hdr/nodebay/releases), verify the published SHA-256 checksum, open it, and drag `Nodebay.app` to Applications.
 
 ## Build from source
 

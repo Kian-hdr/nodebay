@@ -5,7 +5,7 @@
 - Status: separately installed Homebrew companion at `/opt/homebrew/bin/yt-dlp`
 - Behavior: runs locally and connects directly to the requested source over the network
 - Inputs: validated HTTP and HTTPS URLs supported by the installed yt-dlp version
-- Outputs: media files in Nodebay-managed local storage or the configured download directory
+- Outputs: automatically classified MP4 or MP3 files, or user-selected original media, in Nodebay-managed local storage or the configured download directory
 - Permissions: network and selected-directory access; browser cookies are off by default
 - Failure: job becomes failed or cancelled; Nodebay remains open and preserves completed items
 - Diagnostics: bounded status and stderr without cookies or arbitrary arguments

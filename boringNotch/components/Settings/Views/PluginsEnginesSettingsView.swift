@@ -186,15 +186,13 @@ private struct ImageCompressionConfigurationSections: View {
 
 struct DownloaderSettingsView: View {
     @StateObject private var registry = ProcessingProviderRegistry.shared
-    @AppStorage("nodebay.downloader.defaultFormat") private var defaultFormat = MediaDownloadFormat.bestOriginal.rawValue
-    @AppStorage("nodebay.downloader.askEveryTime") private var askEveryTime = true
+    @AppStorage("nodebay.downloader.selectionMode") private var selectionMode = MediaDownloadSelectionMode.automatic.rawValue
     @AppStorage("nodebay.downloader.preferredResolution") private var preferredResolution = "Best available"
     @AppStorage("nodebay.downloader.audioBitrate") private var audioBitrate = "Best available"
     @AppStorage("nodebay.downloader.maximumConcurrent") private var maximumConcurrent = 2
     @AppStorage("nodebay.downloader.filenameTemplate") private var filenameTemplate = "Title and media ID"
     @AppStorage("nodebay.downloader.preserveMetadata") private var preserveMetadata = true
     @AppStorage("nodebay.downloader.preserveThumbnail") private var preserveThumbnail = false
-    @AppStorage("nodebay.downloader.askPlaylist") private var askPlaylist = true
     @State private var input = ""
     @State private var status = "Ready"
     @State private var isWorking = false
@@ -225,10 +223,12 @@ struct DownloaderSettingsView: View {
             }
 
             Section("Formats") {
-                Picker("Default format", selection: $defaultFormat) {
-                    ForEach(MediaDownloadFormat.allCases) { format in Text(format.rawValue).tag(format.rawValue) }
+                Picker("Media selection", selection: $selectionMode) {
+                    ForEach(MediaDownloadSelectionMode.allCases) { mode in Text(mode.rawValue).tag(mode.rawValue) }
                 }
-                Toggle("Ask every time", isOn: $askEveryTime)
+                Text("Automatic uses MP3 for YouTube Music and reliable audio-only metadata. Ambiguous YouTube items stay MP4 so video content is not lost. Every playlist is confirmed and classified item by item.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Preferred resolution", selection: $preferredResolution) {
                     ForEach(["Best available", "2160p", "1440p", "1080p", "720p"], id: \.self) { Text($0) }
                 }
@@ -245,7 +245,7 @@ struct DownloaderSettingsView: View {
                 Toggle("Preserve metadata", isOn: $preserveMetadata)
                 Toggle("Preserve thumbnail", isOn: $preserveThumbnail)
                 LabeledContent("Completed downloads", value: "Always added to Nodebay")
-                Toggle("Ask before downloading a playlist", isOn: $askPlaylist)
+                LabeledContent("Playlists", value: "Always confirm")
             }
 
             Section("Privacy and Safety") {
@@ -273,6 +273,14 @@ struct DownloaderSettingsView: View {
                             }
                             if let error = job.lastError {
                                 Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                            if let kind = job.classificationKind,
+                               let confidence = job.classificationConfidence,
+                               let reason = job.classificationReason {
+                                Text("Automatic: \(kind.rawValue.capitalized) • \(confidence.rawValue) • \(reason)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(2)
                             }
                         }
                         .accessibilityElement(children: .combine)

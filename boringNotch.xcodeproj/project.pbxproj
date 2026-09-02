@@ -12,6 +12,7 @@
 		D0DEB0030000000000000003 /* ImageOptimCompressionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0130000000000000003 /* ImageOptimCompressionService.swift */; };
 		D0DEB0030000000000000017 /* VideoCompressionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0130000000000000017 /* VideoCompressionService.swift */; };
 		D0DEB0040000000000000004 /* MediaDownloaderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0140000000000000004 /* MediaDownloaderService.swift */; };
+		D0DEB0040000000000000018 /* MediaDownloadClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0140000000000000018 /* MediaDownloadClassifier.swift */; };
 		D0DEB0050000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0150000000000000005 /* PrivacyInfo.xcprivacy */; };
 		D0DEB0060000000000000006 /* Nodebay.icon in Resources */ = {isa = PBXBuildFile; fileRef = D0DEB0160000000000000006 /* Nodebay.icon */; };
 		D0DEB0070000000000000007 /* BrowserMediaBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0DEB0170000000000000007 /* BrowserMediaBridge.swift */; };
@@ -212,6 +213,7 @@
 		D0DEB0130000000000000003 /* ImageOptimCompressionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageOptimCompressionService.swift; sourceTree = "<group>"; };
 		D0DEB0130000000000000017 /* VideoCompressionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCompressionService.swift; sourceTree = "<group>"; };
 		D0DEB0140000000000000004 /* MediaDownloaderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDownloaderService.swift; sourceTree = "<group>"; };
+		D0DEB0140000000000000018 /* MediaDownloadClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDownloadClassifier.swift; sourceTree = "<group>"; };
 		C0D3A002A816202600000001 /* markitdown-runtime */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "vendor/markitdown-runtime"; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
 		110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStorageService.swift; sourceTree = "<group>"; };
@@ -424,6 +426,7 @@
 				D0DEB0130000000000000003 /* ImageOptimCompressionService.swift */,
 				D0DEB0130000000000000017 /* VideoCompressionService.swift */,
 				D0DEB0140000000000000004 /* MediaDownloaderService.swift */,
+				D0DEB0140000000000000018 /* MediaDownloadClassifier.swift */,
 				1194E87B2EA19E09009C82D6 /* ImageProcessingService.swift */,
 				118EBE282E946B3F00D54B5A /* ShareServiceFinder.swift */,
 				1100292D2E86940F00035A57 /* QuickShareService.swift */,
@@ -1032,6 +1035,7 @@
 				D0DEB0030000000000000003 /* ImageOptimCompressionService.swift in Sources */,
 				D0DEB0030000000000000017 /* VideoCompressionService.swift in Sources */,
 				D0DEB0040000000000000004 /* MediaDownloaderService.swift in Sources */,
+				D0DEB0040000000000000018 /* MediaDownloadClassifier.swift in Sources */,
 				D0DEB0010000000000000001 /* ProcessingProviderRegistry.swift in Sources */,
 				D0DEB0020000000000000002 /* PluginsEnginesSettingsView.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchOSD.swift in Sources */,

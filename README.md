@@ -10,11 +10,17 @@ Created by **Kian Konrad Tajbakhsh**.
 
 ## Current release status
 
-Nodebay 1.0.0 is the first stable Apple Silicon release line. It includes automatic audio-or-video download selection, external-display and external-volume drag routing, safe MP4 compression, bounded video-to-GIF conversion, durable Markdown outputs, and corrected PDF bullets. The optional Browser Media Bridge remains an explicit local installation and is not silently installed or enabled.
+Nodebay 1.1.0 adds Quick Notes, conservative STL-copy repair, native Markdown Quick Look and improved automatic download classification to the 1.0.0 feature set. Apple Silicon and macOS 15 or later are required. See the [release verification matrix](docs/release-verification-matrix.md) for completed checks and remaining UI/hardware limitations. The optional Browser Media Bridge requires explicit local installation and is never silently enabled.
 
 ## Screenshots
 
-These privacy-safe dark-mode screenshots come from the release source. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after an explicit Chrome installation and end-to-end UI verification pass.
+[Quick Notes](docs/features/quick-notes.md) adds local clipboard-to-Markdown creation. [Verification](docs/quick-notes-verification.md) separates automated coverage from pending physical hover-paste checks.
+
+[STL Repair](docs/features/stl-repair.md) adds conservative local model-copy repair through the separately installed Blender 5.0.1 companion. [Verification and limitations](docs/stl-repair-verification.md) distinguish mesh checks, slicer imports and unperformed physical print tests.
+
+[Native Markdown Quick Look](docs/features/markdown-preview.md) renders `.md` and `.markdown` in Finder with a transparent, selectable native text view, including with Nodebay quit. [Screenshots and verification](docs/markdown-preview-verification.md).
+
+The settings screenshots below are historical captures from earlier Nodebay builds, not evidence of the pending release's version or complete UI verification. Current Markdown preview comparisons are linked above. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after an explicit Chrome installation and end-to-end UI verification pass.
 
 | Local engines and conversion | Downloads and safe image copies |
 |---|---|
@@ -35,6 +41,10 @@ The following capabilities are implemented in the current source. Automated chec
 - Explicit built-in, selected, main, pointer-active, and all-display placement modes
 - Persistent shelf references with security-scoped bookmarks
 - Persistent named File Stacks with reorder, preview, dissolve, and multi-file Finder drag
+- Space-bar Quick Look, context menus, reference-only shelf removal and Undo
+- [Quick Notes](docs/features/quick-notes.md): explicit paste or a native editor creates persistent Markdown locally; physical hover-paste and destination-app verification remain pending
+- [STL Repair](docs/features/stl-repair.md): conservative copy-first repair through separately installed Blender, with partial-result reports; not a guarantee of watertight or printable geometry
+- [Markdown Quick Look extension](docs/features/markdown-preview.md): selectable native Finder previews, including when Nodebay is quit; transparent content preserves the system background
 - Local conversion through unmodified Microsoft MarkItDown 0.1.7
 - Batch conversion into a separate Markdown result stack with progress, cancellation, partial success, and aggregate errors
 - Local yt-dlp downloads with automatic audio-or-video selection, one-click MP4/MP3 overrides, playlist item classification, and optional FFmpeg processing
@@ -60,7 +70,7 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
 
 ## Privacy model
 
-Document conversion, image compression, file and stack management, and media processing run locally. Nodebay has no analytics endpoint, proxy, download server, or Nodebay cloud account.
+Document conversion, image compression, file and stack management, and media processing run locally. The Quick Notes, STL Repair and Markdown preview features also process locally. Quick Notes reads the clipboard only after an explicit action; the preview never loads remote images or resources. Nodebay has no analytics endpoint, proxy, download server, or Nodebay cloud account.
 
 Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional Chrome bridge uses native messaging and loopback only; it does not send browser media metadata to a server.
 
@@ -74,6 +84,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Tested with 2026.8.19 | Separate Homebrew companion | Yes | Yes, direct to source |
 | [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
+| [Blender](https://www.blender.org) STL Repair | Tested with 5.0.1 | Separate app in `/Applications` | Yes | No |
 | Browser media bridge | 0.1.1 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |
 
 Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
@@ -84,6 +95,7 @@ Exact Swift package revisions, licenses, source URLs, companion status, the FFmp
 - macOS 15 Sequoia or later. The current MediaRemoteAdapter foundation binary is built with a macOS 15.0 minimum.
 - ImageOptim installed separately for image compression
 - yt-dlp and FFmpeg installed separately for media downloads and conversion
+- Blender 5.0.1 installed separately for the STL Repair feature; it is not bundled or installed by the Nodebay cask
 
 Companion installation for development:
 
@@ -179,7 +191,11 @@ Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the fi
 - Chrome requires the bundled extension to be loaded explicitly; Nodebay cannot silently install or enable it.
 - ImageOptim behavior follows the installed app's preferences. Nodebay reports that status and always protects the source through a copy-first workflow.
 - Physical multi-monitor, clamshell, Spaces, full-screen, Mission Control, and Stage Manager regression checks require the final manual hardware test pass.
-- The update feed is intentionally absent in this unpublished build.
+- No Sparkle update feed is configured. Use Homebrew or download a release manually to update.
+- Downloader site support depends on the separately installed yt-dlp version and the source service. Automatic mode falls back to video when structured metadata is ambiguous; it does not identify songs from titles alone.
+- Quick Notes accepts up to 1 MiB; rich text falls back to plain text when conversion is unreliable. Its physical hover-paste workflow still needs verification.
+- STL Repair does not detect or repair self-intersections and cannot guarantee printability. Inspect every result before manufacturing.
+- Markdown preview accepts files up to 2 MiB; larger formatted input uses bounded plain-text fallback. Images appear as alt text, links can be copied but do not navigate, and syntax emphasis is intentionally restrained. Finder preview has been exercised on macOS 26.6.2, not every supported macOS version.
 
 ## Icon source
 

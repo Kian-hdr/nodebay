@@ -5,19 +5,19 @@
 3. Package with a Developer ID identity:
 
    ```bash
-   RELEASE_VERSION=1.0.0 \
-   BUILD_NUMBER=21 \
+   RELEASE_VERSION=1.1.0 \
+   BUILD_NUMBER=24 \
    SIGNING_IDENTITY='Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)' \
    DEVELOPMENT_TEAM=HZWY8HT54D \
    ./scripts/package_homebrew_arm64.sh
    ```
 
-4. Extract the signed app, create `Nodebay-1.0.0-arm64.dmg` with `Configuration/dmg/create_dmg.sh`, and sign the DMG with the same Developer ID identity. The visible DMG contents must be only `Nodebay.app` and the Applications shortcut.
+4. Extract the signed app, create `Nodebay-1.1.0-arm64.dmg` with `Configuration/dmg/create_dmg.sh`, and sign the DMG with the same Developer ID identity. The visible DMG contents must be only `Nodebay.app` and the Applications shortcut.
 5. Submit the DMG with the Keychain-backed notary profile:
 
    ```bash
    xcrun notarytool submit \
-     build/nodebay-homebrew-arm64-release/Nodebay-1.0.0-arm64.dmg \
+     build/nodebay-homebrew-arm64-release/Nodebay-1.1.0-arm64.dmg \
      --keychain-profile NodebayRelease \
      --wait
    ```

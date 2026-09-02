@@ -2,7 +2,20 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
-## [Unreleased]
+## [1.1.0] - 2026-09-03
+
+- Add a sandboxed native Markdown Quick Look extension with selectable text, tables, task lists and code, backed by a separate Foundation/AppKit renderer. Keep system-owned translucent chrome and background, with no network resources, extra document surface or branding. Includes bounded parsing, source-preservation tests and Finder verification with Nodebay quit.
+
+- Add local STL Repair using the separate, unmodified Blender 5.0.1 companion: Safe, confirmed Thorough and Inspect modes, collision-safe persistent copies, batch partial successes, native reports and shared engine settings. Self-intersection repair and online uploads are not implemented; release gates are in `docs/stl-repair-verification.md`.
+
+- Add privacy-first Quick Notes: explicit shelf paste creates persistent Markdown, with deterministic URL/file routing, a native New Note editor, configurable safe filenames, bounded local rich-text conversion and redacted diagnostics.
+- Reuse regular file tiles, Quick Look, drag, stacks, reference-only removal and Undo for notes; keep the result visible with a brief dismissible confirmation.
+
+- Show the inspected Audio/MP3 or Video/MP4 choice on download tiles, with a direct one-click override and disabled MP3 controls when FFmpeg is unavailable.
+- Require structured track and artist metadata for music detection. A selected audio stream does not imply an audio-only upload when video formats exist; titles and music categories alone never decide the format.
+- Preserve YouTube Music playlist URLs and privacy-safe per-item classification decisions. Keep partial successes and single-result playlists in File Stacks.
+- Serialize format overrides with cancellation, ignore stale progress, and retain completed playlist files after cancellation.
+- Add executable coordinator fixtures and local MP4/MP3 download-and-decode checks.
 
 ## [1.0.0] - 2026-09-02
 

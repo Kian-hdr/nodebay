@@ -23,7 +23,6 @@ cask "nodebay" do
   uninstall quit: "theboringteam.boringnotch"
 
   zap trash: [
-    "~/Library/Application Support/Nodebay",
     "~/Library/Caches/theboringteam.boringnotch",
     "~/Library/Preferences/theboringteam.boringnotch.plist",
   ]

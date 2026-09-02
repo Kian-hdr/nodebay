@@ -1,4 +1,31 @@
-# Nodebay 1.0.0 release verification matrix
+# Nodebay release verification
+
+## Publication audit: 2026-09-03
+
+The existing `nodebay-v1.0.0` release was published on 2026-09-02. It must not
+be overwritten with the automatic-download, Quick Notes, STL Repair
+and Markdown preview additions. The owner approved version 1.1.0, build 24.
+No publication or replacement was performed during this audit.
+
+| Check | Status | Evidence / boundary |
+|---|---|---|
+| Existing public 1.0.0 download | Passed | Downloaded the GitHub DMG again; SHA-256 matches the public cask and the historical checksum below |
+| Existing public artifact integrity | Passed | `hdiutil verify`, `stapler validate` and Gatekeeper open assessment; Notarized Developer ID |
+| Current automated suite | Passed | 146 tests, 28.110 seconds |
+| Notices and repository checks | Passed | Offline notice validation, 30 required documentation files, local links, tracked-artifact exclusion and `git diff --check` |
+| Packaging hardening | Implemented; final packaging not run | Explicit inside-out `.appex` signing; preview version, architecture and read-only/no-network sandbox checks |
+| Previous private build 23 release audit | Failed | Nested `Contents/Resources/MediaRemoteAdapterTestClient` has the wrong signing team. The private build must not be distributed; rebuild using the production script that re-signs all nested Mach-O files |
+| New release builds and notarization | Not run | Version decision and a final committed source snapshot required |
+| New release Homebrew install/upgrade | Not run | No new release or tap update has been published |
+| Physical and interactive regressions | Not rerun | See feature-specific verification documents; automated tests do not establish hover-paste, physical displays or destination-app dragging |
+
+The local README now distinguishes published functionality from development
+features and historical screenshots. The local cask no longer removes the
+whole Nodebay Application Support directory during `--zap`; the public cask has
+not yet received that safety change. Existing preferences and files were not
+removed during this audit.
+
+## Historical Nodebay 1.0.0 release verification matrix
 
 Checked on 2026-09-02 on Apple Silicon, macOS 26.6.2, and Xcode 26.6. `Passed` means the named command, fixture, artifact inspection, or live check completed successfully. Contract-test coverage is identified separately from end-to-end UI or physical-hardware coverage.
 

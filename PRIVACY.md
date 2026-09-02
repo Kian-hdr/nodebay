@@ -23,4 +23,6 @@ Calendar, camera, microphone, Accessibility, Apple Events, and folder access are
 
 ## Updates
 
-The unpublished Nodebay build has no configured update feed and never contacts the original Boring Notch appcast. A future signed update channel must be documented before release.
+Nodebay has no configured Sparkle update feed and never contacts the original Boring Notch appcast. Updates are available through GitHub and Homebrew. A future in-app update channel must be documented before activation.
+
+Quick Notes reads copied content only after an explicit paste or New Note action, processes it locally, and retains only the resulting Markdown file. There is no continuous clipboard monitoring or content logging. Markdown Quick Look is sandboxed with no network entitlement and never loads remote resources. STL Repair passes a temporary copy to the separately installed Blender companion with network access denied; originals are never supplied for modification.

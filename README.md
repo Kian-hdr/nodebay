@@ -8,6 +8,13 @@ Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch)
 
 Created by **Kian Konrad Tajbakhsh**.
 
+## Set up with your AI agent
+
+**[Copy the setup prompt into your agent's chat](SETUP-PROMPT.md).** No placeholders
+need editing. Use an agent with access to your Mac; it will check compatibility,
+download and verify the installer, preserve existing settings, and guide any
+permissions or configuration you need to complete yourself.
+
 ## Current release status
 
 Nodebay 1.1.0 adds Quick Notes, conservative STL-copy repair, native Markdown Quick Look and improved automatic download classification to the 1.0.0 feature set. Apple Silicon and macOS 15 or later are required. See the [release verification matrix](docs/release-verification-matrix.md) for completed checks and remaining UI/hardware limitations. The optional Browser Media Bridge requires explicit local installation and is never silently enabled.

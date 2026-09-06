@@ -6,12 +6,39 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICE = ROOT / "boringNotch/components/Shelf/Services/QuickNoteService.swift"
+RENAME_SERVICE = ROOT / "boringNotch/components/Shelf/Services/ShelfFileRenameService.swift"
 COORDINATOR = (ROOT / "boringNotch/components/Shelf/Services/QuickNotesCoordinator.swift").read_text()
 SHELF = (ROOT / "boringNotch/components/Shelf/Views/ShelfView.swift").read_text()
 MONITOR = (ROOT / "boringNotch/observers/DragDetector.swift").read_text()
 APP = (ROOT / "boringNotch/boringNotchApp.swift").read_text()
 
 class QuickNotesTests(unittest.TestCase):
+    def test_quick_note_rename_preserves_extension_contents_and_collisions(self):
+        swiftc = shutil.which("swiftc")
+        if not swiftc:
+            self.skipTest("swiftc unavailable")
+        with tempfile.TemporaryDirectory(prefix="nodebay-rename-harness-") as directory:
+            binary = Path(directory) / "tests"
+            compile_result = subprocess.run(
+                [swiftc, str(RENAME_SERVICE), str(ROOT / "tests/ShelfFileRenameHarness.swift"), "-o", str(binary)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("shelf rename behavioral fixtures passed", result.stdout)
+
+        tile_model = (ROOT / "boringNotch/components/Shelf/ViewModels/ShelfItemViewModel.swift").read_text()
+        shelf_state = (ROOT / "boringNotch/components/Shelf/ViewModels/ShelfStateViewModel.swift").read_text()
+        self.assertIn("prompt.window.initialFirstResponder = editor", tile_model)
+        self.assertIn("NSApp.activate(ignoringOtherApps: true)", tile_model)
+        self.assertIn("SharingStateManager.shared.beginInteraction()", tile_model)
+        self.assertIn("id: items[idx].id", shelf_state)
+        self.assertIn("func updateItem(_ updatedItem: ShelfItem)", tile_model)
+        tile_view = (ROOT / "boringNotch/components/Shelf/Views/ShelfItemView.swift").read_text()
+        self.assertIn("viewModel.updateItem(updatedItem)", tile_view)
+
     def test_executable_content_routing_storage_and_rich_text_fixtures(self):
         swiftc = shutil.which("swiftc")
         if not swiftc:

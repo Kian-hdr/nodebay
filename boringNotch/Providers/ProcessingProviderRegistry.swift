@@ -382,3 +382,190 @@ final class ProcessingProviderRegistry: ObservableObject {
         isRefreshing = false
     }
 }
+
+enum FeatureSetupPackage: String, CaseIterable, Identifiable, Sendable {
+    case ytDLP = "yt-dlp"
+    case ffmpeg
+    case imageOptim = "imageoptim"
+    case blender
+
+    var id: String { rawValue }
+
+    var providerID: String {
+        switch self {
+        case .ytDLP: "yt-dlp"
+        case .ffmpeg: "ffmpeg"
+        case .imageOptim: "imageoptim"
+        case .blender: "stl-repair"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .ytDLP: "yt-dlp"
+        case .ffmpeg: "FFmpeg"
+        case .imageOptim: "ImageOptim"
+        case .blender: "Blender"
+        }
+    }
+
+    var brewArguments: [String] {
+        switch self {
+        case .ytDLP: ["install", "yt-dlp"]
+        case .ffmpeg: ["install", "ffmpeg"]
+        case .imageOptim: ["install", "--cask", "imageoptim"]
+        case .blender: ["install", "--cask", "blender"]
+        }
+    }
+
+    var isCompanionApplication: Bool {
+        self == .imageOptim || self == .blender
+    }
+
+    var purposeAndImpact: String {
+        switch self {
+        case .ytDLP:
+            "Downloads user-authorized media. Small command-line dependency."
+        case .ffmpeg:
+            "Creates MP3, merged video, compressed video, and GIF outputs. Moderate command-line dependency."
+        case .imageOptim:
+            "Compresses collision-safe image copies. Installs a separate companion app and its optimization tools; expect a moderate download."
+        case .blender:
+            "Repairs collision-safe STL copies. Installs the complete Blender companion application; expect a large download and significant disk use."
+        }
+    }
+}
+
+enum FeatureSetupStatus: Equatable, Sendable {
+    case idle
+    case checking
+    case installing
+    case installed
+    case skipped
+    case cancelled
+    case failed(String)
+
+    var label: String {
+        switch self {
+        case .idle: "Ready"
+        case .checking: "Checking…"
+        case .installing: "Installing…"
+        case .installed: "Installed"
+        case .skipped: "Already available"
+        case .cancelled: "Cancelled"
+        case .failed(let message): message
+        }
+    }
+}
+
+@MainActor
+final class FeatureSetupCoordinator: ObservableObject {
+    static let shared = FeatureSetupCoordinator()
+
+    @Published private(set) var status: [FeatureSetupPackage: FeatureSetupStatus] = [:]
+    @Published private(set) var activePackage: FeatureSetupPackage?
+    @Published private(set) var homebrewURL: URL?
+    @Published private(set) var isChecking = false
+    @Published private(set) var lastError: String?
+
+    private var installTask: Task<Void, Never>?
+    private let registry = ProcessingProviderRegistry.shared
+    private let homebrewCandidates = [
+        URL(fileURLWithPath: "/opt/homebrew/bin/brew"),
+        URL(fileURLWithPath: "/usr/local/bin/brew"),
+    ]
+
+    var isInstalling: Bool { installTask != nil }
+
+    func checkAll() async {
+        guard !isChecking else { return }
+        isChecking = true
+        lastError = nil
+        homebrewURL = await XPCHelperClient.shared.firstAvailableApprovedExecutable(
+            engine: "homebrew",
+            candidates: homebrewCandidates
+        )
+        await registry.refresh()
+        while registry.isRefreshing {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        for package in FeatureSetupPackage.allCases {
+            let availability = registry.diagnostics[package.providerID]?.availability
+            status[package] = availability == .installed || availability == .bundled ? .installed : .idle
+        }
+        isChecking = false
+    }
+
+    func install(_ package: FeatureSetupPackage) {
+        start(packages: [package])
+    }
+
+    func installMissing(includeCompanionApplications: Bool) {
+        let packages = FeatureSetupPackage.allCases.filter {
+            includeCompanionApplications || !$0.isCompanionApplication
+        }
+        start(packages: packages)
+    }
+
+    func cancel() {
+        installTask?.cancel()
+        if let activePackage { status[activePackage] = .cancelled }
+    }
+
+    private func start(packages: [FeatureSetupPackage]) {
+        guard installTask == nil else { return }
+        installTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.activePackage = nil
+                self.installTask = nil
+            }
+
+            await self.checkAll()
+            guard let brew = self.homebrewURL else {
+                self.lastError = "Homebrew is not installed. Use the official Homebrew installation guide, then run Check All again."
+                for package in packages where self.status[package] != .installed {
+                    self.status[package] = .failed("Homebrew required")
+                }
+                return
+            }
+
+            for package in packages {
+                guard !Task.isCancelled else { return }
+                if self.status[package] == .installed {
+                    self.status[package] = .skipped
+                    continue
+                }
+                self.activePackage = package
+                self.status[package] = .installing
+                do {
+                    let result = try await SafeProcessRunner.runApproved(
+                        engine: "homebrew",
+                        executable: brew,
+                        arguments: package.brewArguments,
+                        timeout: .seconds(7_200),
+                        maximumLogBytes: 16_384
+                    )
+                    guard !Task.isCancelled else {
+                        self.status[package] = .cancelled
+                        return
+                    }
+                    if result.exitCode == 0 {
+                        self.status[package] = .installed
+                    } else {
+                        self.status[package] = .failed("Installation failed")
+                        self.lastError = "\(package.displayName) could not be installed. Homebrew exited with status \(result.exitCode)."
+                    }
+                } catch is CancellationError {
+                    self.status[package] = .cancelled
+                    return
+                } catch {
+                    self.status[package] = .failed("Installation failed")
+                    self.lastError = "\(package.displayName) could not be installed."
+                }
+                await self.registry.refresh()
+            }
+            await self.checkAll()
+        }
+    }
+}

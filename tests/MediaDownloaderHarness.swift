@@ -32,7 +32,11 @@ struct ShelfItem: Identifiable {
 }
 enum NodebayManagedFileStorage {
     enum Kind { case downloads }
-    static func directory(for kind: Kind) throws -> URL { FileManager.default.temporaryDirectory }
+    static let root = FileManager.default.temporaryDirectory.appendingPathComponent("nodebay-drawer-\(UUID())")
+    static func directory(for kind: Kind) throws -> URL {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        return root
+    }
 }
 actor XPCHelperClient {
     static let shared = XPCHelperClient()
@@ -58,6 +62,7 @@ actor MockDownloader: MediaDownloading {
     let root: URL
     var inspected: [URL] = []
     var requests: [(URL, MediaDownloadOptions)] = []
+    var destinations: [URL] = []
     var fixtures: [String: MediaInspection] = [:]
     var failing: Set<String> = []
     var delay: Duration = .zero
@@ -77,6 +82,7 @@ actor MockDownloader: MediaDownloading {
                   progress: (@Sendable (MediaDownloadProgress) -> Void)?) async throws -> MediaDownloadResult {
         precondition(options.format != .mp3 || ffmpeg, "MP3 started without FFmpeg")
         requests.append((inspection.url, options))
+        destinations.append(destination)
         if delay != .zero {
             do { try await Task.sleep(for: delay) }
             catch {
@@ -86,7 +92,7 @@ actor MockDownloader: MediaDownloading {
             }
         }
         if failing.contains(inspection.url.absoluteString) { throw MediaDownloaderError.noOutput }
-        let file = root.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format == .mp3 ? "mp3" : "mp4")
+        let file = destination.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format == .mp3 ? "mp3" : "mp4")
         try Data("generated fixture".utf8).write(to: file)
         return MediaDownloadResult(inspection: inspection, files: [file], partialFailure: nil)
     }
@@ -114,6 +120,7 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("nodebay-coordinator-\(UUID())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
+        defer { try? FileManager.default.removeItem(at: NodebayManagedFileStorage.root) }
         let suite = "nodebay.test.\(UUID())"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -124,6 +131,12 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
         defaults.set("192 kbps", forKey: "nodebay.downloader.audioBitrate")
         let video = fixture("https://www.youtube.com/watch?v=video")
         let audio = fixture("https://music.youtube.com/watch?v=audio")
+
+        // A saved Downloads/custom-folder bookmark from an older version must
+        // not redirect any new download away from the persistent file drawer.
+        let legacyDirectory = root.appendingPathComponent("Legacy Downloads")
+        try FileManager.default.createDirectory(at: legacyDirectory, withIntermediateDirectories: true)
+        defaults.set(try Bookmark(url: legacyDirectory).data, forKey: "nodebay.downloader.directoryBookmark")
 
         for mode in MediaDownloadSelectionMode.allCases {
             defaults.set(mode.rawValue, forKey: "nodebay.downloader.selectionMode")
@@ -141,6 +154,10 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
             try await wait(coordinator)
             let requests = await backend.requests
             precondition(requests.count == 2)
+            let destinations = await backend.destinations
+            precondition(destinations.allSatisfy { $0 == NodebayManagedFileStorage.root })
+            let legacyContents = try FileManager.default.contentsOfDirectory(atPath: legacyDirectory.path)
+            precondition(legacyContents.isEmpty)
             for (url, options) in requests {
                 let expected: MediaDownloadFormat = mode == .alwaysAudio || (mode == .automatic && url == audio.url) ? .mp3 : .mp4
                 precondition(options.format == expected)
@@ -151,6 +168,7 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
             for item in ShelfStateViewModel.shared.items {
                 guard case .file(let data) = item.kind, let file = Bookmark(data: data).resolvedURL else { preconditionFailure("Output missing from shelf") }
                 precondition(FileManager.default.fileExists(atPath: file.path))
+                precondition(file.deletingLastPathComponent().path == NodebayManagedFileStorage.root.path)
             }
             precondition(coordinator.jobs.values.allSatisfy { $0.choiceLabel != nil && $0.classificationReason?.contains("Private") == false })
         }
@@ -290,6 +308,22 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
         precondition(first.files[0] != second.files[0] && first.files[0] != original)
         let originalBytes = try Data(contentsOf: original)
         precondition(originalBytes == Data("original".utf8))
+        // Failure to create durable drawer storage must fail visibly before
+        // downloading, never silently fall back to temporary or legacy storage.
+        try FileManager.default.removeItem(at: NodebayManagedFileStorage.root)
+        try Data("blocked directory fixture".utf8).write(to: NodebayManagedFileStorage.root)
+        defaults.removeObject(forKey: "nodebay.downloader.jobs.v1")
+        ShelfStateViewModel.shared.items = []
+        let blockedBackend = MockDownloader(root: root)
+        await blockedBackend.configure([video])
+        var storageFailurePresented = false
+        let blocked = DownloadCoordinator(service: blockedBackend, defaults: defaults,
+            failurePresenter: { _ in storageFailurePresented = true })
+        blocked.add(urls: [video.url])
+        try await wait(blocked)
+        precondition(storageFailurePresented && blocked.jobs.values.first?.state == .failed)
+        let blockedRequests = await blockedBackend.requests
+        precondition(blockedRequests.isEmpty)
         print("Downloader coordinator fixtures passed")
     }
 }

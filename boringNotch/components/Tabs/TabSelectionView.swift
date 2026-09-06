@@ -16,15 +16,17 @@ struct TabModel: Identifiable {
 
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
-    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
+    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf),
+    TabModel(label: "Quick Chat", icon: "bubble.left.fill", view: .chat)
 ]
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+    @ObservedObject private var chat = QuickChatCoordinator.shared
     @Namespace var animation
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs) { tab in
+            ForEach(tabs.filter { $0.view != .chat || chat.enabled }) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view

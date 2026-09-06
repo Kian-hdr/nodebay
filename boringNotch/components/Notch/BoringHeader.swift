@@ -13,10 +13,12 @@ struct BoringHeader: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
+    @ObservedObject private var chat = QuickChatCoordinator.shared
+    @ObservedObject private var longhaul = LonghaulCompanionClient.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
-                if (!tvm.isEmpty || coordinator.alwaysShowTabs) && Defaults[.boringShelf] {
+                if (!tvm.isEmpty || coordinator.alwaysShowTabs || chat.enabled) && Defaults[.boringShelf] {
                     TabSelectionView()
                 } else if vm.notchState == .open {
                     EmptyView()
@@ -47,6 +49,12 @@ struct BoringHeader: View {
                         )
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        if longhaul.showsNotchControl {
+                            LonghaulNotchButton()
+                        }
+                        if coordinator.currentView == .chat {
+                            QuickChatHeaderActions()
+                        }
                         if Defaults[.showMirror] {
                             Button(action: {
                                 vm.toggleCameraPreview()

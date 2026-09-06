@@ -14,7 +14,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Nodebay analyzes audio from your music app to draw a real-time waveform in the notch. Audio is processed locally and never leaves your Mac.</string>
+	<string>Nodebay processes audio from the selected media app for its real-time waveform and equalizer. Audio stays on this Mac and is never recorded or uploaded.</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>

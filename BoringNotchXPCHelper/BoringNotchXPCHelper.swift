@@ -8,8 +8,39 @@
 import AppKit
 import ApplicationServices
 import IOKit
+import Security
 
 class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
+
+    func longhaulExchange(_ data: Data, with reply: @escaping (Data) -> Void) {
+        guard NodebayLonghaulRelay.trusted(connection), NodebayLonghaulRelay.validControl(data) else {
+            reply(NodebayLonghaulRelay.unavailable); return
+        }
+        NodebayLonghaulRelay.exchange(data, reply: reply)
+    }
+
+    private let quickChatWorker = QuickChatWorker()
+
+    private var trustedQuickChatClient: Bool {
+        guard let connection else { return false }
+        var code: SecCode?
+        var requirement: SecRequirement?
+        let attributes = [kSecGuestAttributePid as String: connection.processIdentifier] as CFDictionary
+        guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
+              SecRequirementCreateWithString("anchor apple generic and identifier \"theboringteam.boringnotch\" and certificate leaf[subject.OU] = \"HZWY8HT54D\"" as CFString, [], &requirement) == errSecSuccess,
+              let code, let requirement else { return false }
+        return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
+    }
+
+    func quickChatStatus(with reply: @escaping (String, String) -> Void) {
+        guard trustedQuickChatClient else { reply("incompatible", "Signed Nodebay required"); return }
+        quickChatWorker.status(reply)
+    }
+    func quickChatAnswer(_ id: String, context: String, thinkDeeper: Bool, with reply: @escaping (String, String) -> Void) {
+        guard trustedQuickChatClient else { reply("incompatible", ""); return }
+        quickChatWorker.answer(id, context: context, thinkDeeper: thinkDeeper, reply: reply)
+    }
+    func cancelQuickChat(_ id: String) { quickChatWorker.cancel(id) }
 
     private weak var connection: NSXPCConnection?
 
@@ -34,6 +65,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
     }
 
     deinit {
+        quickChatWorker.cancelAll()
         var processToTerminate: Process?
         var taskToCancel: Task<Void, Never>?
         var pipeHandlerToClose: JSONLinesPipeHandler?
@@ -401,6 +433,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             let progressListener = self.connection?.remoteObjectProxy as? BoringNotchXPCHelperLunarListener
             let finishLock = NSLock()
             var didFinish = false
+            let longhaulTitle = LonghaulWorkerPolicy.title(engine: engine, arguments: arguments)
 
             func finish(code: Int32, error: String? = nil) {
                 finishLock.lock()
@@ -412,6 +445,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                 stdoutBuffer.append(stdout.fileHandleForReading.readDataToEndOfFile())
                 stderrBuffer.append(stderr.fileHandleForReading.readDataToEndOfFile())
                 _ = self.processStateQueue.sync { self.approvedProcesses.removeValue(forKey: jobID) }
+                if longhaulTitle != nil { LonghaulWorkerJobs.shared.finished(id: jobID, code: code) }
                 reply(NSNumber(value: code), stdoutBuffer.string, stderrBuffer.string, error)
             }
 
@@ -447,7 +481,10 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             stdout.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
                 stdoutBuffer.append(data)
-                progressParser?.append(data) { event in progressListener?.approvedProcessDidUpdate(event) }
+                progressParser?.append(data) { event in
+                    progressListener?.approvedProcessDidUpdate(event)
+                    if longhaulTitle != nil { LonghaulWorkerJobs.shared.progress(id: jobID, fraction: event.percentage) }
+                }
             }
             stderr.fileHandleForReading.readabilityHandler = { stderrBuffer.append($0.availableData) }
             process.terminationHandler = { finished in finish(code: finished.terminationStatus) }
@@ -459,6 +496,9 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                     guard self.cancelledProcessIDs.remove(jobID) == nil else { throw CancellationError() }
                     self.approvedProcesses[jobID] = process
                     try process.run()
+                    if let longhaulTitle {
+                        LonghaulWorkerJobs.shared.started(id: jobID, title: longhaulTitle, pid: process.processIdentifier)
+                    }
                 }
             } catch {
                 try? stdout.fileHandleForWriting.close()
@@ -496,6 +536,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
     }
 
     @objc func cancelApprovedProcess(_ jobID: String) {
+        LonghaulWorkerJobs.shared.cancelled(id: jobID)
         processStateQueue.sync {
             if let process = approvedProcesses[jobID], process.isRunning {
                 process.terminate()
@@ -610,6 +651,8 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
             return ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].contains(url.path) ? url : nil
         case "stl-repair":
             return url.path == "/Applications/Blender.app/Contents/MacOS/Blender" ? url : nil
+        case "homebrew":
+            return ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].contains(url.path) ? url : nil
         default:
             return nil
         }
@@ -641,6 +684,13 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                   let size = input.fileSize, size > 0, size <= 32 * 1024 * 1024 else { return false }
             return !FileManager.default.fileExists(atPath: job.appendingPathComponent("output.stl").path)
                 && !FileManager.default.fileExists(atPath: job.appendingPathComponent("report.json").path)
+        case "homebrew":
+            // This is intentionally a closed list. No caller-provided package,
+            // flag, path, tap, URL, or shell fragment reaches Homebrew.
+            return arguments == ["install", "yt-dlp"]
+                || arguments == ["install", "ffmpeg"]
+                || arguments == ["install", "--cask", "imageoptim"]
+                || arguments == ["install", "--cask", "blender"]
         default:
             return false
         }

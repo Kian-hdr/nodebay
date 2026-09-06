@@ -15,3 +15,11 @@ xcodebuild -project boringNotch.xcodeproj -scheme boringNotch \
 ```
 
 The scheme and selected internal symbols retain historical names to protect preference, Accessibility, XPC, bookmark, and saved-state migration. Generated Python runtimes and Xcode build output are ignored and must not be committed.
+
+The checked-in Codex Run action invokes `script/build_and_run.sh`, a signed
+maintainer workflow that defaults to the creator's Developer ID identity. No
+certificate or private key is included. Contributors can set
+`NODEBAY_SIGNING_IDENTITY` and `NODEBAY_DEVELOPMENT_TEAM` to their own installed
+identity and team, or use the Xcode build command above. `--build-only` builds
+without quitting or launching Nodebay. Optional Longhaul interoperability still
+requires the matching peer signatures documented in [Longhaul](features/longhaul.md).

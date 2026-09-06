@@ -7,6 +7,10 @@ on:
         description: Semantic version without a leading v
         required: true
         type: string
+      build:
+        description: Application build number matching the source tag
+        required: true
+        type: string
       confirmation:
         description: Type RELEASE to authorize this workflow run
         required: true
@@ -80,6 +84,7 @@ jobs:
       - name: Build Developer ID archive
         env:
           RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build }}
           RELEASE_TAG: nodebay-v${{ inputs.version }}
           SIGNING_IDENTITY: "Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)"
           DEVELOPMENT_TEAM: HZWY8HT54D
@@ -90,6 +95,7 @@ jobs:
       - name: Notarize and staple
         env:
           VERSION: ${{ inputs.version }}
+          EXPECTED_BUILD: ${{ inputs.build }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

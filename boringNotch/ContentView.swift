@@ -12,6 +12,7 @@ import Defaults
 import KeyboardShortcuts
 import SwiftUI
 import SwiftUIIntrospect
+import UniformTypeIdentifiers
 
 @MainActor
 struct ContentView: View {
@@ -44,6 +45,11 @@ struct ContentView: View {
 
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
+
+    private var notchPanEnabled: Bool {
+        Defaults[.enableGestures] && QuickChatPolicy.allowsNotchPan(
+            isOpen: vm.notchState == .open, chatSelected: coordinator.currentView == .chat)
+    }
 
     // MARK: - Corner Radius Scaling
     private var cornerRadiusScaleFactor: CGFloat? {
@@ -89,7 +95,9 @@ struct ContentView: View {
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
 
-        if coordinator.expandingView.type == .battery && coordinator.expandingView.show
+        if coordinator.longhaulNotice(on: vm.screenUUID) != nil && vm.notchState == .closed && !vm.hideOnClosed && !isNotchHeightZero {
+            chinWidth += 272
+        } else if coordinator.expandingView.type == .battery && coordinator.expandingView.show
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
@@ -148,39 +156,41 @@ struct ContentView: View {
                     .opacity((isNotchHeightZero && vm.notchState == .closed) ? 0.01 : 1)
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil, alignment: .top)
                     .conditionalModifier(true) { view in
                         return view
                             .animation(vm.notchState == .open ? StandardAnimations.open : StandardAnimations.close, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                     }
                     .contentShape(Rectangle())
+                    .onDrop(
+                        of: [.fileURL, .url, .utf8PlainText, .plainText, .data],
+                        delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting) { providers in
+                            guard !providers.isEmpty else { return false }
+                            vm.dropEvent = true
+                            ShelfStateViewModel.shared.load(providers)
+                            return true
+                        }
+                    )
                     .onHover { hovering in
                         handleHover(hovering)
                     }
                     .onTapGesture {
                         doOpen()
                     }
-                    .conditionalModifier(Defaults[.enableGestures]) { view in
-                        view
-                            .panGesture(direction: .down) { translation, phase in
-                                handleDownGesture(translation: translation, phase: phase)
-                            }
+                    // Keep the notch subtree alive across tab and open-state changes.
+                    // Conditional wrappers here recreate hover tracking and animations.
+                    .panGesture(direction: .down, enabled: notchPanEnabled) { translation, phase in
+                        handleDownGesture(translation: translation, phase: phase)
                     }
-                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures]) { view in
-                        view
-                            .panGesture(direction: .up) { translation, phase in
-                                handleUpGesture(translation: translation, phase: phase)
-                            }
+                    .panGesture(direction: .up, enabled: notchPanEnabled && Defaults[.closeGestureEnabled]) { translation, phase in
+                        handleUpGesture(translation: translation, phase: phase)
                     }
-                    .conditionalModifier(Defaults[.enableHorizontalMediaGestures] && Defaults[.enableGestures]) { view in
-                        view
-                            .panGesture(direction: .left) { translation, phase in
-                                handleNextTrackGesture(translation: translation, phase: phase)
-                            }
-                            .panGesture(direction: .right) { translation, phase in
-                                handlePreviousTrackGesture(translation: translation, phase: phase)
-                            }
+                    .panGesture(direction: .left, enabled: notchPanEnabled && Defaults[.enableHorizontalMediaGestures]) { translation, phase in
+                        handleNextTrackGesture(translation: translation, phase: phase)
+                    }
+                    .panGesture(direction: .right, enabled: notchPanEnabled && Defaults[.enableHorizontalMediaGestures]) { translation, phase in
+                        handlePreviousTrackGesture(translation: translation, phase: phase)
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
                         if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
@@ -190,7 +200,7 @@ struct ContentView: View {
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
                                     if self.vm.notchState == .open && !self.isHovering && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
-                                        self.vm.close()
+                                        self.closeAfterHoverExit()
                                     }
                                 }
                             }
@@ -211,7 +221,7 @@ struct ContentView: View {
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
                                     if !self.vm.isBatteryPopoverActive && !self.isHovering && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
-                                        self.vm.close()
+                                        self.closeAfterHoverExit()
                                     }
                                 }
                             }
@@ -248,9 +258,9 @@ struct ContentView: View {
             anchor: .top
         )
         .animation(.smooth, value: gestureProgress)
-        .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
+        .onDisappear { hoverTask?.cancel() }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
 
@@ -289,7 +299,11 @@ struct ContentView: View {
 
     @ViewBuilder
     func NotchLayout() -> some View {
-        VStack(alignment: .leading) {
+        // One content budget for every tab. Taller content must scroll inside
+        // its region, never recenter the shared navigation row above it.
+        let headerHeight = max(30, displayClosedNotchHeight)
+        let tabHeight = max(0, vm.notchSize.height - headerHeight - 8 - 12)
+        VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading) {
                 if coordinator.helloAnimationRunning {
                     Spacer()
@@ -302,7 +316,9 @@ struct ContentView: View {
                     .padding(.top, 40)
                     Spacer()
                 } else {
-                    if coordinator.expandingView.type == .battery && coordinator.expandingView.show
+                    if let notice = coordinator.longhaulNotice(on: vm.screenUUID), vm.notchState == .closed && !vm.hideOnClosed && !isNotchHeightZero {
+                        LonghaulNotchNotice(alert: notice, cameraWidth: vm.closedNotchSize.width, height: displayClosedNotchHeight)
+                    } else if coordinator.expandingView.type == .battery && coordinator.expandingView.show
                         && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
                     {
                         HStack(spacing: 0) {
@@ -347,7 +363,7 @@ struct ContentView: View {
                           BoringFaceAnimation()
                        } else if vm.notchState == .open {
                            BoringHeader()
-                               .frame(height: max(24, displayClosedNotchHeight))
+                               .frame(height: headerHeight)
                                .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                        }
                         // New case to enable compact notch on external displays
@@ -411,8 +427,11 @@ struct ContentView: View {
                         )
                     case .shelf:
                         ShelfView()
+                    case .chat:
+                        QuickChatView()
                     }
                 }
+                .frame(height: tabHeight, alignment: .top)
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
@@ -423,7 +442,6 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
-        .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
     }
 
     @ViewBuilder
@@ -547,22 +565,6 @@ struct ContentView: View {
         )
     }
 
-    @ViewBuilder
-    var dragDetector: some View {
-        if Defaults[.boringShelf] && vm.notchState == .closed {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-        .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
-            vm.dropEvent = true
-            ShelfStateViewModel.shared.load(providers)
-            return true
-        }
-        } else {
-            EmptyView()
-        }
-    }
-
     @discardableResult
     private func doOpen() -> Bool {
         var didOpen = false
@@ -599,11 +601,27 @@ struct ContentView: View {
 
     // MARK: - Hover Management
 
+    private func closeAfterHoverExit() {
+        // Native text/scroll views can invalidate a SwiftUI tracking area. Check
+        // the real pointer again when the delayed exit fires, not the stale flag.
+        guard !vm.isMouseHovering() else {
+            isHovering = true
+            return
+        }
+        withAnimation(StandardAnimations.close) {
+            isHovering = false
+            if vm.notchState == .open && !vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+                vm.close()
+            }
+        }
+    }
+
     private func handleHover(_ hovering: Bool) {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
         
         if hovering {
+            if coordinator.currentView == .chat { QuickChatCoordinator.shared.userActivity() }
             withAnimation(animationSpring) {
                 isHovering = true
             }
@@ -634,13 +652,7 @@ struct ContentView: View {
                 guard !Task.isCancelled else { return }
                 
                 await MainActor.run {
-                    withAnimation(animationSpring) {
-                        self.isHovering = false
-                    }
-                    
-                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
-                        self.vm.close()
-                    }
+                    self.closeAfterHoverExit()
                 }
             }
         }
@@ -672,7 +684,7 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
+        guard vm.notchState == .open && coordinator.currentView != .chat && !vm.isHoveringCalendar else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
@@ -808,6 +820,15 @@ struct FullScreenDropDelegate: DropDelegate {
 
 struct GeneralDropTargetDelegate: DropDelegate {
     @Binding var isTargeted: Bool
+    let onDrop: ([NSItemProvider]) -> Bool
+
+    private static let acceptedTypes: [UTType] = [
+        .fileURL, .url, .utf8PlainText, .plainText, .data,
+    ]
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: Self.acceptedTypes)
+    }
 
     func dropEntered(info: DropInfo) {
         isTargeted = true
@@ -818,11 +839,12 @@ struct GeneralDropTargetDelegate: DropDelegate {
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .cancel)
+        DropProposal(operation: .copy)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        return false
+        isTargeted = false
+        return onDrop(info.itemProviders(for: Self.acceptedTypes))
     }
 }
 

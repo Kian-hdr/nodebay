@@ -18,6 +18,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case battery
     case shelf
     case quickNotes
+    case ai
     case plugins
     case downloader
     case mirror
@@ -37,6 +38,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .battery: "Battery"
         case .shelf: "Shelf"
         case .quickNotes: "Quick Notes"
+        case .ai: "AI & Quick Chat"
         case .plugins: "Plugins & Engines"
         case .downloader: "Downloader"
         case .mirror: "Mirror"
@@ -56,6 +58,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .battery: "battery.100.bolt"
         case .shelf: "books.vertical"
         case .quickNotes: "square.and.pencil"
+        case .ai: "bubble.left.and.text.bubble.right"
         case .plugins: "puzzlepiece.extension"
         case .downloader: "arrow.down.circle"
         case .mirror: "camera"
@@ -107,6 +110,10 @@ struct SettingsView: View {
                     Shelf()
                 case .quickNotes:
                     QuickNotesSettingsView()
+                case .ai:
+                    Form { QuickChatSettingsSections() }
+                        .formStyle(.grouped)
+                        .navigationTitle("AI & Quick Chat")
                 case .plugins:
                     PluginsEnginesSettingsView()
                 case .downloader:

@@ -76,6 +76,36 @@ compatible Blender version. Reuse installed companions and install missing ones
 from their official sources only for features I select. Do not install Blender,
 ImageOptim, or a browser extension merely to prove the base app works.
 
+Check the installed release before offering AI setup. Quick Chat is part of the
+unpublished 1.2.0 candidate and is absent from the current 1.1.0 stable release.
+Do not install a development build or claim the feature is available merely
+because it appears in current source documentation. When the installed release
+includes AI & Quick Chat settings, preserve its existing choice; new installs
+default to Off. Ask which provider I want before enabling it.
+
+For OpenAI API, explain that API billing is separate from a ChatGPT subscription.
+In Settings, AI & Quick Chat, choose OpenAI API and find the API key heading.
+Guide me to paste my key directly in the bordered secure field labelled
+"Paste API key here (⌘V)" and click Save to Keychain. Never ask me to paste a key
+in chat or a shell command, read it back,
+or put it in preferences, logs, screenshots, or setup files. Preserve a saved
+key unless I request replacement. After I authorize the small API usage, run
+Validate Connection and then a harmless synthetic question in the actual chat.
+Verify the visible response; a saved key or a ready indicator alone is not a
+successful API test. For Codex CLI, use the documented supported signed version
+and leave account sign-in to me. Do not bypass Nodebay's compatibility checks.
+
+Quick Chat is temporary in Nodebay, but submitted questions and context go to
+OpenAI. Provider retention is separate. Do not select a Knowledge Folder or
+enable cloud excerpts as part of a connection test. Folder access and permission
+to send relevant excerpts are separate choices, both requiring my intent.
+
+Longhaul is an optional separate companion with no public installer configured.
+Do not fetch or bundle an unofficial copy. If I already have a compatible copy
+and request integration, guide explicit pairing through its normal interface.
+Otherwise leave the companion unavailable. An enabled sun icon describes its
+automation setting, not proof of an active sleep assertion or closed-lid support.
+
 Guide me through only the permissions needed for selected features. Leave macOS
 permission dialogs and Chrome extension loading/enabling to me. Keep browser-cookie
 access off unless I explicitly request it. Test with a disposable local file or

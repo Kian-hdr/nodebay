@@ -19,6 +19,7 @@ struct BrowserMediaSession: Identifiable, Hashable {
     let canSeek: Bool
     let canGoNext: Bool
     let canGoPrevious: Bool
+    let eqEnabled: Bool
     let lastUpdated: Date
 
     var displayName: String {
@@ -47,7 +48,7 @@ final class BrowserMediaBridge: ObservableObject {
     static let shared = BrowserMediaBridge()
     nonisolated static let nativeHostName = "com.nodebay.browser_bridge"
     nonisolated static let extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"
-    nonisolated static let bridgeVersion = "0.1.1"
+    nonisolated static let bridgeVersion = "0.2.0"
     private static let port: NWEndpoint.Port = 47_321
     private static let maximumBufferedBytes = 1_048_576
 
@@ -141,6 +142,49 @@ final class BrowserMediaBridge: ObservableObject {
         connection.send(content: line, completion: .contentProcessed { [weak self] error in
             if let error {
                 Task { @MainActor in self?.lastError = "Browser command failed: \(error.localizedDescription)" }
+            }
+        })
+        return true
+    }
+
+    @discardableResult
+    func setEqualizer(sessionID: String, gains: [Double], bypassed: Bool) -> Bool {
+        guard gains.count == NodebayEqualizerProfile.frequencies.count,
+              gains.allSatisfy({ $0.isFinite && (-12...6).contains($0) }),
+              let connection, let session = sessionsByID[sessionID], session.eqEnabled else {
+            lastError = "Equalizer is not enabled for that browser tab."
+            return false
+        }
+        let object: [String: Any] = [
+            "type": "command",
+            "tabId": session.tabID,
+            "action": "setEQ",
+            "values": gains,
+            "bypassed": bypassed,
+        ]
+        guard var data = try? JSONSerialization.data(withJSONObject: object) else { return false }
+        data.append(0x0A)
+        connection.send(content: data, completion: .contentProcessed { [weak self] error in
+            if let error {
+                Task { @MainActor in self?.lastError = "Browser equalizer command failed: \(error.localizedDescription)" }
+            }
+        })
+        return true
+    }
+
+    @discardableResult
+    func disableEqualizer(sessionID: String) -> Bool {
+        guard let connection, let session = sessionsByID[sessionID] else { return false }
+        let object: [String: Any] = [
+            "type": "command",
+            "tabId": session.tabID,
+            "action": "disableEQ",
+        ]
+        guard var data = try? JSONSerialization.data(withJSONObject: object) else { return false }
+        data.append(0x0A)
+        connection.send(content: data, completion: .contentProcessed { [weak self] error in
+            if let error {
+                Task { @MainActor in self?.lastError = "Browser equalizer could not be stopped: \(error.localizedDescription)" }
             }
         })
         return true
@@ -267,6 +311,7 @@ final class BrowserMediaBridge: ObservableObject {
                 canSeek: wire.canSeek,
                 canGoNext: wire.canGoNext,
                 canGoPrevious: wire.canGoPrevious,
+                eqEnabled: wire.eqEnabled ?? false,
                 lastUpdated: Date()
             )
             publishSessions()
@@ -332,4 +377,5 @@ private struct WireBrowserMediaSession: Decodable {
     let canSeek: Bool
     let canGoNext: Bool
     let canGoPrevious: Bool
+    let eqEnabled: Bool?
 }

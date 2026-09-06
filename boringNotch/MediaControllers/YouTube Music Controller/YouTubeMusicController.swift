@@ -144,8 +144,10 @@ final class YouTubeMusicController: MediaControllerProtocol {
                 // Don't treat it as an error if the like endpoint doesn't exist — just skip
             }
         } catch YouTubeMusicError.authenticationRequired {
+            resetPlaybackState()
             await authManager.invalidateToken()
         } catch {
+            resetPlaybackState()
             print("[YouTubeMusicController] Failed to update playback info: \(error)")
         }
     }
@@ -451,6 +453,7 @@ final class YouTubeMusicController: MediaControllerProtocol {
     }
     
     private func updatePlaybackState(with response: PlaybackResponse) async {
+        guard isActive() else { resetPlaybackState(); return }
         var newState = playbackState
         
         newState.isPlaying = !response.isPaused
@@ -502,11 +505,16 @@ final class YouTubeMusicController: MediaControllerProtocol {
 
             if let artworkURL = response.imageSrc,
                let url = URL(string: artworkURL) {
+                let artworkState = newState
                 artworkFetchTask = Task {
                     do {
                         let data = try await ImageService.shared.fetchImageData(from: url)
                         await MainActor.run { [weak self] in
-                            self?.playbackState.artwork = data
+                            guard let self, !Task.isCancelled, self.isActive(),
+                                  self.playbackState.representsSameItem(as: artworkState),
+                                  self.playbackState.artist == artworkState.artist,
+                                  self.playbackState.album == artworkState.album else { return }
+                            self.playbackState.artwork = data
 
                         }
                     } catch { /* ignore */ }
@@ -516,6 +524,8 @@ final class YouTubeMusicController: MediaControllerProtocol {
     }
     
     private func resetPlaybackState() {
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
         playbackState = PlaybackState(
             bundleIdentifier: configuration.bundleIdentifier,
             isPlaying: false

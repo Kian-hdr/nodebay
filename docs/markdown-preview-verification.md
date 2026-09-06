@@ -11,8 +11,12 @@ No release, tag, push, notarization submission or public update was performed.
 Inspected the actual Finder Space-bar `.txt` preview before implementing the
 renderer. macOS supplies all window chrome and materials. The extension adds
 only a transparent scroll view and selectable text view. On 2026-09-03, Kian
-explicitly approved the current translucent background and requested that it
-remain unchanged. Regression checks forbid added background layers.
+approved the translucent background. Later on 2026-09-03, Kian requested a
+slight reduction in transparency for legibility over busy backgrounds while
+keeping the design otherwise unchanged. The extension now uses one full-bleed
+semantic `underWindowBackground` material behind the still-transparent text and
+scroll views. It adds no rounded document surface, opaque panel, tint, custom
+chrome, or branding.
 
 These are sequential captures of actual Finder windows, presented side by side
 for comparison, not mockups or simultaneously open Quick Look panels.
@@ -37,7 +41,7 @@ private text renderer is neither claimed nor implemented.
 | Finder `.md` + Space | Passed | Rendered headings, emphasis, nested/task lists, quote, native table and fenced code in actual Quick Look |
 | Finder `.markdown` + Space | Passed after canonical installation | An initial development registration fell back to plain text; the installed signed provider rendered the alternate fixture correctly |
 | Main app quit | Passed | Installed extension process ran from `/Applications/Nodebay.app/Contents/PlugIns` while no main Nodebay process was running |
-| Native chrome/materials | Passed on this Mac | System title, close/full-screen, Share/Open With; transparent extension views; no custom background or controls |
+| Native chrome/materials | Requires refreshed visual check | System title, close/full-screen, Share/Open With remain host-owned; the extension adds one full-bleed semantic material and no custom controls |
 | Light/dark | Passed | Paired screenshots and live light-to-dark adaptation; original Dark setting restored |
 | Reduce Transparency | Passed in dark appearance | Host switched to an opaque semantic background without any custom layer; setting restored to off |
 | Resizing/scrolling | Passed | Native window shrunk, text/table reflowed, scrollbar appeared; scrolled to top and bottom |

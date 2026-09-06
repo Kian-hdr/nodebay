@@ -7,6 +7,8 @@ The exact Boring Notch foundation is commit `44dd999f70493da48209c99e9f873c47f2e
 The bundled Microsoft MarkItDown 0.1.7 runtime and its complete Python package notices are in `THIRD_PARTY_LICENSES_MARKITDOWN`.
 MediaRemoteAdapter 0.1.0 is a bundled BSD-3-Clause framework from https://github.com/ungive/mediaremote-adapter; its license text is in `THIRD_PARTY_LICENSES`. The bundled binary SHA-256 is `91eb19837ca9f2779e476dc8e67d12bc28331dd557c87a19b0e45463c739c2fc`.
 
+Nodebay's equalizer uses Apple AVFoundation for local audio and Chrome's built-in Web Audio and tab-capture APIs for explicitly enabled browser tabs. It adds no third-party DSP library or redistributed binary. The optional setup interface can invoke a separately installed Homebrew only for the exact companion packages documented below. Homebrew is not bundled, modified, or redistributed by Nodebay.
+
 ## Blender 5.0.1 (a3db93c5b259) (companion, not bundled)
 
 - Source: https://projects.blender.org/blender/blender/src/tag/v5.0.1

@@ -23,7 +23,17 @@ class SpotifyStartupGuardTests(unittest.TestCase):
         update_end = SPOTIFY_CONTROLLER.index("// MARK: - Private Methods", update_start)
         update_method = SPOTIFY_CONTROLLER[update_start:update_end]
 
-        self.assertIn("guard isActive() else { return }", update_method)
+        # Short-circuit before the Apple Event query, then recheck after its
+        # suspension point in case Spotify quit while the request was in flight.
+        query_guard = update_method.split("let isPlaying =", 1)[0]
+        self.assertLess(query_guard.index("guard isActive()"),
+                        query_guard.index("await fetchPlaybackInfoAsync()"))
+        self.assertGreater(query_guard.rindex("isActive()"),
+                           query_guard.index("await fetchPlaybackInfoAsync()"))
+        failure_path = query_guard.split("else {", 1)[1]
+        self.assertIn("artworkFetchTask?.cancel()", failure_path)
+        self.assertIn('playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")', failure_path)
+        self.assertIn("return", failure_path)
 
     def test_spotify_commands_do_not_launch_or_resolve_spotify(self):
         command_start = SPOTIFY_CONTROLLER.index(

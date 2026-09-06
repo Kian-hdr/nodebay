@@ -37,9 +37,11 @@ class MarkdownPreviewTests(unittest.TestCase):
         renderer = (ROOT / "Packages/NodebayMarkdown/Sources/NodebayMarkdown/MarkdownRenderer.swift").read_text()
         for forbidden in ("URLSession", "WKWebView", "NSWindow(", "NSLog(", "print(", "CGEvent", "NSWorkspace.shared.open"):
             self.assertNotIn(forbidden, controller + renderer)
-        # User-approved contract: expose the host material, without adding a surface.
-        for forbidden in ("NSVisualEffectView", "backgroundColor =", "wantsLayer", "cornerRadius", "NSBox("):
+        # Quick Look owns the translucent host material. The extension must add
+        # no competing material, opaque/tinted layer, document card, or chrome.
+        for forbidden in ("NSVisualEffectView(", "backgroundColor =", "wantsLayer", "cornerRadius", "NSBox("):
             self.assertNotIn(forbidden, controller)
+        self.assertIn("view = scroll", controller)
         self.assertIn("scroll.drawsBackground = false", controller)
         self.assertIn("textView.drawsBackground = false", controller)
         self.assertIn("worker.async", controller)

@@ -9,7 +9,7 @@ source, dependency locks, runtime notices and privacy payload are unchanged.
 | Check | Status | Evidence / boundary |
 |---|---|---|
 | Complete automated suite | Passed | All 198 tests passed in 55.990 seconds from the clean release checkout; also passed after both UI changes in the development checkout |
-| Independent GitHub CI | Passed | [Apple Silicon build and verification](https://github.com/Kian-hdr/nodebay/actions/runs/34044567111), exact application-source commit `52e2097`; tests, notices, runtime/conversion/downloader fixtures and clean Release build |
+| Independent GitHub CI | Passed | [Apple Silicon build and verification](https://github.com/Kian-hdr/nodebay/actions/runs/34045131443), exact release-tag commit `a11e340`; tests, notices, runtime/conversion/downloader fixtures and clean Release build |
 | Bubble sizing | Passed regression and native UI | Original code fails the new resize regression. Short, multiline, emoji, Arabic and long messages preserve natural sizing and the 78% cap. Native short and wrapped messages were inspected |
 | API correctness | Passed mocked and native checks | Transport/coordinator tests cover budgets, invalid output, safe errors, cancellation and stale configuration. Real Validate Connection passed. The installed notarized app answered “Reply exactly OK.” with “OK” via OpenAI API/gpt-5-mini, without a Knowledge Folder or credential inspection |
 | Key entry and About | Passed native final artifact | Visible API key heading, paste instructions, bordered secure field and saved-key status; About displays 1.2.0 (25), Apple Silicon and creator |
@@ -21,8 +21,9 @@ source, dependency locks, runtime notices and privacy payload are unchanged.
 | Final DMG installation | Passed on this Mac | Installed from mounted DMG into /Applications, verified signature/staple/hash, launched and inspected native UI and real API reply; mount ejected |
 | Data and settings continuity | Passed on this Mac | All 13 existing managed app files and four AI/companion preference values retained identical hashes; saved API key remained usable. No credential value read or replaced |
 | Cask definition | Passed local checks | Version and final DMG checksum synchronized; Homebrew style and Ruby syntax pass; yt-dlp/FFmpeg remain separate dependencies |
-| Public downloads and Homebrew lifecycle | Pending publication checks | Hosted-byte comparison, targeted upgrade and non-zap reinstall are recorded in this matrix after publication |
-| Longhaul companion | Passed bounded protocol and native checks | 44 client/view and 60 protocol/relay assertions; both control locations and reconnection verified with the separate companion. The companion owner also verified native Menu Bar controls and a bounded OS assertion test. Longhaul remains unbundled; no physical closed-lid or overnight claim |
+| Public downloads | Passed | Stable GitHub release `nodebay-v1.2.0`; anonymous re-downloads of DMG, ZIP and checksum file match the original verified bytes |
+| Homebrew lifecycle | Passed on this Mac | Strict online cask audit, targeted 1.1.0 → 1.2.0 upgrade, non-zap uninstall/reinstall, installed signature/Gatekeeper/staple, native launch and actual API reply passed. All 13 managed files and four AI/companion settings preserved; installed preview registration removed on uninstall. This is a same-account test, not a clean-account test |
+| Longhaul companion | Passed bounded protocol and native checks | 44 client/view and 60 protocol/relay assertions; both control locations and reconnection verified with the separate companion. Separate companion popover and bounded OS assertion checks do not by themselves establish actual menu-bar icon visibility; that UI remains the companion's own verification responsibility. Longhaul remains unbundled; no physical closed-lid or overnight claim |
 
 Final immutable artifacts:
 

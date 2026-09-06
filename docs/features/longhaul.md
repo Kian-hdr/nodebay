@@ -5,6 +5,11 @@ relay and layout checks and bounded signed native routing checks on 2026-09-06.
 Previous direct-toggle verification is recorded separately below. No public
 Longhaul installer or release URL is configured.
 
+Nodebay-side routing and a working companion popover do not establish that
+Longhaul's actual menu-bar icon is visible. The separate companion owns and
+validates that interface and its macOS registration. Installing Nodebay does not
+install or repair Longhaul's menu-bar registration.
+
 Longhaul remains a standalone app and owns sleep protection, battery policy and
 recovery. Nodebay can present its status and report supported processing work.
 Installing either app does not pair them. Plugins & Engines contains a dedicated

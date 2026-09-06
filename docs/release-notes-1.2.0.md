@@ -28,7 +28,9 @@ long wrapping and resizing. The final DMG and ZIP are Developer ID signed,
 notarized and stapled, with matching checksums. Installation and real API chat
 passed from the final DMG, preserving existing managed data and AI settings.
 [GitHub CI](https://github.com/Kian-hdr/nodebay/actions/runs/34044567111) passed
-for the exact application-source commit. Other supported macOS versions, every
+for the exact application-source commit. Anonymous hosted downloads match their checksums. The Homebrew upgrade and
+non-zap reinstall passed on the same Mac, including preserved data/settings and
+a real API reply after reinstall. Other supported macOS versions, every
 accessibility/display configuration, Knowledge Folder retrieval and physical
 sleep behavior were not fully tested.
 See the [verification matrix](https://github.com/Kian-hdr/nodebay/blob/main/docs/release-verification-matrix.md) for current evidence.

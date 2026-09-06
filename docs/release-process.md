@@ -1,17 +1,10 @@
 # Reproducible release process
 
-The public release and Homebrew cask remain **1.1.0 (24)**. The next local
-candidate is **1.2.0 (25)**. Real OpenAI Responses API connection validation and
-native chat passed with `gpt-5-mini`; the clearer secure key field and compact
-message bubble were visually checked. All 198 tests passed after both UI changes.
-Final clean-source and artifact checks remain required for distribution. Keep the
-[Quick Chat verification boundaries](features/quick-chat.md) specific to each
-provider: the historical App Server isolation failure concerns the disabled
-streaming route and is not a failed result for the verified API request path.
-
-The commands below prepare the new candidate. They do not establish final
-artifact signing, notarization, Homebrew validation or publication. Never
-overwrite 1.1.0 assets or its tag.
+Nodebay **1.2.0 (25)** is the current release. Real API chat and the requested UI
+checks are recorded in the [verification matrix](release-verification-matrix.md).
+For each new version, follow the sequence below using a new tag and artifact names.
+Never overwrite an existing release's tag or assets. Keep provider claims specific
+to the verified API and restricted CLI paths; App Server streaming remains disabled.
 
 1. Start from a reviewed, clean source commit containing the current remote `main` setup prompt and all intended candidate source changes. Set the version, confirm the foundation and dependency locks, and exclude private logs, credentials, generated runtimes and historical conflict duplicates. Preserve local changes outside the release snapshot.
 2. Run `python3 scripts/generate_nodebay_notices.py --check` and all tests.

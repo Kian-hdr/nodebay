@@ -2,7 +2,7 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-09-06
 
 - Add opt-in **AI & Quick Chat** settings with Off, Codex CLI and OpenAI API
   modes. Off is the default. API mode uses the Responses API, macOS Keychain

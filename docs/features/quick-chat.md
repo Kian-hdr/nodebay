@@ -1,13 +1,10 @@
 # Quick Chat
 
-Quick Chat is implemented in the local **1.2.0 (25)** candidate. It is not in
-the public 1.1.0 release or current Homebrew cask. Both real OpenAI Responses API
-connection validation and a synthetic native chat passed with `gpt-5-mini`.
-The visible API key field and compact message bubble were also verified.
-The [release verification matrix](../release-verification-matrix.md)
-distinguishes completed checks from outstanding provider, native UI and hardware
-coverage. No final packaging, notarization or Homebrew result is implied by the
-API and native UI checks.
+Quick Chat is included in **Nodebay 1.2.0 (25)** and later. Real OpenAI Responses
+API connection validation and native chat passed with a user-supplied key and
+`gpt-5-mini`. The secure key field and compact, wrapping message bubbles were
+visually verified. The [release verification matrix](../release-verification-matrix.md)
+records artifact checks and remaining provider, UI and hardware coverage.
 
 ## Choose a provider
 

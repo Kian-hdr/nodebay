@@ -76,8 +76,8 @@ compatible Blender version. Reuse installed companions and install missing ones
 from their official sources only for features I select. Do not install Blender,
 ImageOptim, or a browser extension merely to prove the base app works.
 
-Check the installed release before offering AI setup. Quick Chat is part of the
-unpublished 1.2.0 candidate and is absent from the current 1.1.0 stable release.
+Check the installed release before offering AI setup. Quick Chat is included in
+Nodebay 1.2.0 and later; older releases such as 1.1.0 do not include it.
 Do not install a development build or claim the feature is available merely
 because it appears in current source documentation. When the installed release
 includes AI & Quick Chat settings, preserve its existing choice; new installs

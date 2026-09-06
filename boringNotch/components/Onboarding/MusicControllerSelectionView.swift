@@ -124,6 +124,8 @@ extension MediaControllerType {
         switch self {
         case .nowPlaying:
             return "Works with most media apps, including browsers, to detect what's playing. Note: This may be removed in a future macOS version."
+        case .quickTime:
+            return "Reads playback from QuickTime Player locally, including files that do not appear in macOS Now Playing."
         case .spotify:
             return "Connects directly to the Spotify app."
         case .appleMusic:

@@ -10,12 +10,15 @@ Quick Look path; no keyboard interception was added for this feature.
 The reference is Finder's actual `.txt` preview on macOS 26.6.2, not a mockup.
 macOS owns the window, title, controls, materials, resizing, and dismissal.
 The extension supplies a transparent `NSScrollView` and non-editable, selectable
-`NSTextView`. Both have `drawsBackground = false`. There is **no additional
-background layer, blur, rounded document surface, toolbar, or branding**.
+`NSTextView`. Both have `drawsBackground = false`. A single full-bleed semantic
+`underWindowBackground` material slightly strengthens diffusion over busy
+backgrounds. There is **no opaque or tinted panel, rounded document surface,
+toolbar, or branding**.
 
-Kian explicitly approved this translucent appearance on 2026-09-03. Preserve it.
-Reduce Transparency is handled by the Quick Look host; no custom replacement
-surface is necessary. Text uses adaptive AppKit colors and system fonts.
+Kian explicitly requested this restrained contrast adjustment on 2026-09-03
+while preserving the existing translucent design. The material follows window
+activity and system appearance; Reduce Transparency remains system-managed.
+Text uses adaptive AppKit colors and system fonts.
 
 Apple's built-in text renderer has a rounded, opaque document inset. Its private
 layout is not a public Quick Look API, and duplicating it would conflict with the

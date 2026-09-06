@@ -19,6 +19,16 @@ permissions or configuration you need to complete yourself.
 
 Nodebay 1.1.0 adds Quick Notes, conservative STL-copy repair, native Markdown Quick Look and improved automatic download classification to the 1.0.0 feature set. Apple Silicon and macOS 15 or later are required. See the [release verification matrix](docs/release-verification-matrix.md) for completed checks and remaining UI/hardware limitations. The optional Browser Media Bridge requires explicit local installation and is never silently enabled.
 
+The **1.2.0 (25)** release candidate adds
+[Quick Chat](docs/features/quick-chat.md), available-source media tabs and an
+optional [Longhaul companion](docs/features/longhaul.md). Quick Chat defaults to
+Off and offers Codex CLI or OpenAI API. The native app passed both a real API
+connection test and a synthetic chat using `gpt-5-mini`. The clearer key field
+and compact message bubble were visually checked, and all 198 tests passed
+after the UI changes. Final artifact signing, notarization and Homebrew
+validation remain pending. The public release and cask remain 1.1.0 until
+publication is completed.
+
 ## Screenshots
 
 [Quick Notes](docs/features/quick-notes.md) adds local clipboard-to-Markdown creation. [Verification](docs/quick-notes-verification.md) separates automated coverage from pending physical hover-paste checks.
@@ -62,8 +72,11 @@ The following capabilities are implemented in the current source. Automated chec
 - [Bounded video-to-GIF conversion](docs/features/video-to-gif.md) for short MP4, MOV, and M4V files
 - Independent Apple Music, Spotify, YouTube Music, and system Now Playing source state with an explicit active control target
 - Optional independent Chrome tab sources for playable YouTube and YouTube Music tabs through a local first-party bridge
-- Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, and license links
+- Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, license links, and safe fixed-package Homebrew setup
+- A real five-band equalizer for supported local shelf audio and explicitly enabled YouTube or YouTube Music tabs; Apple Music, Spotify, and generic System Now Playing audio cannot be equalized
 - XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
+- In the unpublished 1.2.0 candidate, [Quick Chat](docs/features/quick-chat.md) provides temporary conversations through an explicitly selected OpenAI provider, with compact message bubbles that fit their text and optional separately consented Knowledge Folder excerpts
+- In the unpublished 1.2.0 candidate, an optional [Longhaul companion](docs/features/longhaul.md) shows acknowledged automation state; it requires a separate compatible app and explicit pairing, and no public Longhaul installer is available
 
 ## File safety
 
@@ -74,7 +87,7 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
 - Markdown conversion creates a collision-safe, persistent `.md` copy in Nodebay-managed storage.
 - MP4 compression and video-to-GIF conversion create separate outputs and never modify the source video.
 - Image compression first creates a collision-safe copy and passes only that copy to ImageOptim.
-- Downloaded media remains in the configured download directory while Nodebay stores a reference.
+- In the current source, new downloads remain in Nodebay's persistent file drawer until exported by drag; original files are preserved.
 - Generated files remain regular file URLs that can be dragged into Finder or another app.
 
 ## Privacy model
@@ -82,6 +95,14 @@ Nodebay never overwrites, moves, modifies, or deletes an original shelf file.
 Document conversion, image compression, file and stack management, and media processing run locally. The Quick Notes, STL Repair and Markdown preview features also process locally. Quick Notes reads the clipboard only after an explicit action; the preview never loads remote images or resources. Nodebay has no analytics endpoint, proxy, download server, or Nodebay cloud account.
 
 Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional Chrome bridge uses native messaging and loopback only; it does not send browser media metadata to a server.
+
+In the 1.2.0 candidate, Quick Chat is off by default. Submitted questions and
+temporary conversation context go to OpenAI through the selected provider.
+OpenAI API mode uses a key stored in macOS Keychain and separate API billing;
+a ChatGPT subscription does not provide API credit. Knowledge Folder passages
+are included only after separate cloud-excerpt consent and when enabled for the
+question. Nodebay keeps its transcript in memory and requests `store: false`
+for API responses; clearing local chat does not promise provider-wide deletion.
 
 See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure.
 
@@ -94,7 +115,7 @@ See [PRIVACY.md](PRIVACY.md) for the complete network and permissions disclosure
 | [FFmpeg](https://ffmpeg.org) | Tested with Homebrew 9.0.1 | Separate Homebrew companion | Yes | No |
 | [ImageOptim](https://imageoptim.com/mac) | Tested with 1.9.3 | Separate app in `/Applications` | Yes | No |
 | [Blender](https://www.blender.org) STL Repair | Tested with 5.0.1 | Separate app in `/Applications` | Yes | No |
-| Browser media bridge | 0.1.1 | Bundled first-party extension and native host; explicit Chrome setup | Yes | No server |
+| Browser media bridge | 0.2.0 | Bundled first-party extension and native host; explicit Chrome and per-tab EQ setup | Yes | No server |
 
 Exact Swift package revisions, licenses, source URLs, companion status, the FFmpeg build configuration, and full texts are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), [THIRD_PARTY_LICENSES_MARKITDOWN](THIRD_PARTY_LICENSES_MARKITDOWN), and [`third_party/nodebay-components.json`](third_party/nodebay-components.json).
 
@@ -105,6 +126,7 @@ Exact Swift package revisions, licenses, source URLs, companion status, the FFmp
 - ImageOptim installed separately for image compression
 - yt-dlp and FFmpeg installed separately for media downloads and conversion
 - Blender 5.0.1 installed separately for the STL Repair feature; it is not bundled or installed by the Nodebay cask
+- For candidate Quick Chat: an explicitly selected provider, either a supported signed Codex CLI with its existing sign-in or an OpenAI API key and usable API billing; neither provider is required for the base app
 
 Companion installation for development:
 
@@ -176,7 +198,8 @@ The script asks Xcode to sign the app and XPC service with their target entitlem
 Verify the resulting archive before notarization:
 
 ```bash
-./scripts/verify_release_artifact.sh
+EXPECTED_VERSION=1.2.0 EXPECTED_BUILD=25 \
+./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.0-arm64.zip
 ```
 
 After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and staple validation.
@@ -185,10 +208,10 @@ After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and
 
 - Files and folders: persistent shelf references and chosen output locations
 - Accessibility: optional system HUD replacement and related controls
-- Apple Events: Apple Music and Spotify control
+- Apple Events: Apple Music, Spotify and QuickTime control
 - Calendar: optional calendar and reminders features
 - Camera and microphone or audio capture: optional mirror, camera, and waveform features
-- Network client: direct downloads, optional lyrics, artwork, and local media companions
+- Network client: direct downloads, optional lyrics, artwork, local media companions, and explicitly enabled Quick Chat
 - Local networking: the existing local YouTube Music companion integration
 - Chrome extension: optional native messaging and site access limited to YouTube and YouTube Music
 
@@ -205,6 +228,8 @@ Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the fi
 - Quick Notes accepts up to 1 MiB; rich text falls back to plain text when conversion is unreliable. Its physical hover-paste workflow still needs verification.
 - STL Repair does not detect or repair self-intersections and cannot guarantee printability. Inspect every result before manufacturing.
 - Markdown preview accepts files up to 2 MiB; larger formatted input uses bounded plain-text fallback. Images appear as alt text, links can be copied but do not navigate, and syntax emphasis is intentionally restrained. Finder preview has been exercised on macOS 26.6.2, not every supported macOS version.
+- Quick Chat delivers complete replies, not token streaming. Native API connection and synthetic chat tests passed. The historical App Server isolation issue concerns that disabled streaming route; final release validation is tracked separately in the verification matrix. Provider retention is separate from Nodebay's temporary local transcript.
+- The optional Longhaul integration does not install Longhaul, pair automatically, or guarantee an active sleep assertion, closed-lid operation or an unlocked desktop. Its sun icon means automatic protection is enabled, not that a job is currently protected.
 
 ## Icon source
 

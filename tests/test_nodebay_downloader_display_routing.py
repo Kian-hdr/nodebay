@@ -66,6 +66,14 @@ class NodebayDownloaderDisplayRoutingTests(unittest.TestCase):
         self.assertIn(".onChange(of: showsAddLink)", SHELF)
         self.assertIn(".onDisappear", SHELF)
 
+    def test_file_intake_uses_one_stable_notch_drop_destination(self):
+        content = (ROOT / "boringNotch/ContentView.swift").read_text()
+        self.assertEqual(content.count("GeneralDropTargetDelegate("), 1)
+        self.assertIn("DropProposal(operation: .copy)", content)
+        self.assertIn("ShelfStateViewModel.shared.load(providers)", content)
+        self.assertNotIn("var dragDetector: some View", content)
+        self.assertNotIn(".onDrop(", SHELF)
+
 
 if __name__ == "__main__":
     unittest.main()

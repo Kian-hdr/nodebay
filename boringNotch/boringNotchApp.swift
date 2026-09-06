@@ -218,27 +218,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let targets: [NotchDragRoutingCoordinator.Target]
         if Defaults[.showOnAllDisplays] {
             targets = windows.compactMap { uuid, targetWindow in
-                guard viewModels[uuid] != nil else { return nil }
-                return dragTarget(uuid: uuid, window: targetWindow)
+                guard let viewModel = viewModels[uuid] else { return nil }
+                return dragTarget(uuid: uuid, window: targetWindow, viewModel: viewModel)
             }
         } else if let targetWindow = window, let uuid = vm.screenUUID ?? targetWindow.screen?.displayUUID {
-            targets = [dragTarget(uuid: uuid, window: targetWindow)]
+            targets = [dragTarget(uuid: uuid, window: targetWindow, viewModel: vm)]
         } else {
             targets = []
         }
         dragRouter.configure(targets)
     }
 
-    private func dragTarget(uuid: String, window: NSWindow) -> NotchDragRoutingCoordinator.Target {
+    private func dragTarget(
+        uuid: String,
+        window: NSWindow,
+        viewModel: BoringViewModel
+    ) -> NotchDragRoutingCoordinator.Target {
         NotchDragRoutingCoordinator.Target(
             displayUUID: uuid,
-            region: { [weak window] in
-                guard let frame = window?.frame else { return .null }
-                return CGRect(
-                    x: frame.midX - openNotchSize.width / 2,
-                    y: frame.maxY - openNotchSize.height,
-                    width: openNotchSize.width,
-                    height: openNotchSize.height
+            region: { [weak window, weak viewModel] in
+                guard let frame = window?.frame, let viewModel else { return .null }
+                if viewModel.notchState == .open {
+                    return CGRect(
+                        x: frame.midX - openNotchSize.width / 2,
+                        y: frame.maxY - openNotchSize.height,
+                        width: openNotchSize.width,
+                        height: openNotchSize.height
+                    )
+                }
+                return NotchDragRegion.closed(
+                    windowFrame: frame,
+                    notchSize: CGSize(
+                        width: viewModel.closedNotchSize.width,
+                        height: viewModel.effectiveClosedNotchHeight
+                    )
                 )
             },
             entered: { [weak self] in

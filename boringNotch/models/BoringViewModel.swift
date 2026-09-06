@@ -188,7 +188,8 @@ class BoringViewModel: NSObject, ObservableObject {
             let baseY = frame.maxY - notchSize.height
             let baseX = frame.midX - notchSize.width / 2
             
-            return position.y >= baseY && position.x >= baseX && position.x <= baseX + notchSize.width
+            return position.y >= baseY && position.y <= frame.maxY
+                && position.x >= baseX && position.x <= baseX + notchSize.width
         }
         
         return false
@@ -197,6 +198,18 @@ class BoringViewModel: NSObject, ObservableObject {
     @discardableResult
     func open() -> Bool {
         guard !coordinator.firstLaunch else { return false }
+
+        let chat = QuickChatCoordinator.shared
+        if notchState != .open && chat.openScreens.isEmpty {
+            let existing: QuickChatPolicy.Tab = coordinator.currentView == .shelf ? .shelf : coordinator.currentView == .chat ? .chat : .home
+            let selected = QuickChatPolicy.openingTab(
+                automatic: UserDefaults.standard.bool(forKey: "nodebay.quickChat.automaticTabs"),
+                existing: existing, drag: generalDropTargeting,
+                unfinished: chat.unfinished, media: !MusicManager.shared.isPlayerIdle,
+                shelf: !ShelfStateViewModel.shared.isEmpty, ready: chat.available)
+            coordinator.currentView = selected == .chat ? .chat : selected == .shelf ? .shelf : .home
+        }
+        chat.screen(screenUUID ?? "default", open: true)
 
         ShelfStateViewModel.shared.dismissRemovalNotice()
         self.notchSize = openNotchSize
@@ -217,11 +230,16 @@ class BoringViewModel: NSObject, ObservableObject {
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize
         self.notchState = .closed
+        QuickChatCoordinator.shared.screen(screenUUID ?? "default", open: false)
         self.isBatteryPopoverActive = false
         if self.coordinator.shouldShowSneakPeek(on: self.screenUUID) {
             self.coordinator.toggleSneakPeek(status: false, type: .music, targetScreenUUID: self.screenUUID)
         }
         self.edgeAutoOpenActive = false
+
+        // A hover-close hides temporary chat; it must not navigate away from it.
+        // The coordinator owns expiry independently of window visibility.
+        if coordinator.currentView == .chat { return }
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home

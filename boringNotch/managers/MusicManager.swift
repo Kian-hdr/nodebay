@@ -33,11 +33,13 @@ class MusicManager: ObservableObject {
     enum MediaSourceID: Hashable, Identifiable {
         case controller(MediaControllerType)
         case browserTab(String)
+        case localAudio
 
         var id: String {
             switch self {
             case .controller(let type): "controller:\(type.rawValue)"
             case .browserTab(let id): "browser:\(id)"
+            case .localAudio: "local-audio"
             }
         }
     }
@@ -71,6 +73,7 @@ class MusicManager: ObservableObject {
     private var browserControllers: [String: BrowserTabMediaController] = [:]
     private var browserControllerCancellables: [String: Set<AnyCancellable>] = [:]
     private var debounceIdleTask: Task<Void, Never>?
+    private var isUsingAutomaticQuickTimeOverride = false
 
     // Helper to check if macOS has removed support for NowPlayingController
     public private(set) var isNowPlayingDeprecated: Bool = false
@@ -79,17 +82,19 @@ class MusicManager: ObservableObject {
     // Active controller
     private var controllers: [MediaControllerType: any MediaControllerProtocol] = [:]
     private var activeController: (any MediaControllerProtocol)?
+    private var controllerPlaybackStates: [MediaControllerType: PlaybackState] = [:]
+    @Published private var localPlaybackState = PlaybackState(bundleIdentifier: "")
     @Published private(set) var mediaSourceStates: [MediaControllerType: MediaSourceState] = [:]
     @Published private(set) var activeSourceType: MediaControllerType = Defaults[.mediaController]
     @Published private(set) var activeSourceID: MediaSourceID = .controller(Defaults[.mediaController])
     @Published private(set) var browserMediaSessions: [BrowserMediaSession] = []
 
     // Published properties for UI
-    @Published var songTitle: String = "I'm Handsome"
-    @Published var artistName: String = "Me"
+    @Published var songTitle: String = ""
+    @Published var artistName: String = ""
     @Published var albumArt: NSImage = defaultImage
     @Published var isPlaying = false
-    @Published var album: String = "Self Love"
+    @Published var album: String = ""
     @Published var isPlayerIdle: Bool = true
     @Published var animations: BoringAnimations = .init()
     @Published var avgColor: NSColor = .white
@@ -118,9 +123,9 @@ class MusicManager: ObservableObject {
     private var artworkData: Data? = nil
 
     // Store last values at the time artwork was changed
-    private var lastArtworkTitle: String = "I'm Handsome"
-    private var lastArtworkArtist: String = "Me"
-    private var lastArtworkAlbum: String = "Self Love"
+    private var lastArtworkTitle: String = ""
+    private var lastArtworkArtist: String = ""
+    private var lastArtworkAlbum: String = ""
     private var lastArtworkBundleIdentifier: String? = nil
 
     @Published var isFlipping: Bool = false
@@ -131,11 +136,29 @@ class MusicManager: ObservableObject {
 
     // MARK: - Initialization
     init() {
+        NodebayLocalAudioController.shared.playbackStatePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                guard let self else { return }
+                self.localPlaybackState = state
+                if self.activeSourceID == .localAudio { self.updateFromPlaybackState(state) }
+                self.reconcileActiveSource()
+            }
+            .store(in: &cancellables)
+
         BrowserMediaBridge.shared.$sessions
             .receive(on: DispatchQueue.main)
             .sink { [weak self] sessions in
                 self?.syncBrowserSessions(sessions)
             }
+            .store(in: &cancellables)
+
+        // App lifecycle is independent of playback notifications: quitting a
+        // paused player must remove its session immediately.
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)
+            .merge(with: NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in self?.refreshApplicationAvailability(notification) }
             .store(in: &cancellables)
 
         // Listen for changes to the default controller preference
@@ -196,6 +219,8 @@ class MusicManager: ObservableObject {
             } else {
                 return nil
             }
+        case .quickTime:
+            newController = QuickTimeController()
         case .appleMusic:
             newController = AppleMusicController()
         case .spotify:
@@ -212,17 +237,37 @@ class MusicManager: ObservableObject {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
                     guard let self else { return }
+                    let available = controller.isActive() && state.hasMedia
+                    let state = available ? state : PlaybackState(bundleIdentifier: type.expectedBundleIdentifier ?? "")
+                    self.controllerPlaybackStates[type] = state
                     self.mediaSourceStates[type] = MediaSourceState(
                         type: type,
                         title: state.title,
                         artist: state.artist,
                         bundleIdentifier: state.bundleIdentifier,
                         isPlaying: state.isPlaying,
-                        isAvailable: controller.isActive()
+                        isAvailable: available
                     )
                     if self.activeSourceID == .controller(type) {
                         self.updateFromPlaybackState(state)
+                        if type == .quickTime,
+                           !state.isPlaying,
+                           self.isUsingAutomaticQuickTimeOverride {
+                            self.isUsingAutomaticQuickTimeOverride = false
+                            self.setActiveControllerBasedOnPreference()
+                        }
+                    } else if type == .quickTime,
+                              state.isPlaying,
+                              self.activeSourceID == .controller(.nowPlaying) {
+                        // QuickTime local files are often absent from macOS's
+                        // generic feed, or that feed can remain stuck on an
+                        // older browser item. A currently playing QuickTime
+                        // document is the more specific source; the picker
+                        // still lets the user return to another live source.
+                        self.isUsingAutomaticQuickTimeOverride = true
+                        self.setActiveController(controller, type: .quickTime)
                     }
+                    self.reconcileActiveSource()
                 }
                 .store(in: &controllerCancellables[type, default: []])
         }
@@ -247,6 +292,7 @@ class MusicManager: ObservableObject {
             // Fallback to Apple Music if preferred controller couldn't be created
             setActiveController(fallbackController, type: .appleMusic)
         }
+        reconcileActiveSource()
     }
 
     private func initializeMediaSourceRegistry() {
@@ -279,21 +325,27 @@ class MusicManager: ObservableObject {
         activeSourceID = .controller(type)
         
         self.canFavoriteTrack = controller.supportsFavorite
-
-        // Get current state from active controller
+        self.volumeControlSupported = controller.supportsVolumeControl
+        // Show this source's cached snapshot synchronously. A slow refresh must
+        // never leave the previous source's title, artwork or transport state.
+        updateFromPlaybackState(controllerPlaybackStates[type] ?? PlaybackState(bundleIdentifier: ""))
         forceUpdate()
+        NodebayEqualizerManager.shared.apply(to: .controller(type))
     }
 
     @MainActor
     func selectMediaSource(_ type: MediaControllerType) {
         guard !(type == .nowPlaying && isNowPlayingDeprecated),
-              let controller = createController(for: type) else { return }
+              let controller = createController(for: type),
+              selectableSourceChoices.contains(where: { $0.id == .controller(type) }) else { return }
+        isUsingAutomaticQuickTimeOverride = false
         Defaults[.mediaController] = type
         setActiveController(controller, type: type)
     }
 
     @MainActor
     func selectMediaSource(_ id: MediaSourceID) {
+        stopBrowserEqualizerIfNeeded(beforeSelecting: id)
         switch id {
         case .controller(let type):
             selectMediaSource(type)
@@ -305,6 +357,17 @@ class MusicManager: ObservableObject {
             canFavoriteTrack = false
             volumeControlSupported = controller.supportsVolumeControl
             updateFromPlaybackState(controller.session.playbackState)
+            NodebayEqualizerManager.shared.apply(to: id)
+        case .localAudio:
+            let controller = NodebayLocalAudioController.shared
+            guard controller.isActive() else { return }
+            flipWorkItem?.cancel()
+            activeController = controller
+            activeSourceID = .localAudio
+            canFavoriteTrack = false
+            volumeControlSupported = true
+            updateFromPlaybackState(localPlaybackState)
+            Task { await controller.updatePlaybackInfo() }
         }
     }
 
@@ -314,6 +377,8 @@ class MusicManager: ObservableObject {
             return type.localizedString
         case .browserTab(let id):
             return browserMediaSessions.first(where: { $0.id == id })?.displayName ?? "Browser tab"
+        case .localAudio:
+            return "Nodebay Local Audio"
         }
     }
 
@@ -463,7 +528,8 @@ class MusicManager: ObservableObject {
     }
 
     var selectableSourceChoices: [MediaSourceChoice] {
-        let controllerChoices = selectableMediaSources.map { source in
+        let visibleIDs = Set(MediaSessionSelection.visible(sourceCandidates).map(\.id))
+        let controllerChoices = selectableMediaSources.filter { visibleIDs.contains(.controller($0.type)) }.map { source in
             MediaSourceChoice(
                 id: .controller(source.type),
                 displayName: source.type.localizedString,
@@ -475,7 +541,7 @@ class MusicManager: ObservableObject {
                 controllerType: source.type
             )
         }
-        let browserChoices = browserMediaSessions.map { session in
+        let browserChoices = browserMediaSessions.filter { visibleIDs.contains(.browserTab($0.id)) }.map { session in
             MediaSourceChoice(
                 id: .browserTab(session.id),
                 displayName: session.displayName,
@@ -487,7 +553,36 @@ class MusicManager: ObservableObject {
                 controllerType: nil
             )
         }
-        return controllerChoices + browserChoices
+        let localChoices: [MediaSourceChoice]
+        if visibleIDs.contains(.localAudio) {
+            localChoices = [MediaSourceChoice(
+                id: .localAudio,
+                displayName: "Nodebay Local Audio",
+                title: localPlaybackState.title,
+                artist: "Nodebay",
+                bundleIdentifier: Bundle.main.bundleIdentifier,
+                isPlaying: localPlaybackState.isPlaying,
+                isAvailable: true,
+                controllerType: nil
+            )]
+        } else {
+            localChoices = []
+        }
+        return localChoices + controllerChoices + browserChoices
+    }
+
+    @MainActor
+    func playLocalFile(_ url: URL) throws {
+        try NodebayLocalAudioController.shared.loadAndPlay(url)
+        selectMediaSource(.localAudio)
+        NodebayEqualizerManager.shared.apply(to: .localAudio)
+    }
+
+    @MainActor
+    private func stopBrowserEqualizerIfNeeded(beforeSelecting newSource: MediaSourceID) {
+        guard activeSourceID != newSource,
+              case .browserTab(let currentID) = activeSourceID else { return }
+        BrowserMediaBridge.shared.disableEqualizer(sessionID: currentID)
     }
 
     var selectableMediaSources: [MediaSourceState] {
@@ -500,7 +595,7 @@ class MusicManager: ObservableObject {
                     artist: state.artist,
                     bundleIdentifier: state.bundleIdentifier,
                     isPlaying: state.isPlaying,
-                    isAvailable: controllers[type]?.isActive() ?? false
+                    isAvailable: state.isAvailable && (controllers[type]?.isActive() ?? false)
                 )
             }
             return MediaSourceState(
@@ -521,16 +616,23 @@ class MusicManager: ObservableObject {
         for session in sessions {
             if let controller = browserControllers[session.id] {
                 controller.update(session: session)
+                if activeSourceID == .browserTab(session.id), session.eqEnabled {
+                    NodebayEqualizerManager.shared.apply(to: .browserTab(session.id))
+                }
                 continue
             }
 
             let controller = BrowserTabMediaController(session: session)
             browserControllers[session.id] = controller
+            if activeSourceID == .browserTab(session.id), session.eqEnabled {
+                NodebayEqualizerManager.shared.apply(to: .browserTab(session.id))
+            }
             browserControllerCancellables[session.id] = []
             controller.playbackStatePublisher
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
-                    guard let self, self.activeSourceID == .browserTab(session.id) else { return }
+                    guard let self, self.activeSourceID == .browserTab(session.id),
+                          self.browserControllers[session.id]?.isActive() == true else { return }
                     self.updateFromPlaybackState(state)
                 }
                 .store(in: &browserControllerCancellables[session.id, default: []])
@@ -541,16 +643,77 @@ class MusicManager: ObservableObject {
             browserControllers.removeValue(forKey: id)
             browserControllerCancellables.removeValue(forKey: id)
             if activeSourceID == .browserTab(id) {
-                setActiveControllerBasedOnPreference()
+                isUsingAutomaticQuickTimeOverride = false
             }
         }
+        reconcileActiveSource()
+    }
+
+    private var sourceCandidates: [MediaSessionCandidate<MediaSourceID>] {
+        let native = selectableMediaSources.map { source in
+            MediaSessionCandidate(
+                id: MediaSourceID.controller(source.type),
+                state: controllerPlaybackStates[source.type] ?? PlaybackState(bundleIdentifier: ""),
+                isAvailable: source.isAvailable,
+                isGeneric: source.type == .nowPlaying,
+                isAppSource: source.type != .nowPlaying
+            )
+        }
+        let browser = browserMediaSessions.map { session in
+            MediaSessionCandidate(id: MediaSourceID.browserTab(session.id), state: session.playbackState,
+                                  isAvailable: browserControllers[session.id]?.isActive() == true, isGeneric: false, isAppSource: false)
+        }
+        let local = MediaSessionCandidate(id: MediaSourceID.localAudio, state: localPlaybackState,
+                                         isAvailable: NodebayLocalAudioController.shared.isActive(), isGeneric: false, isAppSource: true)
+        return [local] + native + browser
+    }
+
+    @MainActor
+    private func reconcileActiveSource() {
+        guard let selected = MediaSessionSelection.selectedID(
+            current: activeSourceID, preferred: .controller(Defaults[.mediaController]), candidates: sourceCandidates
+        ) else {
+            if activeController != nil { NodebayProcessAudioEqualizer.shared.stop() }
+            activeController = nil
+            canFavoriteTrack = false
+            volumeControlSupported = false
+            isUsingAutomaticQuickTimeOverride = false
+            updateFromPlaybackState(PlaybackState(bundleIdentifier: ""))
+            return
+        }
+        guard selected != activeSourceID || activeController == nil else { return }
+        stopBrowserEqualizerIfNeeded(beforeSelecting: selected)
+        switch selected {
+        case .controller(let type):
+            if let controller = controllers[type] { setActiveController(controller, type: type) }
+        case .browserTab, .localAudio:
+            selectMediaSource(selected)
+        }
+    }
+
+    @MainActor
+    private func refreshApplicationAvailability(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              let bundleID = app.bundleIdentifier else { return }
+        for (type, controller) in controllers {
+            guard type.expectedBundleIdentifier == bundleID || controllerPlaybackStates[type]?.bundleIdentifier == bundleID else { continue }
+            if notification.name == NSWorkspace.didTerminateApplicationNotification {
+                controllerPlaybackStates[type] = PlaybackState(bundleIdentifier: type.expectedBundleIdentifier ?? "")
+                mediaSourceStates[type] = MediaSourceState(type: type, title: "", artist: "",
+                    bundleIdentifier: type.expectedBundleIdentifier, isPlaying: false, isAvailable: false)
+            } else if controller.isActive() {
+                Task { await controller.updatePlaybackInfo() }
+            }
+        }
+        reconcileActiveSource()
     }
 
     // MARK: - Update Methods
     @MainActor
     private func updateFromPlaybackState(_ state: PlaybackState) {
         // Check for playback state changes (playing/paused)
-        if state.isPlaying != self.isPlaying {
+        let activePlaybackChanged = state.isPlaying != self.isPlaying
+        if activePlaybackChanged {
             NSLog("Playback state changed: \(state.isPlaying ? "Playing" : "Paused")")
             withAnimation(.smooth) {
                 self.isPlaying = state.isPlaying
@@ -642,7 +805,8 @@ class MusicManager: ObservableObject {
             self.isShuffled = state.isShuffled
         }
 
-        if state.bundleIdentifier != self.bundleIdentifier {
+        let activeBundleChanged = state.bundleIdentifier != self.bundleIdentifier
+        if activeBundleChanged {
             self.bundleIdentifier = state.bundleIdentifier
             // Update volume control support from active controller
             self.volumeControlSupported = activeController?.supportsVolumeControl ?? false
@@ -662,6 +826,15 @@ class MusicManager: ObservableObject {
         
         if volumeChanged {
             self.volume = state.volume
+        }
+
+        // The generic Now Playing controller often resolves its owning app
+        // after it has already been selected. Re-apply at that point so a
+        // newly detected Chrome source cannot leave the EQ targeting the
+        // previous process (or no process at all).
+        if (activeBundleChanged || activePlaybackChanged),
+           activeSourceID == .controller(.nowPlaying) {
+            NodebayEqualizerManager.shared.apply(to: activeSourceID)
         }
         
         self.timestampDate = state.lastUpdated
@@ -752,8 +925,9 @@ class MusicManager: ObservableObject {
 
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+                    guard let self, self.artworkData == artworkData else { return }
+                    self.usingAppIconForArtwork = false
+                    self.updateAlbumArt(newAlbumArt: artworkImage)
                 }
             }
         }
@@ -883,6 +1057,7 @@ class MusicManager: ObservableObject {
         }
     }
     func openMusicApp() {
+        if activeSourceID == .localAudio { return }
         guard let bundleID = bundleIdentifier else {
             print("Error: appBundleIdentifier is nil")
             return

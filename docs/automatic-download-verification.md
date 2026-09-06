@@ -1,5 +1,39 @@
 # Automatic downloader revision: verification
 
+## Persistent file drawer revision, 2026-09-06
+
+Implemented and installed locally as signed Nodebay 1.2.0 (25) on macOS 26.6.2
+Apple Silicon. The coordinator now always uses persistent Nodebay drawer storage,
+ignores old custom-folder bookmarks, and fails visibly if durable storage cannot
+be created. Settings shows **Save to: Notch file drawer** without a folder picker.
+
+- All 192 automated tests passed in 37.604 seconds. The coordinator harness covers
+  all four selection modes with a legacy custom-folder bookmark, an untouched
+  legacy directory, shelf publication, and storage failure before engine download.
+- A fresh arm64 Release build passed with Developer ID signing. Installed deep
+  strict signature verification passed and the designated requirement is unchanged.
+  Installed and built main binaries match SHA-256
+  `05958135dae3d7bb7b4358bee5e95ae1cd36a0b940a889c62349a317568c0e1b`.
+- The installed Settings UI was visually checked. A one-second MP4 was submitted
+  through its Add to Nodebay button from a loopback-only HTTP fixture server. The
+  UI reported Completed; the 12,567-byte file landed in the sandbox's Nodebay
+  Application Support/Downloads directory and passed full FFmpeg decoding. The
+  user's Downloads directory gained no entries.
+- The fixture's shelf record and backing file survived quit and relaunch. This is
+  persistence-file evidence; the native notch surface returned a blank screenshot
+  and no shelf accessibility elements to CUA. The final drag-out gesture and visible
+  shelf restoration remain unverified. The user's existing remove-after-drag option
+  was already enabled and was not changed. A tiny named test clip remains available
+  in the drawer for that check.
+- Notice verification and `git diff --check` passed. The design audit was advisory;
+  no new OS compatibility, VoiceOver, performance, or live YouTube checks are claimed.
+  No public release was performed.
+
+Local evidence: `build/verification/drawer-download-20260906/` (ignored build output).
+Recoverable previous app: `20260905T225639Z-55dcc6e4-ac23-48c6-a91a-bdbe49fe071e`.
+
+## Historical automatic-classification revision, 2026-09-02
+
 Checked 2026-09-02 on Apple Silicon, macOS 26.6.2, Xcode 26.6.
 
 Source: local `fix/automatic-media-detection` worktree based on `c732fa02c63eb065d59468b837835ae21eca352b`. Changes are uncommitted and unpublished. Existing unrelated proposal drafts were preserved. No engine dependency or license changed.

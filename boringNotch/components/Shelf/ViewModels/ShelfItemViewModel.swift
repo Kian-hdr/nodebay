@@ -71,6 +71,15 @@ final class ShelfItemViewModel: ObservableObject {
         Task { await loadThumbnail() }
     }
 
+    /// SwiftUI retains this view model while a shelf item's stable identity is
+    /// unchanged. Refresh its bookmark-backed state after an in-place rename.
+    func updateItem(_ updatedItem: ShelfItem) {
+        guard item != updatedItem else { return }
+        item = updatedItem
+        draftTitle = updatedItem.displayName
+        Task { await loadThumbnail() }
+    }
+
     var isSelected: Bool { selection.isSelected(item.id) }
     var canRepairSTL: Bool { STLRepairCoordinator.shared.supports(item) }
     func repairSTL() { STLRepairCoordinator.shared.start(item) }
@@ -724,6 +733,11 @@ final class ShelfItemViewModel: ObservableObject {
             menu.addItem(slideshowItem)
         }
 
+        if selectedFileURLs.count == 1,
+           selectedFileURLs.first.map(NodebayLocalAudioController.supports) == true {
+            addMenuItem(title: "Play in Nodebay")
+        }
+
         menu.addItem(NSMenuItem.separator())
         addMenuItem(title: "Share…")
 
@@ -921,6 +935,22 @@ final class ShelfItemViewModel: ObservableObject {
             case "Open":
                 let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
                 for it in selected { ShelfActionService.open(it) }
+
+            case "Play in Nodebay":
+                let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
+                guard selected.count == 1,
+                      let item = selected.first,
+                      let url = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) else { return }
+                do {
+                    try MusicManager.shared.playLocalFile(url)
+                    BoringViewCoordinator.shared.currentView = .home
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Couldn’t Play This Audio File"
+                    alert.informativeText = error.localizedDescription
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
 
             case "Share…":
                 viewModel?.shareItem(from: view)
@@ -1226,35 +1256,71 @@ final class ShelfItemViewModel: ObservableObject {
         @MainActor
         private func showRenameDialog(for item: ShelfItem) {
             guard case let .file(bookmarkData) = item.kind else { return }
-            Task {
+            Task { @MainActor in
+                // Let AppKit finish dismissing the context menu before making
+                // the editor key. The notch itself intentionally does not
+                // activate for ordinary hovering.
+                await Task.yield()
                 let bookmark = Bookmark(data: bookmarkData)
                 if let fileURL = bookmark.resolvedURL {
-                    // Start security-scoped access and keep it active until rename completes.
                     let didStart = fileURL.startAccessingSecurityScopedResource()
-
-                    let savePanel = NSSavePanel()
-                    savePanel.title = "Rename File"
-                    savePanel.prompt = "Rename"
-                    savePanel.nameFieldStringValue = fileURL.lastPathComponent
-                    savePanel.directoryURL = fileURL.deletingLastPathComponent()
-                    savePanel.begin { response in
-                        if response == .OK, let newURL = savePanel.url {
-                            Task {
-                                do {
-                                    try FileManager.default.moveItem(at: fileURL, to: newURL)
-
-                                    if let newBookmark = try? Bookmark(url: newURL) {
-                                        ShelfStateViewModel.shared.updateBookmark(for: item, bookmark: newBookmark.data)
-                                    }
-                                } catch {
-                                    print("File rename failed.")
-                                }
-                                if didStart { fileURL.stopAccessingSecurityScopedResource() }
-                            }
-                        } else {
-                            if didStart { fileURL.stopAccessingSecurityScopedResource() }
-                        }
+                    SharingStateManager.shared.beginInteraction()
+                    defer {
+                        SharingStateManager.shared.endInteraction()
+                        if didStart { fileURL.stopAccessingSecurityScopedResource() }
                     }
+
+                    let editor = NSTextField(string: fileURL.deletingPathExtension().lastPathComponent)
+                    editor.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+                    editor.placeholderString = "File name"
+                    editor.setAccessibilityLabel("New file name")
+
+                    let prompt = NSAlert()
+                    prompt.alertStyle = .informational
+                    prompt.messageText = "Rename File"
+                    let suffix = fileURL.pathExtension
+                    prompt.informativeText = suffix.isEmpty
+                        ? "Enter a new name. The file stays in its current folder."
+                        : "Enter a new name. The .\(suffix) extension and current folder are preserved."
+                    prompt.accessoryView = editor
+                    prompt.addButton(withTitle: "Rename")
+                    prompt.addButton(withTitle: "Cancel")
+                    prompt.window.initialFirstResponder = editor
+                    prompt.window.level = .floating
+
+                    // Nodebay is an accessory app, so a modal editor must opt
+                    // into activation explicitly before it can accept typing.
+                    NSApp.activate(ignoringOtherApps: true)
+                    prompt.window.makeKeyAndOrderFront(nil)
+                    prompt.window.makeFirstResponder(editor)
+                    editor.selectText(nil)
+
+                    guard prompt.runModal() == .alertFirstButtonReturn else { return }
+
+                    do {
+                        let newURL = try await ShelfFileRenameService.rename(
+                            fileURL,
+                            requestedStem: editor.stringValue
+                        )
+                        let newBookmark = try Bookmark(url: newURL)
+                        ShelfStateViewModel.shared.updateBookmark(for: item, bookmark: newBookmark.data)
+                    } catch {
+                        let errorAlert = NSAlert()
+                        errorAlert.alertStyle = .warning
+                        errorAlert.messageText = "Rename Failed"
+                        errorAlert.informativeText = (error as? LocalizedError)?.errorDescription
+                            ?? ShelfFileRenameError.fileOperationFailed.localizedDescription
+                        errorAlert.addButton(withTitle: "OK")
+                        errorAlert.runModal()
+                    }
+                } else {
+                    let alert = NSAlert()
+                    alert.alertStyle = .warning
+                    alert.messageText = "File Unavailable"
+                    alert.informativeText = ShelfFileRenameError.sourceMissing.localizedDescription
+                    alert.addButton(withTitle: "OK")
+                    NSApp.activate(ignoringOtherApps: true)
+                    alert.runModal()
                 }
             }
         }

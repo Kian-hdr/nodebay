@@ -16,7 +16,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
 
     // MARK: - Properties
     @Published private(set) var playbackState: PlaybackState = .init(
-        bundleIdentifier: "com.apple.Music"
+        bundleIdentifier: ""
     )
 
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> {
@@ -158,7 +158,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     }
 
     func isActive() -> Bool {
-        return true
+        playbackState.hasMedia && NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == playbackState.bundleIdentifier
+        }
     }
     
     func toggleShuffle() async {
@@ -246,14 +248,15 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     // MARK: - Update Methods
     private func handleAdapterUpdate(_ update: NowPlayingUpdate) async {
         let payload = update.payload
-        let diff = update.diff ?? false
+        let isDiff = update.diff ?? false
 
         var newPlaybackState = PlaybackState(bundleIdentifier: playbackState.bundleIdentifier)
         let resolvedBundleIdentifier = (
             payload.parentApplicationBundleIdentifier ??
             payload.bundleIdentifier ??
-            (diff ? self.playbackState.bundleIdentifier : "")
+            (isDiff ? self.playbackState.bundleIdentifier : "")
         )
+        let diff = isDiff && resolvedBundleIdentifier == self.playbackState.bundleIdentifier
         let captureBundleFallbackIdentifiers: [String]
         if diff {
             captureBundleFallbackIdentifiers =
@@ -306,8 +309,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        } else if !diff {
-            newPlaybackState.artwork = nil
+        } else {
+            newPlaybackState.artwork = diff ? self.playbackState.artwork : nil
         }
 
         if let dateString = payload.timestamp,

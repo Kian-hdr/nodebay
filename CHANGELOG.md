@@ -2,6 +2,49 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
+## [1.2.0] - Unreleased
+
+- Add opt-in **AI & Quick Chat** settings with Off, Codex CLI and OpenAI API
+  modes. Off is the default. API mode uses the Responses API, macOS Keychain
+  credentials and separate API billing. Both real connection validation and
+  a synthetic native chat passed with `gpt-5-mini`; final artifact checks remain
+  separate in the [verification matrix](docs/release-verification-matrix.md).
+- Make the API key entry discoverable with a visible heading, explanatory
+  text, a large bordered secure field and a direct paste placeholder.
+- Keep user-message bubbles compact and right-aligned, fitting their text after
+  window resizing. Measure text independently of its previous layout to prevent
+  short messages from expanding into a wide empty bubble.
+- Keep conversations in memory with configurable inactivity expiry and separate
+  consent for Knowledge Folder cloud excerpts. Clearing local chat is not a
+  promise of provider-wide deletion. Replies are delivered as complete messages.
+- Replace the media-source menu with available-source tabs, add space above
+  the title, retain paused sources with media, and clear unavailable metadata
+  instead of showing sample titles. Correct QuickTime document selection.
+- Add the optional Longhaul status and acknowledged automatic-protection toggle.
+  Longhaul is a separate app requiring explicit pairing, with no public installer
+  configured; it is not bundled or installed by Nodebay.
+- Highlight the file drawer only while its native drop destination is targeted.
+  Clear drag-approach state on release, Escape, and detector teardown so the
+  drawer does not remain blue while idle.
+- Keep new media downloads in the persistent notch file drawer until exported
+  by drag. Ignore legacy custom-folder bookmarks, remove the download folder
+  picker, and report storage failures instead of using temporary storage.
+- Set application, helper and preview-extension version to 1.2.0 (25).
+- Keep Codex CLI requests on the restricted worker with `--ignore-user-config`
+  and explicit tool restrictions. App Server streaming remains disabled.
+  See [Quick Chat](docs/features/quick-chat.md) for provider and privacy boundaries.
+- Retain the installed startup fix without rebuilding the Codex database per
+  request. Add one-message Think Deeper, defensive complete-message parsing,
+  cancellation bounds, and preservation of the next draft and text selection.
+- Anchor Home, Shelf and Chat to one shared header/content layout.
+- Let Quick Chat close on hover-away without losing its temporary conversation
+  or draft. Default to three hours of inactivity, preserve existing explicit
+  timeout settings, and hold only active selection/composition/menu interactions.
+- Fix Finder files failing to enter or persist in the shelf when overlapping
+  SwiftUI drop destinations produced a reentrant AppKit drag transaction. Use
+  one stable notch-level intake destination while preserving tile stacking and
+  AirDrop, and verify real `NSItemProvider` bookmark capture and resolution.
+
 ## [1.1.0] - 2026-09-03
 
 - Add a sandboxed native Markdown Quick Look extension with selectable text, tables, task lists and code, backed by a separate Foundation/AppKit renderer. Keep system-owned translucent chrome and background, with no network resources, extra document surface or branding. Includes bounded parsing, source-preservation tests and Finder verification with Nodebay quit.

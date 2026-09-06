@@ -30,9 +30,6 @@ struct ShelfView: View {
                 .aspectRatio(1, contentMode: .fit)
                 .environmentObject(vm)
             panel
-                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
-                    handleDrop(providers: providers)
-                }
         }
         .overlay(alignment: .bottom) {
             if let notice = quickNotes.notice {
@@ -119,13 +116,6 @@ struct ShelfView: View {
         }
     }
     
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        guard !selection.isDragging else { return false }
-        vm.dropEvent = true
-        ShelfStateViewModel.shared.load(providers)
-        return true
-    }
-    
     private func updateQuickLookSelection() {
         guard quickLookService.isQuickLookOpen && !selection.selectedIDs.isEmpty else { return }
         
@@ -148,7 +138,9 @@ struct ShelfView: View {
     var panel: some View {
         RoundedRectangle(cornerRadius: 16)
             .stroke(
-                vm.dragDetectorTargeting
+                // The approach detector only opens the notch. Use the native
+                // destination's lifetime for feedback, excluding the share tile.
+                vm.generalDropTargeting && !vm.dropZoneTargeting
                     ? Color.accentColor.opacity(0.9)
                     : Color.white.opacity(0.1),
                 style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
@@ -282,9 +274,6 @@ struct ShelfView: View {
                 }
                 .padding(-spacing)
                 .scrollIndicators(.never)
-                .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
-                    handleDrop(providers: providers)
-                }
                 .onChange(of: quickNotes.lastCreatedID) { _, id in
                     if let id { proxy.scrollTo(id, anchor: .center) }
                 }

@@ -142,6 +142,9 @@ struct ShelfItemView: View {
                 quickLookService.show(urls: urls, selectFirst: true)
             }
         }
+        .onChange(of: item) { _, updatedItem in
+            viewModel.updateItem(updatedItem)
+        }
     }
 
     private func showQuickLookForSelection() {

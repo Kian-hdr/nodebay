@@ -148,6 +148,7 @@ extension Notification.Name {
 // Media controller types for selection in settings
 enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializable {
     case nowPlaying
+    case quickTime
     case appleMusic
     case spotify
     case youtubeMusic
@@ -158,6 +159,8 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
         switch self {
         case .nowPlaying:
             return NSLocalizedString("Now Playing", comment: "")
+        case .quickTime:
+            return "QuickTime Player"
         case .appleMusic:
             return "Apple Music"
         case .spotify:
@@ -170,6 +173,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     var expectedBundleIdentifier: String? {
         switch self {
         case .nowPlaying: nil
+        case .quickTime: "com.apple.QuickTimePlayerX"
         case .appleMusic: "com.apple.Music"
         case .spotify: "com.spotify.client"
         case .youtubeMusic: "com.github.th-ch.youtube-music"

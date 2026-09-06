@@ -2,6 +2,10 @@
 
 Nodebay is distributed as an Apple Silicon cask through `Kian-hdr/homebrew-nodebay`.
 
+The current public cask is 1.1.0. Version 1.2.0 (25) is a local candidate awaiting
+live API verification and release validation. Do not publish a candidate cask
+until its immutable release artifact exists and its downloaded bytes are verified.
+
 ## Installation
 
 ```bash
@@ -33,6 +37,11 @@ Before public distribution, verify the final cask checksum and download URL, not
 ## Dependencies
 
 MarkItDown is bundled. The cask declares yt-dlp and FFmpeg as separate Homebrew formula dependencies. ImageOptim remains a separately installed companion application. Nodebay does not bundle or modify those three companions.
+
+Codex CLI and Longhaul are optional separate integrations and are not installed
+by the cask. There is no public Longhaul installer configured. API credentials
+are configured by the user in Nodebay's secure settings and saved in macOS
+Keychain; they are never part of a cask, artifact or setup file.
 
 ## Migration and uninstall
 

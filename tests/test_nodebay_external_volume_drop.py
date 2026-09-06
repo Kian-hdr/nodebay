@@ -1,4 +1,6 @@
 import pathlib
+import subprocess
+import tempfile
 import unittest
 
 
@@ -33,6 +35,26 @@ class ExternalVolumeDropContractTests(unittest.TestCase):
         absolute_path = parser.index('if value.hasPrefix("/")')
         generic_url = parser.index("URL(string: value)")
         self.assertLess(absolute_path, generic_url)
+
+    def test_real_item_provider_produces_a_resolvable_persistent_bookmark(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            executable = pathlib.Path(temporary_directory) / "shelf-drop-provider"
+            result = subprocess.run(
+                [
+                    "xcrun", "swiftc", "-parse-as-library",
+                    str(ROOT / "boringNotch/extensions/URL+SecurityScoped.swift"),
+                    str(ROOT / "boringNotch/components/Shelf/Models/Bookmark.swift"),
+                    str(ROOT / "boringNotch/extensions/NSItemProvider+LoadHelpers.swift"),
+                    str(ROOT / "tests/ShelfDroppedFileProviderHarness.swift"),
+                    "-o", str(executable),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = subprocess.run([str(executable)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("ShelfDroppedFileProviderHarness: PASS", result.stdout)
 
 
 if __name__ == "__main__":

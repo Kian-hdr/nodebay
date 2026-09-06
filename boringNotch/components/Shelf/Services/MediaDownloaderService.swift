@@ -589,9 +589,10 @@ private enum MediaDownloadPlan {
             await MediaDownloadLimiter.shared.acquire(limit: limit)
             defer { Task { await MediaDownloadLimiter.shared.release() } }
             try Task.checkCancellation()
-            let destination = configuredDownloadDirectory()
-            let accessed = destination.startAccessingSecurityScopedResource()
-            defer { if accessed { destination.stopAccessingSecurityScopedResource() } }
+            // Downloads belong to the persistent file drawer. Ignore legacy
+            // custom-folder bookmarks, and surface storage failures rather than
+            // falling back to a temporary folder that macOS can purge.
+            let destination = try NodebayManagedFileStorage.directory(for: .downloads)
             let result = try await perform(
                 plan: plan,
                 inspection: inspection,
@@ -807,11 +808,6 @@ private enum MediaDownloadPlan {
         if alert.runModal() == .alertSecondButtonReturn { showEngineHelp() }
     }
 
-    private func configuredDownloadDirectory() -> URL {
-        if let data = defaults.data(forKey: "nodebay.downloader.directoryBookmark"), let url = Bookmark(data: data).resolvedURL { return url }
-        return (try? NodebayManagedFileStorage.directory(for: .downloads))
-            ?? FileManager.default.temporaryDirectory.appending(path: "Nodebay Downloads", directoryHint: .isDirectory)
-    }
     private func update(_ id: UUID, _ change: (inout MediaDownloadJob) -> Void) { guard var job = jobs[id] else { return }; change(&job); jobs[id] = job; persist() }
     private func persist() { if let data = try? JSONEncoder().encode(jobs.values.sorted { $0.id.uuidString < $1.id.uuidString }) { defaults.set(data, forKey: persistenceKey) } }
 }

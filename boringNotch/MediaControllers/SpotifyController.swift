@@ -100,14 +100,20 @@ class SpotifyController: MediaControllerProtocol {
         // Never resolve or launch Spotify implicitly. Sending AppleScript to a
         // missing application can display a connection/application picker on
         // every Nodebay launch.
-        guard isActive() else { return }
-        guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
-        guard descriptor.numberOfItems >= 10 else { return }
+        guard isActive(),
+              let descriptor = try? await fetchPlaybackInfoAsync(),
+              descriptor.numberOfItems >= 10, isActive() else {
+            artworkFetchTask?.cancel()
+            artworkFetchTask = nil
+            lastArtworkURL = nil
+            playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")
+            return
+        }
         
         let isPlaying = descriptor.atIndex(1)?.booleanValue ?? false
-        let currentTrack = descriptor.atIndex(2)?.stringValue ?? "Unknown"
-        let currentTrackArtist = descriptor.atIndex(3)?.stringValue ?? "Unknown"
-        let currentTrackAlbum = descriptor.atIndex(4)?.stringValue ?? "Unknown"
+        let currentTrack = descriptor.atIndex(2)?.stringValue ?? ""
+        let currentTrackArtist = descriptor.atIndex(3)?.stringValue ?? ""
+        let currentTrackAlbum = descriptor.atIndex(4)?.stringValue ?? ""
         let currentTime = descriptor.atIndex(5)?.doubleValue ?? 0
         let duration = (descriptor.atIndex(6)?.doubleValue ?? 0)/1000
         let isShuffled = descriptor.atIndex(7)?.booleanValue ?? false
@@ -148,8 +154,11 @@ class SpotifyController: MediaControllerProtocol {
                     let data = try await ImageService.shared.fetchImageData(from: url)
 
                     await MainActor.run { [weak self] in
-                        guard let self = self else { return }
-                        var updatedState = currentState
+                        guard let self, !Task.isCancelled, self.isActive(),
+                              self.playbackState.representsSameItem(as: currentState),
+                              self.playbackState.artist == currentState.artist,
+                              self.playbackState.album == currentState.album else { return }
+                        var updatedState = self.playbackState
                         updatedState.artwork = data
                         self.playbackState = updatedState
                         self.lastArtworkURL = artworkURL
@@ -181,7 +190,7 @@ class SpotifyController: MediaControllerProtocol {
     private func fetchPlaybackInfoAsync() async throws -> NSAppleEventDescriptor? {
         let script = """
         tell application "Spotify"
-            set isRunning to true
+            if not running then return {}
             try
                 set playerState to player state is playing
                 set currentTrackName to name of current track
@@ -195,7 +204,7 @@ class SpotifyController: MediaControllerProtocol {
                 set artworkURL to artwork url of current track
                 return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatState, currentVolume, artworkURL}
             on error
-                return {false, "Unknown", "Unknown", "Unknown", 0, 0, false, false, 50, ""}
+                return {false, "", "", "", 0, 0, false, false, 50, ""}
             end try
         end tell
         """

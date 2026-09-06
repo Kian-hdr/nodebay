@@ -31,6 +31,9 @@ struct PluginsEnginesSettingsView: View {
 
             switch selectedArea {
             case .overview:
+                FeatureSetupSection()
+                LonghaulCompanionSettingsSection()
+
                 ForEach(registry.providers) { provider in
                     EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id], configure: provider.id == "stl-repair" ? { selectedArea = .models } : nil)
                 }
@@ -72,6 +75,184 @@ struct PluginsEnginesSettingsView: View {
         case .models:
             "Inspect and repair local STL copies. Models never leave this Mac."
         }
+    }
+}
+
+private enum FeatureSetupConfirmation: Identifiable {
+    case package(FeatureSetupPackage)
+    case allCompanions
+
+    var id: String {
+        switch self {
+        case .package(let package): "package:\(package.id)"
+        case .allCompanions: "all-companions"
+        }
+    }
+}
+
+private struct FeatureSetupSection: View {
+    @ObservedObject private var setup = FeatureSetupCoordinator.shared
+    @ObservedObject private var registry = ProcessingProviderRegistry.shared
+    @ObservedObject private var browserBridge = BrowserMediaBridge.shared
+    @State private var confirmation: FeatureSetupConfirmation?
+    @State private var bridgeActionInProgress = false
+
+    private var missingCompanions: [FeatureSetupPackage] {
+        FeatureSetupPackage.allCases.filter {
+            $0.isCompanionApplication
+                && registry.diagnostics[$0.providerID]?.availability != .installed
+        }
+    }
+
+    var body: some View {
+        Section {
+            HStack {
+                Button("Check All") { Task { await setup.checkAll() } }
+                    .disabled(setup.isChecking || setup.isInstalling)
+                Button("Install Missing") {
+                    if missingCompanions.isEmpty {
+                        setup.installMissing(includeCompanionApplications: false)
+                    } else {
+                        confirmation = .allCompanions
+                    }
+                }
+                .disabled(setup.isChecking || setup.isInstalling)
+                Spacer()
+                if setup.isChecking {
+                    ProgressView().controlSize(.small)
+                }
+                if setup.isInstalling {
+                    Button("Cancel", role: .cancel) { setup.cancel() }
+                }
+            }
+
+            setupRow(
+                name: "Microsoft MarkItDown",
+                icon: "doc.text.magnifyingglass",
+                detail: "Bundled with Nodebay. No installation required.",
+                status: registry.diagnostics["markitdown"]?.availability.rawValue ?? "Checking",
+                action: nil
+            )
+
+            ForEach(FeatureSetupPackage.allCases) { package in
+                setupRow(
+                    name: package.displayName,
+                    icon: icon(for: package),
+                    detail: package.purposeAndImpact,
+                    status: displayStatus(for: package),
+                    action: registry.diagnostics[package.providerID]?.availability == .installed ? nil : {
+                        if package.isCompanionApplication {
+                            confirmation = .package(package)
+                        } else {
+                            setup.install(package)
+                        }
+                    }
+                )
+            }
+
+            setupRow(
+                name: "Browser Media Bridge",
+                icon: "puzzlepiece.extension",
+                detail: "The bridge is bundled. Chrome extension activation always remains a separate, explicit action in Media settings.",
+                status: browserBridge.isConnected ? "Connected" : (browserBridge.isNativeHostInstalled ? "Ready for Chrome activation" : "Native host not prepared"),
+                action: browserBridge.isNativeHostInstalled ? nil : {
+                    bridgeActionInProgress = true
+                    Task {
+                        await browserBridge.installNativeHost()
+                        await registry.refresh()
+                        bridgeActionInProgress = false
+                    }
+                },
+                actionTitle: "Prepare"
+            )
+
+            if setup.homebrewURL == nil && !setup.isChecking {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Homebrew is required for automatic engine installation. Nodebay never runs an internet installation script.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Link("Open the official Homebrew installation guide", destination: URL(string: "https://brew.sh")!)
+                }
+            }
+
+            if let lastError = setup.lastError {
+                Text(lastError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+            }
+        } header: {
+            Text("Set Up Features")
+        } footer: {
+            Text("Install actions use fixed Homebrew package identifiers through Nodebay’s isolated helper. Nodebay never asks for or captures an administrator password. Diagnostics run again after each action.")
+        }
+        .alert(item: $confirmation) { request in
+            switch request {
+            case .package(let package):
+                Alert(
+                    title: Text("Install \(package.displayName)?"),
+                    message: Text(package.purposeAndImpact),
+                    primaryButton: .default(Text("Install")) { setup.install(package) },
+                    secondaryButton: .cancel()
+                )
+            case .allCompanions:
+                Alert(
+                    title: Text("Install missing companion apps?"),
+                    message: Text(missingCompanions.map(\.purposeAndImpact).joined(separator: "\n\n")),
+                    primaryButton: .default(Text("Install All")) {
+                        setup.installMissing(includeCompanionApplications: true)
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+        }
+        .task { await setup.checkAll() }
+    }
+
+    private func setupRow(
+        name: String,
+        icon: String,
+        detail: String,
+        status: String,
+        action: (() -> Void)?,
+        actionTitle: String = "Install"
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .frame(width: 22, height: 22)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name).font(.headline)
+                Text(detail).font(.caption).foregroundStyle(.secondary)
+                Text(status).font(.caption.weight(.medium))
+            }
+            Spacer()
+            if let action {
+                Button(actionTitle, action: action)
+                    .disabled(setup.isInstalling || bridgeActionInProgress)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func icon(for package: FeatureSetupPackage) -> String {
+        switch package {
+        case .ytDLP: "arrow.down.circle"
+        case .ffmpeg: "film.stack"
+        case .imageOptim: "photo.badge.arrow.down"
+        case .blender: "cube.transparent"
+        }
+    }
+
+    private func displayStatus(for package: FeatureSetupPackage) -> String {
+        if let availability = registry.diagnostics[package.providerID]?.availability,
+           availability == .installed || availability == .bundled {
+            return availability.rawValue
+        }
+        return setup.status[package]?.label
+            ?? registry.diagnostics[package.providerID]?.availability.rawValue
+            ?? "Checking"
     }
 }
 
@@ -221,9 +402,8 @@ struct DownloaderSettingsView: View {
             }
 
             Section("Download Location") {
-                LabeledContent("Directory", value: displayPath(configuredDirectory()))
-                Button("Choose Custom Directory…") { chooseDirectory() }
-                Text("Custom folders use a persistent security-scoped bookmark. Nodebay never writes outside the selected directory.")
+                LabeledContent("Save to", value: "Notch file drawer")
+                Text("Downloads stay in the file drawer, including after restarting Nodebay. Drag a file to a folder or app when you need it. Nothing is saved to your Downloads folder automatically.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -323,37 +503,6 @@ struct DownloaderSettingsView: View {
         isWorking = false
     }
 
-    private func configuredDirectory() -> URL {
-        if let data = UserDefaults.standard.data(forKey: "nodebay.downloader.directoryBookmark"),
-           let url = Bookmark(data: data).resolvedURL {
-            return url
-        }
-        return (try? NodebayManagedFileStorage.directory(for: .downloads))
-            ?? FileManager.default.temporaryDirectory.appending(path: "Nodebay Downloads", directoryHint: .isDirectory)
-    }
-
-    private func displayPath(_ url: URL) -> String {
-        let homePath = FileManager.default.homeDirectoryForCurrentUser.path
-        let path = url.standardizedFileURL.path
-        guard path == homePath || path.hasPrefix(homePath + "/") else { return path }
-        return "~" + path.dropFirst(homePath.count)
-    }
-
-    private func chooseDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Choose Download Folder"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let bookmark = try Bookmark(url: url)
-            UserDefaults.standard.set(bookmark.data, forKey: "nodebay.downloader.directoryBookmark")
-            status = "Download folder saved"
-        } catch {
-            status = "Folder access failed: \(error.localizedDescription)"
-        }
-    }
 }
 
 private struct EngineProviderSection: View {

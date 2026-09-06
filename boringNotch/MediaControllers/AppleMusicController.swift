@@ -116,6 +116,7 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     func setFavorite(_ favorite: Bool) async {
+        guard isActive() else { return }
         let script = """
         tell application "Music"
             try
@@ -129,14 +130,18 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
-        guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
-        guard descriptor.numberOfItems >= 11 else { return }
+        guard isActive(),
+              let descriptor = try? await fetchPlaybackInfoAsync(),
+              descriptor.numberOfItems >= 11, isActive() else {
+            playbackState = PlaybackState(bundleIdentifier: "com.apple.Music")
+            return
+        }
         var updatedState = self.playbackState
         
         updatedState.isPlaying = descriptor.atIndex(1)?.booleanValue ?? false
-        updatedState.title = descriptor.atIndex(2)?.stringValue ?? "Unknown"
-        updatedState.artist = descriptor.atIndex(3)?.stringValue ?? "Unknown"
-        updatedState.album = descriptor.atIndex(4)?.stringValue ?? "Unknown"
+        updatedState.title = descriptor.atIndex(2)?.stringValue ?? ""
+        updatedState.artist = descriptor.atIndex(3)?.stringValue ?? ""
+        updatedState.album = descriptor.atIndex(4)?.stringValue ?? ""
         updatedState.currentTime = descriptor.atIndex(5)?.doubleValue ?? 0
         updatedState.duration = descriptor.atIndex(6)?.doubleValue ?? 0
         updatedState.isShuffled = descriptor.atIndex(7)?.booleanValue ?? false
@@ -154,6 +159,7 @@ class AppleMusicController: MediaControllerProtocol {
     // MARK: - Private Methods
     
     private func executeCommand(_ command: String) async {
+        guard isActive() else { return }
         let script = "tell application \"Music\" to \(command)"
         try? await AppleScriptHelper.executeVoid(script)
     }
@@ -161,7 +167,7 @@ class AppleMusicController: MediaControllerProtocol {
     private func fetchPlaybackInfoAsync() async throws -> NSAppleEventDescriptor? {
         let script = """
         tell application "Music"
-            set isRunning to true
+            if not running then return {}
             try
                 set playerState to player state is playing
                 set currentTrackName to name of current track
@@ -189,7 +195,7 @@ class AppleMusicController: MediaControllerProtocol {
                 set favoriteState to favorited of current track
                 return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatValue, currentVolume, artData, favoriteState}
             on error
-                return {false, "Not Playing", "Unknown", "Unknown", 0, 0, false, 0, 50, "", false}
+                return {false, "", "", "", 0, 0, false, 0, 50, "", false}
             end try
         end tell
         """

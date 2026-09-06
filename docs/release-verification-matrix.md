@@ -1,5 +1,35 @@
 # Nodebay release verification
 
+## Nodebay 1.2.0 (25): API and release preparation, 2026-09-06
+
+**Unpublished. Real API connection and chat tests passed; the clearer key field and compact message bubbles were verified in the installed app.**
+The user authorized GitHub and Homebrew publication after successful live API
+verification. The public release remains 1.1.0. The following checks do not
+replace the final clean-source build, notarization or public install checks.
+
+| Check | Status | Evidence / boundary |
+|---|---|---|
+| Integrated regression suite | Passed | 198 tests in 142.163 seconds after the key-field and bubble-sizing changes; the original sizing code fails the added resize regression |
+| API correctness regressions | Passed, mocked transport | Compiled API/coordinator harnesses cover output budgeting, custom models, incomplete/failed/refused output, error redaction, cancellation and stale configuration results; no live credential or API request |
+| Signed integrated candidate | Passed local build/install | Apple Silicon Release build and deep strict Developer ID verification passed. Installed main SHA-256: `967a540246d1177ef63e21fcb9da526de11f4352ee49874866e8f63746decf12`. Final installed candidate passed native AI settings, API-key entry, short/wrapped bubbles and real API chat; earlier missing-key UI checks remain separately recorded |
+| Longhaul control location | Passed focused and bounded native checks | 44 client/view and 60 protocol/relay assertions; coordinated signed-app checks verified both routing directions, removal of the entire notch icon/gap, Nodebay quit/relaunch fallback and continuing protection during a supervised job. Direct menu-bar item interaction was not captured; no physical sleep/closed-lid claim |
+| Missing credential behavior | Passed earlier native UI | Before key setup, Missing/Needs setup and disabled Validate Connection/Send were verified. The user has since saved a key |
+| Real API connection | Passed native request | Validate Connection returned “Connection validated with a real OpenAI Responses API request” using the saved key and gpt-5-mini; no credential value was inspected |
+| Native chat and clearer key field | Passed native UI and request | Installed app showed the API key heading, paste instructions and bordered secure field. The synthetic prompt “Reply exactly OK.” returned “OK” via OpenAI API/gpt-5-mini. Saved key preserved, no credential value inspected and no Knowledge Folder used |
+| Message bubble sizing | Passed regression and native checks | Short messages remain compact after notch resizing; multiline, emoji, Arabic and long text retain the 78% maximum width. Native short and wrapped messages were inspected in the installed app |
+| Public setup and privacy docs | Prepared | Existing remote main setup work preserved; candidate/provider/billing/Keychain/cloud-excerpt boundaries documented |
+| Source and notices review | Passed bounded inspection | Existing GPL-3.0 and generated notices preserved; candidate delta contains no detected live secrets or standalone Longhaul binary. Private implementation chronology and historical conflict draft must be excluded from publication |
+| Release verification scripts | Passed syntax and focused checks | Verifier defaults now match 1.2.0 (25); workflow propagates the requested build number; the workflow remains ZIP-only |
+| Release source preparation | Prepared, uncommitted | Isolated `release/nodebay-1.2.0` checkout based on remote main `48db739`; candidate source copied and hash-checked; original development checkout preserved |
+| Final source commit, artifacts and notarization | Pending | No new tag, GitHub release or release artifact uploaded |
+| Homebrew 1.2.0 | Pending | Cask remains on the existing verified 1.1.0 artifact until new immutable hosted bytes and checksums exist |
+
+The API fixes reject incomplete output and use local error text so provider
+errors cannot echo credentials into the UI. GPT-5 mini's validation budget was
+increased from 64 to 1,024 tokens with minimal reasoning; ordinary and deeper
+requests use bounded 4,096/minimal and 8,192/low budgets. These are tested request
+parameters, not evidence that an account can access or pay for the model.
+
 ## Nodebay 1.1.0 (24): release checks, 2026-09-03
 
 Application source built from clean detached commit `61b508b`. Subsequent
@@ -15,7 +45,7 @@ metadata and test assertions only; the compiled application source is unchanged.
 | ImageOptim copy-first processing | Passed | 2,096,587-byte source unchanged; valid optimized copy 1,517,427 bytes |
 | Production signing | Passed | Developer ID team HZWY8HT54D, all nested Mach-O signatures/timestamps, hardened runtime, no debug entitlement; private-build signing failure repaired |
 | Authorization continuity | Passed diagnostic | Exact designated requirement matches installed 1.0.0; signed candidate reports Authorized and event tap Active without another prompt; no hardware key or restart claim |
-| Quick Look extension packaging | Passed | Embedded, arm64, matching 1.1.0 (24), sandboxed read-only file access, no network entitlement; approved transparent renderer unchanged |
+| Quick Look extension packaging | Passed before latest visual adjustment | Embedded, arm64, matching 1.1.0 (24), sandboxed read-only file access, no network entitlement; refreshed visual verification is required for the new full-bleed semantic material |
 | App notarization | Passed | Submission `b403033c-0f65-470c-a5ab-5a6edf315b98` Accepted; app stapled and Gatekeeper accepted |
 | DMG notarization | Passed | Submission `37a6d196-6ec2-47af-b00a-84d617803ea0` Accepted; DMG stapled and Gatekeeper accepted |
 | Final artifacts | Passed | ZIP contains only Nodebay.app; DMG integrity verified and mounted read-only; visible payload Nodebay.app and Applications shortcut; enclosed app signature/staple passed |

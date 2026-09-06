@@ -101,8 +101,9 @@ struct AlbumArtView: View {
 
     @ViewBuilder
     private var appIconOverlay: some View {
-        if vm.notchState == .open && !musicManager.usingAppIconForArtwork {
-            AppIcon(for: musicManager.bundleIdentifier ?? "com.apple.Music")
+        if vm.notchState == .open && !musicManager.usingAppIconForArtwork,
+           let bundleIdentifier = musicManager.bundleIdentifier, !bundleIdentifier.isEmpty {
+            AppIcon(for: bundleIdentifier)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 30, height: 30)
@@ -122,6 +123,7 @@ struct MusicControlsView: View {
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
     @State private var isHoveringDownload = false
+    @State private var showEqualizer = false
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
 
@@ -129,6 +131,7 @@ struct MusicControlsView: View {
         VStack(alignment: .leading, spacing: 4) {
             songInfoAndSlider
             slotToolbar
+                .disabled(musicManager.selectableSourceChoices.isEmpty)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -147,7 +150,11 @@ struct MusicControlsView: View {
     private func songInfo(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             MediaSourcePicker()
-            MarqueeText(musicManager.songTitle, font: .headline, color: .white, frameWidth: width)
+                .padding(.bottom, 6)
+            MarqueeText(musicManager.songTitle.isEmpty
+                        ? (musicManager.selectableSourceChoices.isEmpty ? "Nothing playing" : "Untitled media")
+                        : musicManager.songTitle,
+                        font: .headline, color: .white, frameWidth: width)
             MarqueeText(
                 musicManager.artistName,
                 font: .headline,
@@ -251,6 +258,7 @@ struct MusicControlsView: View {
             }
             .padding(.top, 5)
             .frame(height: 36)
+            .disabled(musicManager.selectableSourceChoices.isEmpty)
         }
     }
 
@@ -264,10 +272,13 @@ struct MusicControlsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .overlay(alignment: .trailing) {
-            if musicManager.canDownloadActiveMedia {
-                currentMediaDownloadButton
-                    .padding(.trailing, 4)
+            HStack(spacing: 2) {
+                EqualizerControl(isPresented: $showEqualizer)
+                if musicManager.canDownloadActiveMedia {
+                    currentMediaDownloadButton
+                }
             }
+            .padding(.trailing, 4)
         }
     }
 
@@ -352,58 +363,385 @@ struct MusicControlsView: View {
     }
 }
 
+private struct EqualizerControl: View {
+    @Binding var isPresented: Bool
+    @ObservedObject private var equalizer = NodebayEqualizerManager.shared
+    @ObservedObject private var musicManager = MusicManager.shared
+    @State private var isHoveringButton = false
+    @State private var isHoveringPopover = false
+    @State private var popoverInteractionActive = false
+    @State private var dismissTask: Task<Void, Never>?
+
+    private var isAvailable: Bool {
+        equalizer.isAvailable(for: musicManager.activeSourceID)
+    }
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            Image(systemName: "slider.vertical.3")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isAvailable && !equalizer.isBypassed ? .primary : .secondary)
+                .frame(width: 30, height: 30)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isAvailable ? 1 : 0.45)
+        .help(isAvailable ? "Equalizer" : "Equalizer unavailable for this source")
+        .accessibilityLabel("Equalizer")
+        .accessibilityValue(isAvailable ? (equalizer.isBypassed ? "Bypassed" : equalizer.preset.rawValue) : "Unavailable for this source")
+        .onHover { hovering in
+            isHoveringButton = hovering
+            if hovering {
+                cancelScheduledDismissal()
+            } else {
+                scheduleDismissalIfNeeded()
+            }
+        }
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            EqualizerPopover(source: musicManager.activeSourceID)
+                .onHover { hovering in
+                    isHoveringPopover = hovering
+                    if hovering {
+                        cancelScheduledDismissal()
+                    } else {
+                        scheduleDismissalIfNeeded()
+                    }
+                }
+        }
+        .onChange(of: isPresented) { _, presented in
+            if presented {
+                beginPopoverInteractionIfNeeded()
+            } else {
+                finishPopoverInteractionIfNeeded()
+            }
+        }
+        .onChange(of: musicManager.activeSourceID) { _, _ in
+            isPresented = false
+        }
+        .onDisappear {
+            isPresented = false
+            finishPopoverInteractionIfNeeded()
+        }
+    }
+
+    private func cancelScheduledDismissal() {
+        dismissTask?.cancel()
+        dismissTask = nil
+    }
+
+    private func scheduleDismissalIfNeeded() {
+        guard isPresented, !isHoveringButton, !isHoveringPopover else { return }
+        cancelScheduledDismissal()
+        dismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, !isHoveringButton, !isHoveringPopover else { return }
+            withAnimation(.easeOut(duration: 0.16)) {
+                isPresented = false
+            }
+        }
+    }
+
+    private func beginPopoverInteractionIfNeeded() {
+        guard !popoverInteractionActive else { return }
+        SharingStateManager.shared.beginInteraction()
+        popoverInteractionActive = true
+    }
+
+    private func finishPopoverInteractionIfNeeded() {
+        cancelScheduledDismissal()
+        isHoveringPopover = false
+        guard popoverInteractionActive else { return }
+        SharingStateManager.shared.endInteraction()
+        popoverInteractionActive = false
+    }
+}
+
+private struct EqualizerPopover: View {
+    let source: MusicManager.MediaSourceID
+    @ObservedObject private var equalizer = NodebayEqualizerManager.shared
+
+    private var available: Bool { equalizer.isAvailable(for: source) }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                if available {
+                    Toggle("Equalizer", isOn: Binding(
+                        get: { !equalizer.isBypassed },
+                        set: { equalizer.setBypassed(!$0, source: source) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .accessibilityLabel("Equalizer")
+                    .accessibilityHint("Turns sound adjustments on or off")
+                    .help(equalizer.isBypassed ? "Turn equalizer on" : "Turn equalizer off")
+                }
+                Spacer()
+                Button("Reset") { equalizer.reset(source: source) }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .disabled(!available)
+                    .accessibilityHint("Returns the sound curve to flat")
+            }
+            .overlay {
+                Text("Equalizer")
+                    .font(.headline)
+                    .allowsHitTesting(false)
+            }
+
+            if available {
+                EqualizerCurveEditor(
+                    gains: NodebayEqualizerTone.allCases.map { equalizer.profile.gain(for: $0) },
+                    onChange: { tone, value in
+                        equalizer.setToneGain(value, tone: tone, source: source)
+                    }
+                )
+                .disabled(equalizer.isBypassed)
+                .opacity(equalizer.isBypassed ? 0.45 : 1)
+
+                Text("Processing locally")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ContentUnavailableView(
+                    "Equalizer Unavailable",
+                    systemImage: "waveform.slash",
+                    description: Text(equalizer.availabilityMessage(for: source))
+                )
+                .frame(minHeight: 140)
+            }
+        }
+        .padding(14)
+        .frame(width: 360)
+    }
+}
+
+private struct EqualizerCurveEditor: View {
+    let gains: [Float]
+    let onChange: (NodebayEqualizerTone, Float) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var activeTone: NodebayEqualizerTone?
+    @FocusState private var focusedToneIndex: Int?
+
+    private let graphHeight: CGFloat = 126
+    private let handleDiameter: CGFloat = 22
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                ForEach(NodebayEqualizerTone.allCases) { tone in
+                    VStack(spacing: 1) {
+                        Text(tone.name)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(signedValue(gain(for: tone)))
+                            .font(.headline.monospacedDigit())
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+
+            GeometryReader { geometry in
+                let points = curvePoints(in: geometry.size)
+
+                ZStack {
+                    grid(in: geometry.size)
+                    curve(points: points, width: geometry.size.width)
+
+                    ForEach(NodebayEqualizerTone.allCases) { tone in
+                        let point = points[tone.rawValue]
+                        Circle()
+                            .fill(.background)
+                            .overlay {
+                                Circle().stroke(
+                                    activeTone == tone ? Color.accentColor : Color.primary.opacity(0.22),
+                                    lineWidth: activeTone == tone ? 2 : 1
+                                )
+                            }
+                            .shadow(color: .black.opacity(0.14), radius: 4, y: 1)
+                            .frame(width: handleDiameter, height: handleDiameter)
+                            .contentShape(Circle())
+                            .position(point)
+                            .gesture(
+                                DragGesture(minimumDistance: 0, coordinateSpace: .named("equalizerCurve"))
+                                    .onChanged { gesture in
+                                        activeTone = tone
+                                        focusedToneIndex = tone.rawValue
+                                        onChange(tone, gain(at: gesture.location.y, height: geometry.size.height))
+                                    }
+                                    .onEnded { _ in
+                                        activeTone = nil
+                                        Task { @MainActor in
+                                            focusedToneIndex = nil
+                                        }
+                                    }
+                            )
+                            .focusable()
+                            .focused($focusedToneIndex, equals: tone.rawValue)
+                            .accessibilityElement()
+                            .accessibilityLabel(tone.name)
+                            .accessibilityValue("\(signedValue(gain(for: tone))) decibels")
+                            .accessibilityHint("Drag vertically or use VoiceOver to adjust")
+                            .accessibilityAdjustableAction { direction in
+                                switch direction {
+                                case .increment: onChange(tone, gain(for: tone) + 1)
+                                case .decrement: onChange(tone, gain(for: tone) - 1)
+                                @unknown default: break
+                                }
+                            }
+                    }
+                }
+                .coordinateSpace(name: "equalizerCurve")
+                .animation(reduceMotion || activeTone != nil ? nil : .snappy(duration: 0.22), value: gains)
+            }
+            .frame(height: graphHeight)
+        }
+        .onDisappear {
+            activeTone = nil
+            focusedToneIndex = nil
+        }
+    }
+
+    private func grid(in size: CGSize) -> some View {
+        Canvas { context, _ in
+            for row in 0...6 {
+                let y = CGFloat(row) * size.height / 6
+                var path = Path()
+                path.move(to: CGPoint(x: 4, y: y))
+                path.addLine(to: CGPoint(x: size.width - 4, y: y))
+                context.stroke(
+                    path,
+                    with: .color(.secondary.opacity(row == 3 ? 0.32 : 0.13)),
+                    lineWidth: row == 3 ? 1 : 0.7
+                )
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func curve(points: [CGPoint], width: CGFloat) -> some View {
+        Canvas { context, _ in
+            guard let first = points.first, let last = points.last else { return }
+            var path = Path()
+            path.move(to: CGPoint(x: 0, y: first.y))
+            path.addLine(to: first)
+            for index in 1..<points.count {
+                let previous = points[index - 1]
+                let current = points[index]
+                let midpoint = (previous.x + current.x) / 2
+                path.addCurve(
+                    to: current,
+                    control1: CGPoint(x: midpoint, y: previous.y),
+                    control2: CGPoint(x: midpoint, y: current.y)
+                )
+            }
+            path.addLine(to: CGPoint(x: width, y: last.y))
+            context.stroke(path, with: .color(.primary), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func curvePoints(in size: CGSize) -> [CGPoint] {
+        NodebayEqualizerTone.allCases.map { tone in
+            CGPoint(
+                x: size.width * (0.16 + CGFloat(tone.rawValue) * 0.34),
+                y: yPosition(for: gain(for: tone), height: size.height)
+            )
+        }
+    }
+
+    private func gain(for tone: NodebayEqualizerTone) -> Float {
+        gains.indices.contains(tone.rawValue) ? gains[tone.rawValue] : 0
+    }
+
+    private func yPosition(for gain: Float, height: CGFloat) -> CGFloat {
+        let normalized = CGFloat(NodebayEqualizerCurveScale.normalizedY(for: gain))
+        return handleDiameter / 2 + normalized * (height - handleDiameter)
+    }
+
+    private func gain(at y: CGFloat, height: CGFloat) -> Float {
+        let usableHeight = max(1, height - handleDiameter)
+        let normalized = min(1, max(0, (y - handleDiameter / 2) / usableHeight))
+        let value = NodebayEqualizerCurveScale.gain(atNormalizedY: Float(normalized))
+        return value.rounded()
+    }
+
+    private func signedValue(_ value: Float) -> String {
+        let rounded = Int(value.rounded())
+        return rounded > 0 ? "+\(rounded)" : "\(rounded)"
+    }
+}
+
 private struct MediaSourcePicker: View {
     @ObservedObject private var musicManager = MusicManager.shared
 
-    var body: some View {
-        Menu {
-            ForEach(musicManager.selectableSourceChoices) { source in
-                Button {
-                    musicManager.selectMediaSource(source.id)
-                } label: {
-                    Label {
-                        Text(sourceLabel(source))
-                    } icon: {
-                        Image(systemName: source.id == musicManager.activeSourceID ? "checkmark.circle.fill" : "circle")
-                    }
-                }
-                .disabled(!source.isAvailable && !isSystemNowPlaying(source))
-            }
+    private var sources: [MusicManager.MediaSourceChoice] {
+        musicManager.selectableSourceChoices.filter(\.isAvailable)
+    }
 
-            Divider()
-            if BrowserMediaBridge.shared.isConnected {
-                Text("\(musicManager.browserMediaSessions.count) compatible browser tab(s)")
-            } else {
-                Text("Set up browser tabs in Media settings")
+    var body: some View {
+        if !sources.isEmpty {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 4) {
+                        ForEach(sources) { source in
+                            sourceTab(source)
+                                .id(source.id)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .scrollIndicators(.hidden)
+                .frame(height: 24)
+                .onChange(of: musicManager.activeSourceID) { _, selected in
+                    proxy.scrollTo(selected)
+                }
+                .onAppear { proxy.scrollTo(musicManager.activeSourceID) }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Media sources")
+        }
+    }
+
+    private func sourceTab(_ source: MusicManager.MediaSourceChoice) -> some View {
+        let selected = source.id == musicManager.activeSourceID
+        return Button {
+            musicManager.selectMediaSource(source.id)
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "dot.radiowaves.left.and.right")
-                Text(musicManager.activeSourceLabel)
+            HStack(spacing: 5) {
+                Image(systemName: selected ? "checkmark" : (source.isPlaying ? "speaker.wave.2.fill" : "play.rectangle"))
+                    .font(.caption2)
+                Text(tabTitle(source))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(maxWidth: 160, alignment: .leading)
-                Image(systemName: "chevron.down")
-                    .font(.caption2)
+                    .frame(maxWidth: 150)
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
-            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize(horizontal: false, vertical: true)
-        .accessibilityLabel("Media source")
-        .accessibilityValue(musicManager.activeSourceLabel)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .tint(selected ? Color.accentColor : Color.secondary)
+        .help(sourceLabel(source))
+        .accessibilityLabel(sourceLabel(source))
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func sourceLabel(_ source: MusicManager.MediaSourceChoice) -> String {
-        let activity = source.isPlaying ? "Playing" : (source.isAvailable ? "Available" : "Unavailable")
+        let activity = source.isPlaying ? "Playing" : "Paused"
         let track = source.title.isEmpty ? "" : ": \(source.title)"
         return "\(source.displayName), \(activity)\(track)"
     }
 
-    private func isSystemNowPlaying(_ source: MusicManager.MediaSourceChoice) -> Bool {
-        source.controllerType == .nowPlaying
+    private func tabTitle(_ source: MusicManager.MediaSourceChoice) -> String {
+        if case .browserTab = source.id, !source.title.isEmpty {
+            return source.title
+        }
+        return source.displayName
     }
 }
 

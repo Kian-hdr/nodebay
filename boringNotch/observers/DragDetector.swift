@@ -8,6 +8,27 @@
 import Cocoa
 import UniformTypeIdentifiers
 
+/// Keeps closed-notch drag activation close to the visible affordance. The
+/// expanded window is much larger than the closed notch and overlaps browser
+/// tab bars, where a small tab-reordering gesture can otherwise look like a
+/// URL drag intended for Nodebay.
+enum NotchDragRegion {
+    static let horizontalPadding: CGFloat = 8
+    static let lowerPadding: CGFloat = 6
+    static let minimumClosedHeight: CGFloat = 10
+
+    static func closed(windowFrame: CGRect, notchSize: CGSize) -> CGRect {
+        let visibleHeight = max(minimumClosedHeight, notchSize.height)
+        let width = min(windowFrame.width, notchSize.width + 2 * horizontalPadding)
+        return CGRect(
+            x: windowFrame.midX - width / 2,
+            y: windowFrame.maxY - visibleHeight - lowerPadding,
+            width: width,
+            height: visibleHeight + lowerPadding
+        )
+    }
+}
+
 final class DragDetector {
 
     // MARK: - Callbacks
@@ -23,6 +44,7 @@ final class DragDetector {
     private var mouseDownMonitor: Any?
     private var mouseDraggedMonitor: Any?
     private var mouseUpMonitor: Any?
+    private var localDragEndMonitor: Any?
 
     private var pasteboardChangeCount: Int = -1
     private var isDragging: Bool = false
@@ -92,20 +114,33 @@ final class DragDetector {
             }
         }
 
-        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in
-            guard let self = self else { return }
-            guard self.isDragging else { return }
-            
-            if self.hasEnteredNotchRegion { self.onDragExitsNotchRegion?() }
-            self.isDragging = false
-            self.isContentDragging = false
-            self.hasEnteredNotchRegion = false
-            self.pasteboardChangeCount = -1
+        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp, .keyDown]) { [weak self] event in
+            if event.type == .leftMouseUp || event.keyCode == 53 {
+                self?.finishDrag()
+            }
+        }
+
+        // Global monitors do not receive events delivered to Nodebay itself.
+        // A drop or Escape inside the notch must release the approach state too.
+        localDragEndMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .keyDown]) { [weak self] event in
+            if event.type == .leftMouseUp || event.keyCode == 53 {
+                self?.finishDrag()
+            }
+            return event
         }
     }
 
+    private func finishDrag() {
+        let shouldNotifyExit = hasEnteredNotchRegion
+        isDragging = false
+        isContentDragging = false
+        hasEnteredNotchRegion = false
+        pasteboardChangeCount = -1
+        if shouldNotifyExit { onDragExitsNotchRegion?() }
+    }
+
     func stopMonitoring() {
-        [mouseDownMonitor, mouseDraggedMonitor, mouseUpMonitor].forEach { monitor in
+        [mouseDownMonitor, mouseDraggedMonitor, mouseUpMonitor, localDragEndMonitor].forEach { monitor in
             if let monitor = monitor {
                 NSEvent.removeMonitor(monitor)
             }
@@ -113,9 +148,8 @@ final class DragDetector {
         mouseDownMonitor = nil
         mouseDraggedMonitor = nil
         mouseUpMonitor = nil
-        isDragging = false
-        isContentDragging = false
-        hasEnteredNotchRegion = false
+        localDragEndMonitor = nil
+        finishDrag()
     }
 
     deinit {

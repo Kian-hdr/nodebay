@@ -27,6 +27,7 @@
 		<string>com.spotify.client</string>
 		<string>com.apple.Music</string>
 		<string>com.google.Chrome</string>
+		<string>com.apple.QuickTimePlayerX</string>
 	</array>
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
 	<array>

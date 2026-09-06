@@ -63,6 +63,11 @@ final class BNLunarBrightnessEvent: NSObject, NSSecureCoding {
 }
 
 @objc protocol BoringNotchXPCHelperProtocol {
+    /// Versioned, bounded exchange with the optional signed Longhaul companion.
+    func longhaulExchange(_ data: Data, with reply: @escaping (Data) -> Void)
+    func quickChatStatus(with reply: @escaping (String, String) -> Void)
+    func quickChatAnswer(_ id: String, context: String, thinkDeeper: Bool, with reply: @escaping (String, String) -> Void)
+    func cancelQuickChat(_ id: String)
     func isAccessibilityAuthorized(with reply: @escaping (Bool) -> Void)
     func requestAccessibilityAuthorization()
     func ensureAccessibilityAuthorization(_ promptIfNeeded: Bool, with reply: @escaping (Bool) -> Void)

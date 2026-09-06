@@ -31,7 +31,7 @@ def read_exact(stream, count: int) -> bytes:
 class BrowserBridgeContractTests(unittest.TestCase):
     def test_extension_permissions_are_limited_to_supported_media_sites(self):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
-        self.assertEqual(manifest["permissions"], ["nativeMessaging"])
+        self.assertEqual(set(manifest["permissions"]), {"nativeMessaging", "offscreen", "tabCapture"})
         self.assertEqual(
             set(manifest["host_permissions"]),
             {"https://www.youtube.com/*", "https://music.youtube.com/*"},
@@ -46,7 +46,7 @@ class BrowserBridgeContractTests(unittest.TestCase):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
         bridge = (ROOT / "boringNotch/managers/BrowserMediaBridge.swift").read_text()
         helper = (ROOT / "BoringNotchXPCHelper/BoringNotchXPCHelper.swift").read_text()
-        self.assertEqual(manifest["version"], "0.1.1")
+        self.assertEqual(manifest["version"], "0.2.0")
         self.assertIn('extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', bridge)
         self.assertIn('browserBridgeExtensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', helper)
         self.assertIn('nativeHostName = "com.nodebay.browser_bridge"', bridge)
@@ -132,7 +132,7 @@ class BrowserBridgeContractTests(unittest.TestCase):
             env=environment,
         )
         try:
-            hello = {"type": "hello", "extensionVersion": "0.1.1"}
+            hello = {"type": "hello", "extensionVersion": "0.2.0"}
             process.stdin.write(native_frame(hello))
             process.stdin.flush()
 

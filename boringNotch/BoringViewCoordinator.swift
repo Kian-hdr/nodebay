@@ -52,6 +52,37 @@ struct ExpandedItem {
 class BoringViewCoordinator: ObservableObject {
     static let shared = BoringViewCoordinator()
 
+    @Published private(set) var longhaulNotice: LonghaulCompanionAlert?
+    private var longhaulNoticeTargets: Set<String> = []
+    private var longhaulNoticeTask: Task<Void, Never>?
+    private var lastLonghaulNoticeAt = Date.distantPast
+
+    /// Independent from OSD preferences. A busy notch declines a new notice so
+    /// Longhaul can retain its fallback notification; ordinary job progress is quiet.
+    func queueLonghaulNotice(_ alert: LonghaulCompanionAlert) -> Bool {
+        guard longhaulNotice == nil, !helloAnimationRunning, !expandingView.show,
+              !sneakPeekStates.values.contains(where: { $0.show }),
+              Date().timeIntervalSince(lastLonghaulNoticeAt) >= 30 else { return false }
+        let targets = hudTargetScreenUUIDs()
+        guard !targets.isEmpty else { return false }
+        longhaulNoticeTargets = Set(targets)
+        longhaulNotice = alert
+        lastLonghaulNoticeAt = Date()
+        longhaulNoticeTask?.cancel()
+        longhaulNoticeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled else { return }
+            self?.longhaulNotice = nil
+            self?.longhaulNoticeTargets = []
+        }
+        return true
+    }
+
+    func longhaulNotice(on screenUUID: String?) -> LonghaulCompanionAlert? {
+        guard let screenUUID, longhaulNoticeTargets.contains(screenUUID) else { return nil }
+        return longhaulNotice
+    }
+
     @Published var currentView: NotchViews = .home
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
@@ -205,6 +236,7 @@ class BoringViewCoordinator: ObservableObject {
 
         Task { @MainActor in
             helloAnimationRunning = firstLaunch
+            LonghaulCompanionClient.shared.start()
 
             if Defaults[.osdReplacement] {
                 await MediaKeyInterceptor.shared.start(promptIfNeeded: false)

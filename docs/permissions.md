@@ -12,7 +12,8 @@ Nodebay requests permissions only when a selected feature requires them.
 | Microphone or system audio | Audio visualization features | Optional |
 | Network client | Direct user-requested downloads, lyrics, and remote artwork | Feature-dependent |
 | Chrome extension: native messaging | Local communication between explicitly installed Nodebay extension and app | Only for individual browser tabs |
-| Chrome site access | Media state and controls on `www.youtube.com` and `music.youtube.com` | Only for individual browser tabs |
+| Chrome site access | Media state and controls on `www.youtube.com` and `music.youtube.com` | Limited to those two sites |
+| Chrome tab capture | Apply the optional equalizer to one YouTube tab | Only after **Enable EQ for This Tab**; stops on bypass, source change, close, or disconnect |
 
 Accessibility status is checked by the main Nodebay process, the process macOS authorizes. If macOS retains an obsolete permission entry, remove that entry, relaunch the signed `/Applications/Nodebay.app`, and add Nodebay again. The current migration-safe bundle identifier is documented in [migration-from-boring-notch.md](migration-from-boring-notch.md).
 

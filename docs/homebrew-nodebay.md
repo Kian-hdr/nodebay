@@ -2,9 +2,8 @@
 
 Nodebay is distributed as an Apple Silicon cask through `Kian-hdr/homebrew-nodebay`.
 
-The current public cask is 1.1.0. Version 1.2.0 (25) is a local candidate awaiting
-live API verification and release validation. Do not publish a candidate cask
-until its immutable release artifact exists and its downloaded bytes are verified.
+The current cask is **1.2.0 (25)**. The version, immutable release URL and final
+DMG SHA-256 are updated together after artifact verification.
 
 ## Installation
 

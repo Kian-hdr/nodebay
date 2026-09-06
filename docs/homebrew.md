@@ -2,9 +2,8 @@
 
 The official public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed, notarized Apple Silicon GitHub release.
 
-The published cask is currently **1.1.0**. Candidate **1.2.0** remains unpublished
-pending live API verification and the release checks. Homebrew installation does
-not provide candidate-only Quick Chat or Longhaul features from unreleased source.
+The current cask is **1.2.0 (25)**, including optional Quick Chat, available media
+sources and the latest chat and file-drawer fixes.
 
 ```bash
 brew tap Kian-hdr/nodebay
@@ -19,7 +18,7 @@ Homebrew 6 requires the one-time `brew trust` command for third-party casks. Thi
 `zap` is optional and removes Nodebay preferences and caches only when the user explicitly requests it. It does not remove shelf source files, downloads, converted documents, or compressed images.
 
 The cask does not install Codex CLI or Longhaul, create provider accounts, or
-configure API credentials. When a published version includes Quick Chat, it
+configure API credentials. Quick Chat
 defaults to Off; choose the provider in Nodebay settings and enter any API key
 directly in its secure field. OpenAI API billing is separate from ChatGPT
 subscriptions. Use the [setup prompt](../SETUP-PROMPT.md) for a guided installation

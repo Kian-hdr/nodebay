@@ -17,17 +17,18 @@ permissions or configuration you need to complete yourself.
 
 ## Current release status
 
-Nodebay 1.1.0 adds Quick Notes, conservative STL-copy repair, native Markdown Quick Look and improved automatic download classification to the 1.0.0 feature set. Apple Silicon and macOS 15 or later are required. See the [release verification matrix](docs/release-verification-matrix.md) for completed checks and remaining UI/hardware limitations. The optional Browser Media Bridge requires explicit local installation and is never silently enabled.
+Nodebay **1.2.0 (25)** adds optional [Quick Chat](docs/features/quick-chat.md),
+available-source media tabs, clearer API-key setup and message bubbles that fit
+their text. It also includes file-drawer fixes and an optional, separately installed
+[Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
+later are required. Quick Chat defaults to Off; API billing is separate from
+ChatGPT subscriptions.
 
-The **1.2.0 (25)** release candidate adds
-[Quick Chat](docs/features/quick-chat.md), available-source media tabs and an
-optional [Longhaul companion](docs/features/longhaul.md). Quick Chat defaults to
-Off and offers Codex CLI or OpenAI API. The native app passed both a real API
-connection test and a synthetic chat using `gpt-5-mini`. The clearer key field
-and compact message bubble were visually checked, and all 198 tests passed
-after the UI changes. Final artifact signing, notarization and Homebrew
-validation remain pending. The public release and cask remain 1.1.0 until
-publication is completed.
+Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.0)
+or install through the official Homebrew tap. See the
+[verification matrix](docs/release-verification-matrix.md) for completed checks
+and remaining UI/hardware coverage. The optional Browser Media Bridge requires
+explicit local installation and is never silently enabled.
 
 ## Screenshots
 
@@ -37,7 +38,7 @@ publication is completed.
 
 [Native Markdown Quick Look](docs/features/markdown-preview.md) renders `.md` and `.markdown` in Finder with a transparent, selectable native text view, including with Nodebay quit. [Screenshots and verification](docs/markdown-preview-verification.md).
 
-The settings screenshots below are historical captures from earlier Nodebay builds, not evidence of the pending release's version or complete UI verification. Current Markdown preview comparisons are linked above. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after an explicit Chrome installation and end-to-end UI verification pass.
+The settings screenshots below are historical captures from earlier Nodebay builds, not evidence of the current release version or complete UI verification. Current Markdown preview comparisons are linked above. The repository does not use inherited Boring Notch screenshots. Browser-tab screenshots will be added only after an explicit Chrome installation and end-to-end UI verification pass.
 
 | Local engines and conversion | Downloads and safe image copies |
 |---|---|
@@ -75,8 +76,8 @@ The following capabilities are implemented in the current source. Automated chec
 - Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, license links, and safe fixed-package Homebrew setup
 - A real five-band equalizer for supported local shelf audio and explicitly enabled YouTube or YouTube Music tabs; Apple Music, Spotify, and generic System Now Playing audio cannot be equalized
 - XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
-- In the unpublished 1.2.0 candidate, [Quick Chat](docs/features/quick-chat.md) provides temporary conversations through an explicitly selected OpenAI provider, with compact message bubbles that fit their text and optional separately consented Knowledge Folder excerpts
-- In the unpublished 1.2.0 candidate, an optional [Longhaul companion](docs/features/longhaul.md) shows acknowledged automation state; it requires a separate compatible app and explicit pairing, and no public Longhaul installer is available
+- [Quick Chat](docs/features/quick-chat.md) provides temporary conversations through an explicitly selected OpenAI provider, with compact message bubbles that fit their text and optional separately consented Knowledge Folder excerpts
+- an optional [Longhaul companion](docs/features/longhaul.md) shows acknowledged automation state; it requires a separate compatible app and explicit pairing, and no public Longhaul installer is available
 
 ## File safety
 
@@ -96,7 +97,7 @@ Document conversion, image compression, file and stack management, and media pro
 
 Network access is used only by features that inherently need it: yt-dlp connects directly to the URL selected by the user, optional lyrics query LRCLIB, and playback artwork may be loaded from the source-provided URL. Browser-cookie access is disabled by default. The optional Chrome bridge uses native messaging and loopback only; it does not send browser media metadata to a server.
 
-In the 1.2.0 candidate, Quick Chat is off by default. Submitted questions and
+Quick Chat is off by default. Submitted questions and
 temporary conversation context go to OpenAI through the selected provider.
 OpenAI API mode uses a key stored in macOS Keychain and separate API billing;
 a ChatGPT subscription does not provide API credit. Knowledge Folder passages
@@ -126,7 +127,7 @@ Exact Swift package revisions, licenses, source URLs, companion status, the FFmp
 - ImageOptim installed separately for image compression
 - yt-dlp and FFmpeg installed separately for media downloads and conversion
 - Blender 5.0.1 installed separately for the STL Repair feature; it is not bundled or installed by the Nodebay cask
-- For candidate Quick Chat: an explicitly selected provider, either a supported signed Codex CLI with its existing sign-in or an OpenAI API key and usable API billing; neither provider is required for the base app
+- For Quick Chat: an explicitly selected provider, either a supported signed Codex CLI with its existing sign-in or an OpenAI API key and usable API billing; neither provider is required for the base app
 
 Companion installation for development:
 

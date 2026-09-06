@@ -1,10 +1,5 @@
 # Nodebay 1.2.0 for Apple Silicon
 
-**Draft, unpublished.** Real OpenAI API connection validation and native chat
-passed, and the key field and compact message bubble were visually verified.
-Final clean-source packaging, notarization and Homebrew validation remain pending.
-This file must be reconciled with the completed release evidence before publishing.
-
 Nodebay 1.2.0 adds optional Quick Chat, available media-source tabs and refinements
 to the file drawer. Apple Silicon and macOS 15 or later remain required.
 
@@ -29,13 +24,17 @@ field and bubble fixes. The signed Apple Silicon Release build was installed and
 visually checked. A native chat using `gpt-5-mini` answered the synthetic prompt
 **Reply exactly OK.** with **OK**, using the existing saved key and no Knowledge
 Folder. Regression coverage includes short and multiline text, emoji, Arabic,
-long wrapping and resizing. These checks do not establish final artifact
-validation, all supported macOS versions, every accessibility/display
-configuration, Knowledge Folder retrieval or physical sleep behavior.
-See the [verification matrix](release-verification-matrix.md) for current evidence.
+long wrapping and resizing. The final DMG and ZIP are Developer ID signed,
+notarized and stapled, with matching checksums. Installation and real API chat
+passed from the final DMG, preserving existing managed data and AI settings.
+[GitHub CI](https://github.com/Kian-hdr/nodebay/actions/runs/34044567111) passed
+for the exact application-source commit. Other supported macOS versions, every
+accessibility/display configuration, Knowledge Folder retrieval and physical
+sleep behavior were not fully tested.
+See the [verification matrix](https://github.com/Kian-hdr/nodebay/blob/main/docs/release-verification-matrix.md) for current evidence.
 
-The existing public release is available from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/latest)
-and the `Kian-hdr/nodebay` Homebrew tap. The [setup prompt](../SETUP-PROMPT.md)
+The release is available from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.0)
+and the `Kian-hdr/nodebay` Homebrew tap. The [setup prompt](https://github.com/Kian-hdr/nodebay/blob/nodebay-v1.2.0/SETUP-PROMPT.md)
 preserves existing installations and guides secure, optional configuration.
 
 Nodebay remains GPL-3.0 software based on Boring Notch. Required notices are in

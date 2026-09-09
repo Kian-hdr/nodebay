@@ -76,6 +76,10 @@ compatible Blender version. Reuse installed companions and install missing ones
 from their official sources only for features I select. Do not install Blender,
 ImageOptim, or a browser extension merely to prove the base app works.
 
+For media controls, start a harmless local track in the app I want to use and check Nodebay's title, progress, play/pause and source selection. In Settings > Media, inspect source issues and use Refresh Sources if necessary. Guide Automation permission for app-specific controls on this Mac. Do not say music is absent merely because a permission or helper has failed.
+
+For Spotify, QuickTime or identified Chrome EQ, explain that System Audio Recording permission must be granted separately on each Mac. Start local playback, enable EQ, and inspect its actual processing status. If requested, guide me through Screen & System Audio Recording in macOS Settings and then Retry or relaunch. Verify an audible change and bypass restoration; a moving curve alone is not an EQ test. Spotify Connect audio playing on another device is outside local EQ. Preserve volume and playback preferences after testing.
+
 Check the installed release before offering AI setup. Quick Chat is included in
 Nodebay 1.2.0 and later; older releases such as 1.1.0 do not include it.
 Do not install a development build or claim the feature is available merely

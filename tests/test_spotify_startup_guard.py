@@ -30,7 +30,7 @@ class SpotifyStartupGuardTests(unittest.TestCase):
                         query_guard.index("await fetchPlaybackInfoAsync()"))
         self.assertGreater(query_guard.rindex("isActive()"),
                            query_guard.index("await fetchPlaybackInfoAsync()"))
-        failure_path = query_guard.split("else {", 1)[1]
+        failure_path = query_guard.split("catch {", 1)[1]
         self.assertIn("artworkFetchTask?.cancel()", failure_path)
         self.assertIn('playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")', failure_path)
         self.assertIn("return", failure_path)

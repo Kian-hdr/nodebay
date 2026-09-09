@@ -1,5 +1,45 @@
 import Foundation
 
+enum NodebayProcessAudioStatus: Equatable {
+    case idle
+    case checking
+    case active
+    case unavailable(String)
+}
+
+/// Identity matching is bounded to an app or its nested helpers. A similarly
+/// named process, sibling installation, or unrelated bundle is never enough.
+enum NodebayAudioProcessIdentity {
+    static func matches(bundleID: String?, bundlePath: String?, requestedID: String,
+                        applicationPaths: [String]) -> Bool {
+        if let bundleID, bundleID == requestedID || bundleID.hasPrefix(requestedID + ".") {
+            return true
+        }
+        guard let bundlePath else { return false }
+        return applicationPaths.contains { root in
+            bundlePath == root || bundlePath.hasPrefix(root + "/Contents/")
+        }
+    }
+}
+
+/// A callback running successfully does not prove that macOS supplied audio.
+/// Probe without muting and require a usable signal before taking over output.
+struct NodebayProcessAudioHealth {
+    enum Decision: Equatable { case wait, activate, restore, fail }
+    var lastCallback: TimeInterval?
+    var lastSignal: TimeInterval?
+    var invalidLayout = false
+
+    func decision(now: TimeInterval, startedAt: TimeInterval, routed: Bool) -> Decision {
+        if invalidLayout { return .fail }
+        if let lastCallback, now - lastCallback > 1 { return .fail }
+        if let lastSignal, now - lastSignal < 0.5 { return routed ? .wait : .activate }
+        if routed, now - (lastSignal ?? startedAt) > 1 { return .restore }
+        if !routed, now - startedAt > 12 { return .fail }
+        return .wait
+    }
+}
+
 enum NodebayEqualizerPreset: String, CaseIterable, Identifiable, Codable {
     case flat = "Flat"
     case bassBoost = "Bass Boost"

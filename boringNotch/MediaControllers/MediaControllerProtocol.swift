@@ -13,6 +13,7 @@ protocol MediaControllerProtocol: ObservableObject {
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> { get }
     var supportsVolumeControl: Bool { get }
     var supportsFavorite: Bool { get }
+    var playbackIssue: String? { get }
     
     func setFavorite(_ favorite: Bool) async
     func play() async
@@ -26,4 +27,18 @@ protocol MediaControllerProtocol: ObservableObject {
     func setVolume(_ level: Double) async
     func isActive() -> Bool
     func updatePlaybackInfo() async
+}
+
+extension MediaControllerProtocol {
+    var playbackIssue: String? { nil }
+}
+
+enum MediaPlaybackIssue {
+    static func message(for error: Error, applicationName: String) -> String {
+        let error = error as NSError
+        if error.domain == AppleScriptHelper.errorDomain && [-1743, -1744].contains(error.code) {
+            return "Allow Nodebay to control \(applicationName) in System Settings > Privacy & Security > Automation, then refresh media sources."
+        }
+        return "Nodebay could not read \(applicationName)'s playback. Try refreshing media sources."
+    }
 }

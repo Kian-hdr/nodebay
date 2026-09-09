@@ -56,6 +56,23 @@ struct Media: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                ForEach(MediaControllerType.allCases) { type in
+                    if let issue = musicManager.mediaSourceIssues[type] {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(type.localizedString).font(.headline)
+                            Text(issue).font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                HStack {
+                    Button("Refresh Sources") { musicManager.refreshMediaSources() }
+                    Button("Automation Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
             } header: {
                 Text("Media Source")
             } footer: {
@@ -73,7 +90,7 @@ struct Media: View {
                     }
                 } else {
                     Text(
-                        "'Now Playing' was the only option on previous versions and works with all media apps."
+                        "Now Playing detects media published by macOS. App-specific controls may also need Automation permission."
                     )
                     .foregroundStyle(.secondary)
                     .font(.caption)

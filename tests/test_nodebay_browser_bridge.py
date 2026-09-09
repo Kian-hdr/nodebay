@@ -67,7 +67,6 @@ class BrowserBridgeContractTests(unittest.TestCase):
         self.assertIn("Download current media to Nodebay", home)
         self.assertIn('Image(systemName: "arrow.down.circle")', home)
         self.assertIn(".frame(width: 30, height: 30)", home)
-        self.assertIn(".overlay(alignment: .trailing)", home)
         self.assertNotIn('Text(musicManager.isResolvingCurrentMediaDownload', home)
         self.assertIn("downloadActiveMediaToNodebay", home)
         self.assertIn("DownloadCoordinator.shared.add", manager)

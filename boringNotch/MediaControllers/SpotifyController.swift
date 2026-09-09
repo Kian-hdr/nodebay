@@ -30,6 +30,8 @@ class SpotifyController: MediaControllerProtocol {
     var supportsFavorite: Bool { false }
 
     private var notificationTask: Task<Void, Never>?
+    private var refreshInFlight = false
+    private(set) var playbackIssue: String?
     
     // Constant for time between command and update
     private let commandUpdateDelay: Duration = .milliseconds(25)
@@ -96,19 +98,44 @@ class SpotifyController: MediaControllerProtocol {
         NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == playbackState.bundleIdentifier }
     }
     
+    @MainActor
     func updatePlaybackInfo() async {
+        guard !refreshInFlight else { return }
+        refreshInFlight = true
+        defer { refreshInFlight = false }
         // Never resolve or launch Spotify implicitly. Sending AppleScript to a
         // missing application can display a connection/application picker on
         // every Nodebay launch.
-        guard isActive(),
-              let descriptor = try? await fetchPlaybackInfoAsync(),
-              descriptor.numberOfItems >= 10, isActive() else {
+        guard isActive() else {
+            playbackIssue = nil
             artworkFetchTask?.cancel()
             artworkFetchTask = nil
             lastArtworkURL = nil
             playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")
             return
         }
+        let descriptor: NSAppleEventDescriptor
+        do {
+            guard let snapshot = try await fetchPlaybackInfoAsync(),
+                  snapshot.numberOfItems >= 10, isActive() else {
+                playbackIssue = nil
+                artworkFetchTask?.cancel()
+                artworkFetchTask = nil
+                lastArtworkURL = nil
+                playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")
+                return
+            }
+            descriptor = snapshot
+            playbackIssue = nil
+        } catch {
+            playbackIssue = isActive() ? MediaPlaybackIssue.message(for: error, applicationName: "Spotify") : nil
+            artworkFetchTask?.cancel()
+            artworkFetchTask = nil
+            lastArtworkURL = nil
+            playbackState = PlaybackState(bundleIdentifier: "com.spotify.client")
+            return
+        }
+
         
         let isPlaying = descriptor.atIndex(1)?.booleanValue ?? false
         let currentTrack = descriptor.atIndex(2)?.stringValue ?? ""
@@ -141,7 +168,7 @@ class SpotifyController: MediaControllerProtocol {
             state.artwork = existingArtwork
         }
 
-    playbackState = state
+        playbackState = state
 
         if !artworkURL.isEmpty, let url = URL(string: artworkURL) {
             guard artworkURL != lastArtworkURL || state.artwork == nil else { return }
@@ -201,10 +228,14 @@ class SpotifyController: MediaControllerProtocol {
                 set shuffleState to shuffling
                 set repeatState to repeating
                 set currentVolume to sound volume
-                set artworkURL to artwork url of current track
+                set artworkURL to ""
+                try
+                    set artworkURL to artwork url of current track
+                end try
                 return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatState, currentVolume, artworkURL}
-            on error
-                return {false, "", "", "", 0, 0, false, false, 50, ""}
+            on error errorMessage number errorNumber
+                if errorNumber is -1728 then return {}
+                error errorMessage number errorNumber
             end try
         end tell
         """

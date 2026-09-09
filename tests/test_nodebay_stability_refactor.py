@@ -17,7 +17,7 @@ class NodebayStabilityRefactorTests(unittest.TestCase):
         self.assertNotIn("Task.detached", APPLE_SCRIPT)
 
     def test_now_playing_stream_does_not_own_controller(self) -> None:
-        self.assertIn("Task { [weak self, pipeHandler] in", NOW_PLAYING)
+        self.assertRegex(NOW_PLAYING, r"streamTask = Task \{ \[weak self, \w+\] in")
         self.assertIn("func shutdown()", NOW_PLAYING)
         self.assertNotIn("await self?.processJSONStream()", NOW_PLAYING)
 

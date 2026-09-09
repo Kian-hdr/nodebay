@@ -17,14 +17,14 @@ permissions or configuration you need to complete yourself.
 
 ## Current release status
 
-Nodebay **1.2.0 (25)** adds optional [Quick Chat](docs/features/quick-chat.md),
+Nodebay **1.2.1 (26)** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
 available-source media tabs, clearer API-key setup and message bubbles that fit
 their text. It also includes file-drawer fixes and an optional, separately installed
 [Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
 later are required. Quick Chat defaults to Off; API billing is separate from
 ChatGPT subscriptions.
 
-Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.0)
+Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.1)
 or install through the official Homebrew tap. See the
 [verification matrix](docs/release-verification-matrix.md) for completed checks
 and remaining UI/hardware coverage. The optional Browser Media Bridge requires
@@ -74,7 +74,7 @@ The following capabilities are implemented in the current source. Automated chec
 - Independent Apple Music, Spotify, YouTube Music, and system Now Playing source state with an explicit active control target
 - Optional independent Chrome tab sources for playable YouTube and YouTube Music tabs through a local first-party bridge
 - Provider-registry settings for engines, converters, diagnostics, versions, privacy behavior, license links, and safe fixed-package Homebrew setup
-- A real five-band equalizer for supported local shelf audio and explicitly enabled YouTube or YouTube Music tabs; Apple Music, Spotify, and generic System Now Playing audio cannot be equalized
+- A real five-band equalizer for local shelf audio, Spotify, QuickTime Player and identified Chrome audio; external apps require System Audio Recording permission on each Mac. Apple Music and unidentified System Now Playing sources remain unsupported.
 - XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
 - [Quick Chat](docs/features/quick-chat.md) provides temporary conversations through an explicitly selected OpenAI provider, with compact message bubbles that fit their text and optional separately consented Knowledge Folder excerpts
 - an optional [Longhaul companion](docs/features/longhaul.md) shows acknowledged automation state; it requires a separate compatible app and explicit pairing, and no public Longhaul installer is available
@@ -155,13 +155,12 @@ For manual installation, download the Apple Silicon DMG from [Nodebay Releases](
 
 ## Build from source
 
-Prerequisites: Xcode 26 or later, Homebrew Python 3.13, and Apple Silicon.
+Prerequisites: Xcode 26 or later, a Python 3 interpreter for build tooling, and Apple Silicon. The runtime builder downloads and verifies the pinned Python.org installer, extracts an arm64 interpreter into a private build cache, and leaves system Python unchanged.
 
 ```bash
 git clone https://github.com/Kian-hdr/nodebay.git
 cd nodebay
 git switch dev
-brew install python@3.13
 ./scripts/build_markitdown_runtime.sh
 ./scripts/test_markitdown_runtime.sh
 ./scripts/test_downloader_local.sh
@@ -199,8 +198,8 @@ The script asks Xcode to sign the app and XPC service with their target entitlem
 Verify the resulting archive before notarization:
 
 ```bash
-EXPECTED_VERSION=1.2.0 EXPECTED_BUILD=25 \
-./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.0-arm64.zip
+EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=26 \
+./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.1-arm64.zip
 ```
 
 After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and staple validation.

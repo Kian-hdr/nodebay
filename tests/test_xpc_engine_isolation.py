@@ -30,7 +30,7 @@ class XPCEngineIsolationTests(unittest.TestCase):
     def test_all_processing_services_use_the_xpc_path(self):
         self.assertIn('runApproved(\n            engine: "yt-dlp"', DOWNLOADER)
         self.assertIn('runApproved(\n            engine: "markitdown"', CONVERTER)
-        self.assertIn('runApproved(\n                engine: "imageoptim"', IMAGEOPTIM)
+        self.assertIn('runApproved(\n            engine: "imageoptim"', IMAGEOPTIM)
 
 
 if __name__ == "__main__":

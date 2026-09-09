@@ -31,6 +31,20 @@ struct NowPlayingStateHarness {
         print("PASS new owner cannot inherit another source's title, artwork or timeline")
 
         await controller.handleAdapterUpdate(try update("""
+        {"diff":false,"payload":{"bundleIdentifier":"chat.player","processIdentifier":123,"playing":true}}
+        """))
+        precondition(controller.playbackState.title.isEmpty && controller.playbackState.hasMedia)
+        await controller.handleAdapterUpdate(try update("""
+        {"diff":false,"payload":{"bundleIdentifier":"chat.player","processIdentifier":123,"playing":false}}
+        """))
+        precondition(!controller.playbackState.isPlaying && controller.playbackState.hasMedia)
+        await controller.handleAdapterUpdate(try update("""
+        {"diff":false,"payload":{"bundleIdentifier":"chat.player","processIdentifier":124,"playing":false}}
+        """))
+        precondition(!controller.playbackState.hasMedia)
+        print("PASS untitled playback survives pause while an unrelated idle client remains unavailable")
+
+        await controller.handleAdapterUpdate(try update("""
         {"diff":false,"payload":{}}
         """))
         precondition(!controller.playbackState.hasMedia)

@@ -33,6 +33,24 @@ struct MusicPlayerView: View {
     }
 }
 
+// Intrinsic-height rows keep source tabs, optional lyrics, the timeline and controls separate.
+// Geometry is observed by the caller only for marquee width, never used as a flexible row.
+struct MusicPlayerColumn<Info: View, Timeline: View, Controls: View>: View {
+    @ViewBuilder var info: () -> Info
+    @ViewBuilder var timeline: () -> Timeline
+    @ViewBuilder var controls: () -> Controls
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            info().fixedSize(horizontal: false, vertical: true)
+            timeline().fixedSize(horizontal: false, vertical: true)
+            controls().fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 struct AlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: BoringViewModel
@@ -126,25 +144,20 @@ struct MusicControlsView: View {
     @State private var showEqualizer = false
     @Default(.musicControlSlots) private var slotConfig
     @Default(.musicControlSlotLimit) private var slotLimit
+    @State private var controlsWidth: CGFloat = 1
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            songInfoAndSlider
+        MusicPlayerColumn {
+            songInfo(width: max(1, controlsWidth - 5))
+        } timeline: {
+            musicSlider
+        } controls: {
             slotToolbar
                 .disabled(musicManager.selectableSourceChoices.isEmpty)
         }
-        .buttonStyle(PlainButtonStyle())
-    }
-
-    private var songInfoAndSlider: some View {
-        GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 4) {
-                songInfo(width: geo.size.width)
-                musicSlider
-            }
-        }
-        .padding(.top, 10)
         .padding(.leading, 5)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { controlsWidth = $0 }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func songInfo(width: CGFloat) -> some View {
@@ -155,54 +168,58 @@ struct MusicControlsView: View {
                         ? (musicManager.selectableSourceChoices.isEmpty ? "Nothing playing" : "Untitled media")
                         : musicManager.songTitle,
                         font: .headline, color: .white, frameWidth: width)
-            MarqueeText(
-                musicManager.artistName,
-                font: .headline,
-                color: Defaults[.playerColorTinting]
-                    ? Color(nsColor: musicManager.avgColor)
-                        .ensureMinimumBrightness(factor: 0.6) : .gray,
-                frameWidth: width
-            )
-            .fontWeight(.medium)
-            if Defaults[.enableLyrics] {
-                TimelineView(.animation(minimumInterval: 0.25)) { timeline in
-                    let currentElapsed: Double = {
-                        guard musicManager.isPlaying else { return musicManager.elapsedTime }
-                        let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
-                        let progressed = musicManager.elapsedTime + (delta * musicManager.playbackRate)
-                        return min(max(progressed, 0), musicManager.songDuration)
-                    }()
-                    let lyricDisplay: (line: String, displayDuration: Double?, animationID: Double?) = {
-                        if LyricsService.shared.isFetchingLyrics { return ("Loading lyrics…", nil, nil) }
-                        if !LyricsService.shared.syncedLyrics.isEmpty {
-                            let context = LyricsService.shared.lyricLineContext(at: currentElapsed)
-                            let displayDuration = context.endTime.map { max($0 - currentElapsed, 0) }
-                            return (context.text, displayDuration, context.startTime)
+            HStack(spacing: 8) {
+                MarqueeText(
+                    musicManager.artistName,
+                    font: .headline,
+                    color: Defaults[.playerColorTinting]
+                        ? Color(nsColor: musicManager.avgColor)
+                            .ensureMinimumBrightness(factor: 0.6) : .gray,
+                    frameWidth: Defaults[.enableLyrics] ? max(1, (width - 8) * 0.4) : width
+                )
+                .frame(width: Defaults[.enableLyrics] ? max(1, (width - 8) * 0.4) : width)
+                .fontWeight(.medium)
+                if Defaults[.enableLyrics] {
+                    TimelineView(.animation(minimumInterval: 0.25)) { timeline in
+                        let currentElapsed: Double = {
+                            guard musicManager.isPlaying else { return musicManager.elapsedTime }
+                            let delta = timeline.date.timeIntervalSince(musicManager.timestampDate)
+                            let progressed = musicManager.elapsedTime + (delta * musicManager.playbackRate)
+                            return min(max(progressed, 0), musicManager.songDuration)
+                        }()
+                        let lyricDisplay: (line: String, displayDuration: Double?, animationID: Double?) = {
+                            if LyricsService.shared.isFetchingLyrics { return ("Loading lyrics…", nil, nil) }
+                            if !LyricsService.shared.syncedLyrics.isEmpty {
+                                let context = LyricsService.shared.lyricLineContext(at: currentElapsed)
+                                let displayDuration = context.endTime.map { max($0 - currentElapsed, 0) }
+                                return (context.text, displayDuration, context.startTime)
+                            }
+                            let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let line = trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
+                            return (line, nil, nil)
+                        }()
+                        let line = lyricDisplay.line
+                        let isPersian = line.unicodeScalars.contains { scalar in
+                            let v = scalar.value
+                            return v >= 0x0600 && v <= 0x06FF
                         }
-                        let trimmed = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let line = trimmed.isEmpty ? "No lyrics found" : trimmed.replacingOccurrences(of: "\n", with: " ")
-                        return (line, nil, nil)
-                    }()
-                    let line = lyricDisplay.line
-                    let isPersian = line.unicodeScalars.contains { scalar in
-                        let v = scalar.value
-                        return v >= 0x0600 && v <= 0x06FF
+                        let lyricFont: Font = isPersian
+                            ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize)
+                            : .subheadline
+                        TimedLyricText(
+                            line,
+                            font: lyricFont,
+                            nsFont: .subheadline,
+                            color: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
+                            displayDuration: lyricDisplay.displayDuration,
+                            animationID: lyricDisplay.animationID,
+                            frameWidth: max(1, (width - 8) * 0.6)
+                        )
+                        .lineLimit(1)
+                        .opacity(musicManager.isPlaying ? 1 : 0)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-                    let lyricFont: Font = isPersian
-                        ? .custom("Vazirmatn-Regular", size: NSFont.preferredFont(forTextStyle: .subheadline).pointSize)
-                        : .subheadline
-                    TimedLyricText(
-                        line,
-                        font: lyricFont,
-                        nsFont: .subheadline,
-                        color: musicManager.isFetchingLyrics ? .gray.opacity(0.7) : .gray,
-                        displayDuration: lyricDisplay.displayDuration,
-                        animationID: lyricDisplay.animationID,
-                        frameWidth: width
-                    )
-                    .lineLimit(1)
-                    .opacity(musicManager.isPlaying ? 1 : 0)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .frame(width: max(1, (width - 8) * 0.6))
                 }
             }
         }
@@ -256,29 +273,33 @@ struct MusicControlsView: View {
             ) { newValue in
                 MusicManager.shared.seek(to: newValue)
             }
-            .padding(.top, 5)
-            .frame(height: 36)
+            .frame(height: 26)
             .disabled(musicManager.selectableSourceChoices.isEmpty)
         }
     }
 
     private var slotToolbar: some View {
         let slots = activeSlots
-        return HStack(spacing: 6) {
-            ForEach(Array(slots.enumerated()), id: \.offset) { index, slot in
-                slotView(for: slot)
-                    .frame(alignment: .center)
+        let accessoriesWidth: CGFloat = musicManager.canDownloadActiveMedia ? 62 : 30
+        return HStack(spacing: 8) {
+            // Accessories participate in layout so expanded volume/custom slots cannot overlap them.
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(Array(slots.enumerated()), id: \.offset) { _, slot in
+                        slotView(for: slot)
+                    }
+                }
+                .frame(minWidth: max(0, controlsWidth - 5 - accessoriesWidth - 8), minHeight: 40)
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .overlay(alignment: .trailing) {
+            .scrollIndicators(.hidden)
+            .frame(height: 40)
             HStack(spacing: 2) {
                 EqualizerControl(isPresented: $showEqualizer)
                 if musicManager.canDownloadActiveMedia {
                     currentMediaDownloadButton
                 }
             }
-            .padding(.trailing, 4)
+            .fixedSize()
         }
     }
 
@@ -502,10 +523,19 @@ private struct EqualizerPopover: View {
                 .disabled(equalizer.isBypassed)
                 .opacity(equalizer.isBypassed ? 0.45 : 1)
 
-                Text("Processing locally")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                Text(equalizer.processingMessage(for: source))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if equalizer.canRetryProcessing(for: source) {
+                    HStack {
+                        Button("Retry") { equalizer.retryProcessing(for: source) }
+                        Button("Audio Recording Settings") { equalizer.openAudioRecordingSettings() }
+                        Spacer()
+                    }
+                    .controlSize(.small)
+                }
             } else {
                 ContentUnavailableView(
                     "Equalizer Unavailable",
@@ -697,7 +727,7 @@ private struct MediaSourcePicker: View {
                     .padding(.horizontal, 2)
                 }
                 .scrollIndicators(.hidden)
-                .frame(height: 24)
+                .frame(height: 20)
                 .onChange(of: musicManager.activeSourceID) { _, selected in
                     proxy.scrollTo(selected)
                 }
@@ -914,7 +944,7 @@ struct MusicSliderView: View {
 
 
     var body: some View {
-        VStack {
+        VStack(spacing: 2) {
             CustomSlider(
                 value: $sliderValue,
                 range: 0...duration,

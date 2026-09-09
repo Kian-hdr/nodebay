@@ -13,23 +13,19 @@ required_python_version="3.13.15"
 required_pip_version="26.2.1"
 if [[ -n "${PYTHON_COMMAND:-}" ]]; then
     python_command="$PYTHON_COMMAND"
-elif command -v brew >/dev/null 2>&1; then
-    python_command="$(brew --prefix python@3.13)/bin/python3.13"
 else
-    python_command="${commands[python3.13]:-python3.13}"
+    python_command=$(python3 "$script_dir/prepare_python_runtime.py")
 fi
 if [[ -n "${PYTHON_LICENSE:-}" ]]; then
     python_license="$PYTHON_LICENSE"
-elif command -v brew >/dev/null 2>&1; then
-    python_license="$(brew --prefix python@3.13)/LICENSE"
 else
-    python_license="$(dirname "$(dirname "$(realpath "$python_command")")")/LICENSE"
+    python_license=$($python_command -c 'import pathlib, sys; print(pathlib.Path(sys.base_prefix) / "lib/python3.13/LICENSE.txt")')
 fi
 
 if [[ ! -x "$python_command" ]]; then
     print -u2 "CPython $required_python_version is required at $python_command."
-    print -u2 "Install it with: brew install python@3.13"
-    print -u2 "Set PYTHON_COMMAND to an equivalent interpreter if necessary."
+    print -u2 "Run scripts/prepare_python_runtime.py for the compatible Python.org interpreter."
+    print -u2 "An explicit PYTHON_COMMAND must preserve the macOS 15 deployment floor."
     exit 1
 fi
 
@@ -54,7 +50,8 @@ fi
 mkdir -p "$build_root" "$vendor_parent"
 
 lock_digest=$(shasum -a 256 "$requirements_file" | awk '{print $1}')
-venv_stamp="$venv_root/.boring-notch-lock-$lock_digest"
+interpreter_digest=$("$python_command" -c 'import hashlib, pathlib, sys; p=pathlib.Path(sys.base_prefix); print(hashlib.sha256((str(p)+sys.version).encode()).hexdigest())')
+venv_stamp="$venv_root/.boring-notch-lock-$lock_digest-$interpreter_digest"
 if [[ ! -f "$venv_stamp" ]]; then
     if [[ -d "$venv_root" ]]; then
         rm -rf "$venv_root"
@@ -80,6 +77,8 @@ rm -rf "$dist_root" "$build_root/work" "$build_root/markitdown-local.spec"
     --noconfirm \
     --clean \
     --onedir \
+    --target-architecture arm64 \
+    --exclude-module tkinter \
     --name markitdown-local \
     --distpath "$dist_root" \
     --workpath "$build_root/work" \
@@ -100,6 +99,7 @@ cp "$project_root/THIRD_PARTY_LICENSES_MARKITDOWN" "$staged_runtime/THIRD_PARTY_
 print '# Generated runtime contents are intentionally excluded from Git.' > "$staged_runtime/.gitkeep"
 chmod 755 "$staged_runtime/markitdown-local"
 xattr -cr "$staged_runtime"
+python3 "$script_dir/verify_runtime_compatibility.py" "$staged_runtime" --maximum-macos 15.0
 
 while IFS= read -r binary; do
     codesign --force --sign - "$binary"

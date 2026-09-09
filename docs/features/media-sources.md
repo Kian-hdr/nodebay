@@ -12,7 +12,15 @@ Extension installation and the two-site permission are explicit. If the extensio
 
 Now Playing shows a download control for a connected YouTube or YouTube Music tab and for Chrome media reported through System Now Playing. Nodebay first matches a unique browser-bridge session by title. If necessary, pressing Download performs a local, user-initiated Apple Event query for YouTube tab titles and URLs and accepts only one matching tab. It then sends that URL to the normal downloader and switches to the shelf so format selection and progress remain visible. The control is hidden for Apple Music, Spotify, and sources that cannot be resolved safely.
 
-## Local verification, 2026-09-06
+## Recovery and recipient-Mac setup in 1.2.1
+
+Media discovery starts immediately and retries after its helper exits. A synthetic diagnostic self-test no longer permanently disables the Now Playing source. App-specific Automation failures appear in Settings > Media with a Refresh Sources action; permission decisions are separate on each Mac. A current full snapshot clears stopped sessions, while transient helper failures get bounded recovery.
+
+The pinned MediaRemoteAdapter v0.7.7 supports real active clients without a title, including untagged audio shared in chat apps. Nodebay displays Untitled media and preserves a paused session only when it belongs to the same known client. Empty or incomplete client snapshots still clear the source. It never manufactures a track title.
+
+The player retains its original 640 × 190 notch size. Intrinsic rows separate tabs, metadata, timeline and controls; optional lyrics share the artist row. EQ/download accessories occupy their own toolbar space; long custom control rows scroll instead of overlapping them.
+
+## Historical local verification, 2026-09-06
 
 - All 197 repository tests passed. Compiled behavioral harnesses cover empty/closed sources, paused sessions, source fallback, exact and ambiguous browser identities, and cross-app metadata updates. QuickTime's five concrete scripts passed native AppleScript compilation without executing playback commands.
 - The Developer ID arm64 Release build passed and was installed locally as 1.2.0 (25). Deep strict signature verification passed, the designated requirement was retained, and built/installed binary hashes matched.

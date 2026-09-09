@@ -40,6 +40,12 @@ enum ImageOptimCompressionError: LocalizedError {
 
 actor ImageOptimCompressionService {
     static let shared = ImageOptimCompressionService()
+    private let outputRoot: URL
+
+    init(outputRoot: URL? = nil) {
+        self.outputRoot = outputRoot ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Nodebay/Generated Images", isDirectory: true)
+    }
 
     static let supportedExtensions: Set<String> = ["jpg", "jpeg", "png", "gif"]
     static let appURL = URL(fileURLWithPath: "/Applications/ImageOptim.app")
@@ -54,53 +60,67 @@ actor ImageOptimCompressionService {
     }
 
     func compressCopy(of sourceURL: URL, suffix: String = "optimized") async throws -> ImageCompressionResult {
+        try Task.checkCancellation()
         guard Self.isInstalled else { throw ImageOptimCompressionError.unavailable }
         guard Self.supports(sourceURL) else { throw ImageOptimCompressionError.unsupportedFormat }
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else { throw ImageOptimCompressionError.sourceUnavailable }
-
-        let originalSize = try sourceURL.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init) ?? 0
-        let outputURL = try sourceURL.accessSecurityScopedResource { accessibleURL in
-            let destination = collisionSafeURL(for: accessibleURL, suffix: suffix)
-            do {
-                try FileManager.default.copyItem(at: accessibleURL, to: destination)
-                return destination
-            } catch {
-                throw ImageOptimCompressionError.copyFailed(error.localizedDescription)
-            }
+        let outputURL = collisionSafeURL(for: sourceURL, suffix: suffix)
+        var createdCopy = false
+        var retained = false
+        defer {
+            if createdCopy && !retained { try? FileManager.default.removeItem(at: outputURL) }
         }
 
         do {
-            let result = try await SafeProcessRunner.runApproved(
-                engine: "imageoptim",
-                executable: Self.executableURL,
-                arguments: [outputURL.path],
-                timeout: .seconds(600),
-                maximumLogBytes: 16_384
-            )
-            guard result.exitCode == 0 else {
-                throw ImageOptimCompressionError.optimizationFailed(result.standardError)
+            // A file grant does not grant write access to its parent directory.
+            // Keep every source read inside the grant and create the result in our container.
+            try sourceURL.accessSecurityScopedResource { accessibleURL in
+                guard FileManager.default.fileExists(atPath: accessibleURL.path) else {
+                    throw ImageOptimCompressionError.sourceUnavailable
+                }
+                try FileManager.default.createDirectory(at: outputRoot, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: accessibleURL.resolvingSymlinksInPath(), to: outputURL)
+                createdCopy = true
             }
-            guard let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
-                  CGImageSourceGetCount(source) > 0 else {
-                throw ImageOptimCompressionError.invalidResult
-            }
-            let compressedSize = try outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init) ?? 0
-            return ImageCompressionResult(
-                sourceURL: sourceURL,
-                outputURL: outputURL,
-                originalSize: originalSize,
-                compressedSize: compressedSize,
-                metadataStatus: "Controlled by ImageOptim preferences",
-                compressionMode: "Controlled by ImageOptim preferences"
-            )
-        } catch {
-            try? FileManager.default.removeItem(at: outputURL)
+            // A read-only original can still produce a writable, independent copy.
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: outputURL.path)
+        } catch let error as ImageOptimCompressionError {
             throw error
+        } catch {
+            throw ImageOptimCompressionError.copyFailed(error.localizedDescription)
         }
+
+        let originalSize = (try FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? NSNumber)?.int64Value ?? 0
+        try Task.checkCancellation()
+        let result = try await SafeProcessRunner.runApproved(
+            engine: "imageoptim",
+            executable: Self.executableURL,
+            arguments: [outputURL.path],
+            timeout: .seconds(600),
+            maximumLogBytes: 16_384
+        )
+        try Task.checkCancellation()
+        guard result.exitCode == 0 else {
+            throw ImageOptimCompressionError.optimizationFailed(result.standardError)
+        }
+        guard let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
+              CGImageSourceGetCount(source) > 0 else {
+            throw ImageOptimCompressionError.invalidResult
+        }
+        // ImageOptim changes the file in another process; bypass URL's cached resource values.
+        let compressedSize = (try FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? NSNumber)?.int64Value ?? 0
+        retained = true
+        return ImageCompressionResult(
+            sourceURL: sourceURL,
+            outputURL: outputURL,
+            originalSize: originalSize,
+            compressedSize: compressedSize,
+            metadataStatus: "Controlled by ImageOptim preferences",
+            compressionMode: "Controlled by ImageOptim preferences"
+        )
     }
 
     private func collisionSafeURL(for source: URL, suffix: String) -> URL {
-        let directory = source.deletingLastPathComponent()
+        let directory = outputRoot
         let stem = source.deletingPathExtension().lastPathComponent
         let ext = source.pathExtension
         let safeSuffix = suffix

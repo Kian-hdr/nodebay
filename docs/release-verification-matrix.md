@@ -1,12 +1,12 @@
 # Nodebay release verification
 
-## Nodebay 1.2.1 (28): updater candidate, 2026-09-09
+## Nodebay 1.2.1 (28): published release, 2026-09-09
 
-**UNPUBLISHED stable release candidate.** Build 28 was packaged from clean source
+**GitHub release published at 21:29:13 UTC; the matching Homebrew cask and stable feed are public.** Build 28 was packaged from clean source
 `8b2356b72d5f0afa99389041c30164f0cff35bb8`. Its app and DMG are signed,
 Apple-notarized and stapled. The separate testing feed and prerelease passed
-installed build 27 → 28 acceptance; the stable GitHub release, feed and
-Homebrew publication remain pending. Build 26 below is historical and superseded.
+installed build 27 → 28 acceptance. The production signed feed, anonymous archive
+checks, Homebrew upgrade and non-zap reinstall passed. Build 26 below is historical and superseded.
 The original 640 × 190 notch dimensions remain fixed.
 
 | Check | Status | Evidence / limit |
@@ -15,7 +15,7 @@ The original 640 × 190 notch dimensions remain fixed.
 | Automated suite | Passed with disclosed skips | The full run discovered 251 tests and completed in 62.789 seconds with two optional Sparkle-tool checks skipped. A separate final 19-test feed run passed in 1.524 seconds with the actual pinned tools, including two later-added review regressions. This is not a claim of one complete 253-test run |
 | Independent CI | Passed | [Run 34404354725](https://github.com/Kian-hdr/nodebay/actions/runs/34404354725) succeeded for exact source `8b2356b72d5f0afa99389041c30164f0cff35bb8`, completed 2026-09-09 at 21:08:17 UTC |
 | Nodebay signing key | Passed | Actual pinned Sparkle 2.9.5 and independent CryptoKit verification agree; both reject modified feed bytes. Private key stays outside source |
-| Signed feed and publication safeguards | Passed focused tests and local preparation | Actual Sparkle feed generation/signing, public-key verification, monotonic versions, immutable asset URLs, truncated/interrupted transfers, strict item/enclosure interpretation and publishing the exact verified bytes. A disposable Git fixture verifies atomic feed/manifest publication and rejection of concurrent overwrite. Stable hosted feed verification remains pending |
+| Signed feed and publication safeguards | Passed focused tests and hosted verification | Actual Sparkle feed generation/signing, public-key verification, monotonic versions, immutable asset URLs, truncated/interrupted transfers, strict item/enclosure interpretation and publishing the exact verified bytes. A disposable Git fixture verifies atomic feed/manifest publication and rejection of concurrent overwrite. The canonical stable HTTPS feed and anonymously downloaded production ZIP passed signature, length, hash, source/tag and notarization validation |
 | Updater policy, privacy and branding | Passed | 20 focused tests, including compiled policy behavior for legacy choice, opt-out, configured feed and active-work gates |
 | Shelf persistence and overlapping activity | Passed | Four ordering/recovery tests and two activity cases; all 18 sampled managed files were unchanged across the native 27 → 28 update |
 | Final app and ZIP | Passed artifact checks | Developer ID team `HZWY8HT54D`, hardened runtime, nested signatures/timestamps, stable designated requirement, preview sandbox, notices and release metadata verified. App notarization Accepted: `45d3c9fc-f9be-4eac-948d-e645d2b6ae02`; stapled app and Gatekeeper passed. Final ZIP contains only Nodebay.app and passed the release verifier |
@@ -26,7 +26,7 @@ The original 640 × 190 notch dimensions remain fixed.
 | Older build 27 to unchanged production build 28 | Passed on this Mac | Native Check for Updates → Install Update → full download → extraction → Ready to Install → Install and Relaunch completed through the testing feed. Installed version is 1.2.1 (28), using the stable feed; its main executable matches the final production artifact SHA-256 below. Installed signature and staple verified |
 | Post-update API and data continuity | Passed on this Mac | Real OpenAI Responses API validation with gpt-5-mini passed after relaunch using the saved Keychain key, without re-entry. All 18 sampled managed files remained byte-identical, with no additions or removals. Captured preference changes were limited to last-check time, the explicit updater choice and persisting the restored Follow active display setting |
 | Recovery after negative fixture | Passed | The later error at 23:20:51 local time still referenced the cached 1 MiB truncated fixture. A graceful restart and fresh canonical signed-feed check downloaded the full production ZIP and completed the update. Signature requirements remained enabled throughout |
-| Stable GitHub release, signed feed and Homebrew | Pending | Verify published immutable bytes, stable signed feed, cask checksum/audit and real upgrade/non-zap reinstall before marking publication complete |
+| Stable GitHub release, signed feed and Homebrew | Passed | Immutable release assets match final hashes; signed stable feed passed online/hosted validation. Published cask and both setup prompts match source bytes. Strict online cask audit passed. Homebrew receipt 1.2.0 → 1.2.1 upgrade and non-zap uninstall/reinstall passed on this Mac; all 18 managed files preserved. Installed signatures, staple, Gatekeeper, launch and saved-key API validation passed. Installed preview registration was removed on uninstall and restored on reinstall. Native stable check reports You’re up to date. This is a same-account test, not a clean-account or recipient-Mac test |
 
 Final build 28 artifact fields:
 
@@ -36,8 +36,8 @@ Final build 28 artifact fields:
 | Packaged and post-update installed main executable SHA-256 | `c94ab468c691d5b7b967a69c989b54b99aef68208dda63ee2af8e245ba76e4f4` |
 | `Nodebay-1.2.1-arm64.dmg` | SHA-256 `36dfbedca999208f4808ff10f3f0767743f0b186c82eacf0b3494a4bcec47565`; 87,629,372 bytes |
 | `Nodebay-1.2.1-arm64.zip` | SHA-256 `f9e93f4ed002f722c74a695e208b9589edf411f99335fca14822838b2cbebb53`; 87,439,298 bytes |
-| Release tag / stable hosted bytes | Intended `nodebay-v1.2.1`; publication and anonymous comparison pending |
-| Stable signed feed / Homebrew tap commit | Publication and hosted/lifecycle verification pending |
+| Release tag / stable hosted bytes | [nodebay-v1.2.1](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.1), tag commit `ad92388766fadf5e8cc92b32063cf7cb1c37df2a`; anonymously downloaded ZIP and DMG match the final hashes above. Changes after compiled source are documentation and Cask metadata only |
+| Stable signed feed / Homebrew tap commit | Feed commit `91ad5917cf3ea908482f31ed91ab57790b91b753`; [stable feed](https://raw.githubusercontent.com/Kian-hdr/nodebay/updates/stable/appcast.xml). Tap commit `46371ad1c00811925fe0074ce699b22963d67791`, cask 1.2.1 with `auto_updates true`; hosted and lifecycle checks passed |
 | Installed update result | Build 27 → 28 download, installation, relaunch, saved-key API validation and 18-file data preservation passed on macOS 26.6.2 |
 
 Native Spotify routing, EQ adjustment, bypass/resume and the compact layout were

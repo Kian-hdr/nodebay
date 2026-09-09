@@ -65,5 +65,12 @@ struct MediaSessionSelectionHarness {
         precondition(selected([], current: "system") == nil)
         precondition(selected([closed], current: "music") == nil)
         print("PASS same titles in different apps remain distinct; no sessions yields no selection")
+
+        let deniedSpotify = source("spotify", app: "spotify", title: "", available: false)
+        let genericSpotify = source("system", app: "spotify", title: "Real track", playing: true,
+                                    generic: true, appSource: false)
+        precondition(visible([deniedSpotify, genericSpotify]) == ["system"])
+        precondition(selected([deniedSpotify, genericSpotify], current: "spotify", preferred: "spotify") == "system")
+        print("PASS denied app automation preserves an available generic playback fallback")
     }
 }

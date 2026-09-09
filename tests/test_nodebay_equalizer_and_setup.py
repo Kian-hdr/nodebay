@@ -74,6 +74,34 @@ class EqualizerAndSetupTests(unittest.TestCase):
             result = subprocess.run([str(executable)], check=True, capture_output=True, text=True)
             self.assertIn("AVAudioUnitEQ signal check passed", result.stdout)
 
+    def test_native_process_dsp_and_safe_probe(self):
+        source = MANAGER.read_text()
+        realtime = source.split("final class NodebayRealtimeEqualizer:", 1)[1].split(
+            "final class NodebayProcessAudioEqualizer", 1
+        )[0]
+        with tempfile.TemporaryDirectory() as directory:
+            extracted = pathlib.Path(directory) / "Realtime.swift"
+            extracted.write_text("import Foundation\nimport CoreAudio\nfinal class NodebayRealtimeEqualizer:" + realtime)
+            executable = pathlib.Path(directory) / "process-eq-harness"
+            subprocess.run(["swiftc", str(CORE), str(extracted),
+                            str(ROOT / "tests/NodebayProcessAudioEqualizerHarness.swift"),
+                            "-o", str(executable)], check=True, capture_output=True, text=True)
+            result = subprocess.run([str(executable)], check=True, capture_output=True, text=True)
+            self.assertIn("failure checks passed", result.stdout)
+
+    def test_process_capture_implementation_typechecks(self):
+        source = MANAGER.read_text()
+        native = source.split("final class NodebayRealtimeEqualizer:", 1)[1].split(
+            "@MainActor\nfinal class NodebayEqualizerManager", 1
+        )[0]
+        with tempfile.TemporaryDirectory() as directory:
+            extracted = pathlib.Path(directory) / "Capture.swift"
+            extracted.write_text("import Foundation\nimport AppKit\nimport CoreAudio\nimport Combine\n"
+                                 "extension Array where Element == String { var normalizedBundleIdentifiers: [String] { self } }\n"
+                                 "final class NodebayRealtimeEqualizer:" + native)
+            subprocess.run(["swiftc", "-typecheck", str(CORE), str(extracted)],
+                           check=True, capture_output=True, text=True)
+
     def test_local_audio_path_uses_real_av_audio_engine(self):
         source = MANAGER.read_text()
         self.assertIn("AVAudioEngine()", source)
@@ -108,12 +136,17 @@ class EqualizerAndSetupTests(unittest.TestCase):
         self.assertIn("deviceUID: outputDeviceUID", source)
         self.assertIn("stream: 0", source)
         self.assertNotIn("stereoMixdownOfProcesses", source)
-        self.assertIn("tapDescription.muteBehavior = .mutedWhenTapped", source)
+        self.assertIn("tapDescription.muteBehavior = .unmuted", source)
+        self.assertIn("tapDescription.muteBehavior = muted ? .mutedWhenTapped : .unmuted", source)
+        self.assertIn("try self.setTapMuted(true)", source)
+        self.assertIn("processor.setRoutesOutput(true)", source)
         self.assertIn("AudioDeviceCreateIOProcIDWithBlock", source)
         self.assertIn("processor.process(input: inputData, output: outputData)", source)
         self.assertIn("AudioDeviceStart(aggregateDeviceID", source)
-        self.assertIn("processBundleID.hasPrefix(requested + \".\")", source)
+        self.assertIn("NodebayAudioProcessIdentity.matches", source)
         self.assertIn('bundleIdentifiers: ["com.google.Chrome"]', source)
+        self.assertIn('bundleIdentifiers: ["com.spotify.client"]', source)
+        self.assertIn("isSpotifyNowPlaying", source)
         self.assertIn("bundleIdentifiers: [QuickTimeController.bundleIdentifier]", source)
         self.assertIn('identifier.hasPrefix("com.google.Chrome.")', source)
         self.assertIn("type == .nowPlaying, isChromeNowPlaying", source)
@@ -131,6 +164,76 @@ class EqualizerAndSetupTests(unittest.TestCase):
         self.assertIn("activeSourceID == .controller(.nowPlaying)", source)
         self.assertIn("NodebayEqualizerManager.shared.apply(to: activeSourceID)", source)
 
+    def test_browser_resume_reapplies_after_capture_timeout(self):
+        source = MUSIC.read_text()
+        source_enum = source.split("    enum MediaSourceID:", 1)[1].split("    struct MediaSourceChoice:", 1)[0]
+        refresh = source.split("        if (activeBundleChanged || activePlaybackChanged)", 1)[1].split(
+            "        self.timestampDate = state.lastUpdated", 1
+        )[0]
+        # Execute the production dispatch block with a recording EQ endpoint.
+        # No provider, audio route, application or UI is launched by this test.
+        harness = """
+        import Foundation
+        enum MediaControllerType: String { case nowPlaying, spotify, quickTime, appleMusic, youtubeMusic }
+        final class MusicManager {
+            enum MediaSourceID:""" + source_enum + """
+            var activeSourceID = MediaSourceID.browserTab("tab-A")
+            var activeSourceType = MediaControllerType.nowPlaying
+            func refresh(bundleChanged: Bool, playbackChanged: Bool) {
+                let activeBundleChanged = bundleChanged
+                let activePlaybackChanged = playbackChanged
+                if (activeBundleChanged || activePlaybackChanged)""" + refresh + """
+            }
+        }
+        final class NodebayEqualizerManager {
+            static let shared = NodebayEqualizerManager()
+            var applied: [MusicManager.MediaSourceID] = []
+            func apply(to source: MusicManager.MediaSourceID) { applied.append(source) }
+        }
+        @main struct Harness {
+            static func main() {
+                let manager = MusicManager()
+                let eq = NodebayEqualizerManager.shared
+                var health = NodebayProcessAudioHealth()
+                health.lastCallback = 0
+                health.lastSignal = 0
+                precondition(health.decision(now: 0.1, startedAt: 0, routed: false) == .activate)
+                health.lastCallback = 2
+                precondition(health.decision(now: 2, startedAt: 0, routed: true) == .restore)
+                health.lastSignal = nil
+                health.lastCallback = 15
+                precondition(health.decision(now: 15, startedAt: 2, routed: false) == .fail)
+                // Resume the same selected browser tab after the safe timeout.
+                manager.refresh(bundleChanged: false, playbackChanged: true)
+                precondition(eq.applied == [.browserTab("tab-A")], "Resumed browser EQ must restart after capture timed out")
+                manager.refresh(bundleChanged: false, playbackChanged: false)
+                precondition(eq.applied.count == 1, "Unchanged snapshots must not restart audio")
+                for type in [MediaControllerType.spotify, .quickTime, .nowPlaying] {
+                    manager.activeSourceID = .controller(type)
+                    manager.activeSourceType = type
+                    manager.refresh(bundleChanged: false, playbackChanged: true)
+                    precondition(eq.applied.last == .controller(type), "Existing native resume route")
+                }
+                let count = eq.applied.count
+                for source in [MusicManager.MediaSourceID.localAudio, .controller(.appleMusic), .controller(.youtubeMusic)] {
+                    manager.activeSourceID = source
+                    manager.refresh(bundleChanged: true, playbackChanged: true)
+                }
+                precondition(eq.applied.count == count, "Unrelated sources must not create process EQ")
+                print("Browser pause-timeout-resume and bounded active-source refresh checks passed")
+            }
+        }
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            extracted = pathlib.Path(directory) / "Resume.swift"
+            extracted.write_text(harness)
+            executable = pathlib.Path(directory) / "browser-resume"
+            subprocess.run(["swiftc", str(CORE), str(extracted), "-o", str(executable)],
+                           check=True, capture_output=True, text=True)
+            result = subprocess.run([str(executable)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("refresh checks passed", result.stdout)
+
     def test_process_equalizer_routes_through_current_output_and_recovers(self):
         source = MANAGER.read_text()
         self.assertIn("kAudioHardwarePropertyDefaultOutputDevice", source)
@@ -141,6 +244,10 @@ class EqualizerAndSetupTests(unittest.TestCase):
         self.assertIn("AudioObjectAddPropertyListenerBlock", source)
         self.assertIn("kAudioHardwarePropertyDefaultOutputDevice", source)
         self.assertIn("currentOutput != self.activeOutputDeviceID", source)
+        self.assertIn("processes != self.activeProcessObjectIDs", source)
+        self.assertIn("sampleRate != self.activeSampleRate", source)
+        self.assertIn("case .noAudioReceived:", source)
+        self.assertIn("System Audio Recording", source)
         self.assertNotIn("AVAudioEngineConfigurationChange", source)
         self.assertIn("AudioHardwareDestroyAggregateDevice", source)
         self.assertIn("AudioHardwareDestroyProcessTap", source)

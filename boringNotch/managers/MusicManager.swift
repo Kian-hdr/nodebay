@@ -75,15 +75,18 @@ class MusicManager: ObservableObject {
     private var debounceIdleTask: Task<Void, Never>?
     private var isUsingAutomaticQuickTimeOverride = false
 
-    // Helper to check if macOS has removed support for NowPlayingController
+    // Compatibility flag retained for existing onboarding. Discovery failures
+    // are reported per source and retried, never treated as permanent deprecation.
     public private(set) var isNowPlayingDeprecated: Bool = false
-    private let mediaChecker = MediaChecker()
+    private var mediaRefreshTimer: Timer?
+    private var mediaRefreshInFlight = false
 
     // Active controller
     private var controllers: [MediaControllerType: any MediaControllerProtocol] = [:]
     private var activeController: (any MediaControllerProtocol)?
     private var controllerPlaybackStates: [MediaControllerType: PlaybackState] = [:]
     @Published private var localPlaybackState = PlaybackState(bundleIdentifier: "")
+    @Published private(set) var mediaSourceIssues: [MediaControllerType: String] = [:]
     @Published private(set) var mediaSourceStates: [MediaControllerType: MediaSourceState] = [:]
     @Published private(set) var activeSourceType: MediaControllerType = Defaults[.mediaController]
     @Published private(set) var activeSourceID: MediaSourceID = .controller(Defaults[.mediaController])
@@ -168,18 +171,12 @@ class MusicManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Initialize deprecation check asynchronously
-        Task { @MainActor in
-            do {
-                self.isNowPlayingDeprecated = try await self.mediaChecker.checkDeprecationStatus()
-                print("Deprecation check completed: \(self.isNowPlayingDeprecated)")
-            } catch {
-                print("Failed to check deprecation status: \(error). Defaulting to false.")
-                self.isNowPlayingDeprecated = false
-            }
-            
-            // Initialize the active controller after deprecation check
-            self.setActiveControllerBasedOnPreference()
+        // Start actual discovery immediately. The adapter's diagnostic test
+        // launches synthetic media and a single failure is not proof that the
+        // system feed is permanently unsupported on this Mac.
+        Task { @MainActor [weak self] in self?.setActiveControllerBasedOnPreference() }
+        mediaRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refreshMediaSources() }
         }
     }
 
@@ -189,6 +186,8 @@ class MusicManager: ObservableObject {
     
     public func destroy() {
         debounceIdleTask?.cancel()
+        mediaRefreshTimer?.invalidate()
+        mediaRefreshTimer = nil
         cancellables.removeAll()
         controllerCancellables.removeAll()
         browserControllerCancellables.removeAll()
@@ -237,6 +236,11 @@ class MusicManager: ObservableObject {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
                     guard let self else { return }
+                    if let issue = controller.playbackIssue {
+                        self.mediaSourceIssues[type] = issue
+                    } else {
+                        self.mediaSourceIssues.removeValue(forKey: type)
+                    }
                     let available = controller.isActive() && state.hasMedia
                     let state = available ? state : PlaybackState(bundleIdentifier: type.expectedBundleIdentifier ?? "")
                     self.controllerPlaybackStates[type] = state
@@ -312,6 +316,28 @@ class MusicManager: ObservableObject {
             if controller.isActive() {
                 Task { await controller.updatePlaybackInfo() }
             }
+        }
+    }
+
+    /// Polling repairs missed app notifications and permission changes without
+    /// requiring a relaunch. Never query a closed app or overlap refresh rounds.
+    @MainActor
+    func refreshMediaSources() {
+        guard !mediaRefreshInFlight else { return }
+        mediaRefreshInFlight = true
+        let refreshable = controllers.filter { type, controller in
+            type == .nowPlaying || controller.isActive()
+        }
+        Task { @MainActor [weak self] in
+            for (type, controller) in refreshable {
+                await controller.updatePlaybackInfo()
+                guard let self else { return }
+                if let issue = controller.playbackIssue { self.mediaSourceIssues[type] = issue }
+                else { self.mediaSourceIssues.removeValue(forKey: type) }
+            }
+            guard let self else { return }
+            self.mediaRefreshInFlight = false
+            self.reconcileActiveSource()
         }
     }
 
@@ -698,6 +724,7 @@ class MusicManager: ObservableObject {
         for (type, controller) in controllers {
             guard type.expectedBundleIdentifier == bundleID || controllerPlaybackStates[type]?.bundleIdentifier == bundleID else { continue }
             if notification.name == NSWorkspace.didTerminateApplicationNotification {
+                mediaSourceIssues.removeValue(forKey: type)
                 controllerPlaybackStates[type] = PlaybackState(bundleIdentifier: type.expectedBundleIdentifier ?? "")
                 mediaSourceStates[type] = MediaSourceState(type: type, title: "", artist: "",
                     bundleIdentifier: type.expectedBundleIdentifier, isPlaying: false, isAvailable: false)
@@ -828,15 +855,18 @@ class MusicManager: ObservableObject {
             self.volume = state.volume
         }
 
-        // The generic Now Playing controller often resolves its owning app
-        // after it has already been selected. Re-apply at that point so a
-        // newly detected Chrome source cannot leave the EQ targeting the
-        // previous process (or no process at all).
-        if (activeBundleChanged || activePlaybackChanged),
-           activeSourceID == .controller(.nowPlaying) {
-            NodebayEqualizerManager.shared.apply(to: activeSourceID)
+        // A newly resolved app or resumed source may need a fresh process tap.
+        // Include browser tabs: their native EQ can time out safely while paused,
+        // and the bridge's separate eqEnabled flag is false for native capture.
+        if (activeBundleChanged || activePlaybackChanged) {
+            switch activeSourceID {
+            case .browserTab, .controller(.nowPlaying), .controller(.spotify), .controller(.quickTime):
+                NodebayEqualizerManager.shared.apply(to: activeSourceID)
+            default:
+                break
+            }
         }
-        
+
         self.timestampDate = state.lastUpdated
     }
 

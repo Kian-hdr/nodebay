@@ -1,5 +1,62 @@
 # Nodebay release verification
 
+## Nodebay 1.2.1 (26): candidate checks, 2026-09-09
+
+**Candidate, not yet published.** The integrated Apple Silicon Release build
+succeeded on macOS 26.6.2 with Xcode 26.6. The current source is an uncommitted
+patch based on `b8c9e1148712871f34d5ffe440558189d708d8ad`; this build is not yet
+the final notarized release artifact. The intended version is 1.2.1, build 26,
+with a new immutable tag and download files. Existing 1.2.0 assets remain unchanged.
+
+| Check | Status | Evidence / boundary |
+|---|---|---|
+| Integrated Apple Silicon Release build | Passed | Build log ends `BUILD SUCCEEDED`; application metadata is 1.2.1 (26). Built from the working candidate, not a clean release commit |
+| Complete automated suite | Passed | All 221 tests passed in 56.980 seconds after compact integration, including the native layout overlap regression |
+| Media discovery and recovery | Passed focused tests | 22 media/recovery/selection/QuickTime/startup tests; production controller harness covers failed-helper restart, cleared issues, shutdown/deallocation, missing resources, fragmented UTF-8 and closing a silent pipe |
+| Untitled active media | Passed bundled-framework regression | MediaRemoteAdapter v0.7.7, exact source `e3ff5021eb0875858bd05f48d2e9ba2e962d1cf6`; binary metadata harness accepts an active client without a title and rejects missing client/playback keys. Application fixtures prevent borrowing metadata across clients. This does not establish playback in every chat app |
+| Media adapter portability | Passed artifact inspection | Rebuilt framework and diagnostic helper contain arm64 slices with macOS 15.0 minimum and only system-library dependencies. Corresponding source, build instructions and BSD notice are retained in [SOURCE.md](../mediaremote-adapter/SOURCE.md) |
+| Player layout | Passed native SwiftUI geometry regression | Six off-screen native layout cases at three widths, with and without lyrics, keep metadata, timeline and controls separate. The old layout fails the same overlap check. Installed candidate visually verified at the original640×190 size; lyrics share the artist row. Final packaged display checks remain pending |
+| Equalizer DSP and startup policy | Passed focused tests | 13 EQ tests plus six QuickTime tests. Production DSP processes a 1 kHz signal, applies a live 12 dB cut, handles four interleaved/separate buffer combinations, and keeps the unmuted probe output silent. Zero-filled, nonfinite and incompatible-channel fixtures fail safely |
+| Spotify routing and recovery UI | Passed installed-candidate checks | Specific Spotify/helper matching and late source resolution; actual authenticated Spotify audio reached the active state only after valid nonzero capture. Live bass adjustment, bypass/re-enable and pause/resume recovery succeeded. Fresh permission grant/denial and output-device switching remain untested |
+| Native Spotify playback | Passed installed-candidate checks | User signed in directly. Spotify source, track metadata, Play/Pause and advancing time verified. EQ displayed Processing audio locally; bass0→−6dB→flat, bypass and resume verified. These are native routing/UI observations plus deterministic DSP tests, not physical speaker spectral measurements |
+| PNG/image compression repair | Passed nine production-service tests | Read-only files/folders and symlinks produce independent writable copies in Nodebay storage; tests cover original preservation, collisions, cancellation, optimizer errors and invalid output. The optimizer boundary is stubbed; this is not a new live ImageOptim GUI test |
+| Converter runtime portability | Passed binary checks and current-host execution | Replaced the Homebrew-built Python runtime whose binaries required macOS 26. The verified Python.org CPython 3.13.15 arm64 interpreter targets macOS 11; all 158 frozen runtime Mach-O files pass the macOS 15 maximum, arm64 and external-library checks. Actual execution on macOS 15 remains untested |
+| Compatibility regression guard | Passed seven tests | Real compiled fixtures reject macOS 26-only, Intel-only and developer-local library dependencies; both modern and legacy deployment metadata are parsed. Runtime build, package assembly and final archive verification invoke the guard |
+| Bundled conversion and runtime notices | Passed locally | Nine wrapper tests and real PDF/DOCX conversions; originals preserved and remote URL rejected. Official installer checksum, PSF Developer ID and Apple notarization verified before private extraction. Incorporated-library notices are included; dependency versions remain pinned |
+| Final source commit and independent CI | Pending | Record the reviewed source commit and successful CI run for the release source before reporting the candidate as verified for publication |
+| Final app signing, notarization and Gatekeeper | Pending | Record final main-binary hash, designated requirement, nested signatures/timestamps, entitlements, accepted app submission and staple validation |
+| Final DMG/ZIP and installation | Pending | Record both artifact hashes/sizes; accepted DMG submission, staple and Gatekeeper; ZIP contents and read-only DMG layout; matching installed app, native launch and media/EQ observations |
+| GitHub and Homebrew | Pending | No 1.2.1 publication or cask lifecycle result is claimed. Verify hosted bytes, cask checksum/style/online audit, upgrade and non-zap reinstall, including data/settings preservation |
+
+Release fields to complete from the final artifact and hosted state:
+
+| Field | Current value |
+|---|---|
+| Application source commit | Pending |
+| Release tag and tag commit | Intended `nodebay-v1.2.1`; not created |
+| Successful release-source CI URL | Pending |
+| Final installed main executable SHA-256 | Pending |
+| App notarization submission ID/status | Pending |
+| DMG notarization submission ID/status | Pending |
+| `Nodebay-1.2.1-arm64.dmg` SHA-256 and size | Pending |
+| `Nodebay-1.2.1-arm64.zip` SHA-256 and size | Pending |
+| Public release URL and anonymous download comparison | Pending |
+| Homebrew tap commit and lifecycle results | Pending |
+| Final native media/layout/EQ observations and host | Pending |
+
+The Python compatibility finding corrects an earlier packaging assumption:
+1.2.0 converted documents successfully on the developer's macOS 26 Mac, but its
+bundled Python required macOS 26 despite the application's advertised macOS 15
+minimum. Passing its earlier conversion tests did not establish macOS 15 runtime
+compatibility. This candidate checks the actual minimum of every packaged binary.
+
+Native media behavior on the recipient's Mac, fresh capture-permission grant/denial,
+Bluetooth/AirPlay output changes and full
+accessibility/display coverage remain separate from deterministic fixture results.
+Process EQ applies to audio emitted on the Mac running Nodebay. It does not
+process Spotify Connect playback on a remote device. See [Equalizer](features/equalizer.md)
+and the [candidate release notes](release-notes-1.2.1.md).
+
 ## Nodebay 1.2.0 (25): release checks, 2026-09-06
 
 Application source was built from clean commit `52e20970174c25fc60b4c90e49f476d98a542c37`.

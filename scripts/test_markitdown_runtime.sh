@@ -7,10 +7,8 @@ runtime="$project_root/boringNotch/vendor/markitdown-runtime/markitdown-local"
 runtime_notices="$project_root/boringNotch/vendor/markitdown-runtime/THIRD_PARTY_LICENSES"
 if [[ -n "${PYTHON_COMMAND:-}" ]]; then
     python_command="$PYTHON_COMMAND"
-elif command -v brew >/dev/null 2>&1; then
-    python_command="$(brew --prefix python@3.13)/bin/python3.13"
 else
-    python_command="${commands[python3.13]:-python3.13}"
+    python_command="${commands[python3]:-python3}"
 fi
 
 if [[ ! -x "$runtime" ]]; then

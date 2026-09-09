@@ -3,8 +3,8 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-expected_version=${EXPECTED_VERSION:-1.2.0}
-expected_build=${EXPECTED_BUILD:-25}
+expected_version=${EXPECTED_VERSION:-1.2.1}
+expected_build=${EXPECTED_BUILD:-26}
 artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-$expected_version-arm64.zip}
 require_notarized=${REQUIRE_NOTARIZED:-0}
 expected_team=${EXPECTED_TEAM:-HZWY8HT54D}
@@ -43,6 +43,7 @@ if (( ${#unexpected_top_level} != 1 )) || [[ "${unexpected_top_level[1]}" != "No
 fi
 
 codesign --verify --deep --strict "$app"
+python3 "$script_dir/verify_runtime_compatibility.py" "$app/Contents" --maximum-macos 15.0
 
 signature_details=$(codesign -dv --verbose=4 "$app" 2>&1)
 print -r -- "$signature_details" | grep -Fq "Authority=Developer ID Application: Kian Konrad Tajbakhsh ($expected_team)" || {

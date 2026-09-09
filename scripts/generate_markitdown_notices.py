@@ -160,6 +160,9 @@ def generate(requirements: Path, python_license: Path) -> str:
         "Python runtime",
         "--------------",
         python_license.read_text(encoding="utf-8").strip(),
+        "",
+        (Path(__file__).resolve().parents[1] / "third_party/python-3.13.15-runtime-notices.txt")
+            .read_text(encoding="utf-8").strip(),
     ]
 
     for name in locked_names(requirements):

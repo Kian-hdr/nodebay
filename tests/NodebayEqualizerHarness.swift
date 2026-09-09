@@ -41,6 +41,39 @@ struct NodebayEqualizerHarness {
             shaped.setting(20, for: .treble).gains == [1, 3, -2, 6, 6],
             "tone handle clamps both high bands"
         )
+        let spotify = "com.spotify.client"
+        let roots = ["/Applications/Spotify.app"]
+        require(NodebayAudioProcessIdentity.matches(bundleID: spotify, bundlePath: nil,
+            requestedID: spotify, applicationPaths: roots), "Spotify process identity")
+        require(NodebayAudioProcessIdentity.matches(bundleID: spotify + ".helper", bundlePath: nil,
+            requestedID: spotify, applicationPaths: roots), "Spotify helper identity")
+        require(NodebayAudioProcessIdentity.matches(bundleID: nil,
+            bundlePath: "/Applications/Spotify.app/Contents/Frameworks/Spotify Helper.app",
+            requestedID: spotify, applicationPaths: roots), "nested renderer without Core Audio bundle ID")
+        require(!NodebayAudioProcessIdentity.matches(bundleID: "com.spotify.clientOther", bundlePath: nil,
+            requestedID: spotify, applicationPaths: roots), "similar bundle cannot match")
+        require(!NodebayAudioProcessIdentity.matches(bundleID: nil, bundlePath: "/Applications/Spotify.app.fake",
+            requestedID: spotify, applicationPaths: roots), "sibling path cannot match")
+        require(!NodebayAudioProcessIdentity.matches(bundleID: "com.apple.Music", bundlePath: nil,
+            requestedID: spotify, applicationPaths: roots), "unrelated app cannot match")
+
+        var health = NodebayProcessAudioHealth()
+        require(health.decision(now: 0, startedAt: 0, routed: false) == .wait, "startup preserves passthrough")
+        health.lastCallback = 2
+        require(health.decision(now: 2, startedAt: 0, routed: false) == .wait, "callbacks without audio do not mute")
+        health.lastSignal = 2
+        require(health.decision(now: 2.1, startedAt: 0, routed: false) == .activate, "usable signal permits routing")
+        health.lastCallback = 3.2
+        require(health.decision(now: 3.2, startedAt: 0, routed: true) == .restore, "lost audio restores passthrough")
+        health.lastCallback = 13
+        health.lastSignal = nil
+        require(health.decision(now: 13, startedAt: 0, routed: false) == .fail, "zero buffers time out without muting")
+        health.lastSignal = 10
+        require(health.decision(now: 14.1, startedAt: 14, routed: false) == .fail, "stalled callback fails promptly")
+        health.lastCallback = 15
+        health.lastSignal = 15
+        health.invalidLayout = true
+        require(health.decision(now: 15, startedAt: 14, routed: false) == .fail, "bad layout never routes")
         print("Nodebay equalizer core checks passed")
     }
 }

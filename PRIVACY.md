@@ -16,6 +16,10 @@ Microsoft MarkItDown conversion and ImageOptim compression are local-only. The M
 
 The optional Browser Media Bridge is also local-only. Its explicitly installed Chrome extension can access media elements only on `www.youtube.com` and `music.youtube.com`. It sends Nodebay a tab identifier, visible media title and artist, playback state and timing, volume, and supported-control flags through Chrome native messaging and a loopback-only connection. It does not request browser history, cookies, broad tab-list access, web-request access, clipboard access, or access to other sites. Nodebay does not send this browser media data to a server.
 
+## Local equalizer
+
+Spotify, QuickTime Player and identified Chrome audio are processed locally through Core Audio process taps after this Mac grants System Audio Recording permission. Nodebay does not record, save or upload the tapped audio. A nonmuting startup probe verifies audio before routing the processed output; bypass and failure restore normal playback. Chrome processing can affect other audible Chrome tabs because its audio is process-scoped. Local shelf audio uses AVAudioEngine and does not require external-app recording permission.
+
 ## Quick Chat (introduced in 1.2.0)
 
 Quick Chat is not included in version 1.1.0. It requires an explicit provider

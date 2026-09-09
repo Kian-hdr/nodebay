@@ -5,9 +5,9 @@ Generated from `third_party/nodebay-components.json` and the exact SwiftPM lock.
 Nodebay is GPL-3.0 software based on Boring Notch. The project license is in `LICENSE`.
 The exact Boring Notch foundation is commit `44dd999f70493da48209c99e9f873c47f2e55c83`.
 The bundled Microsoft MarkItDown 0.1.7 runtime and its complete Python package notices are in `THIRD_PARTY_LICENSES_MARKITDOWN`.
-MediaRemoteAdapter 0.1.0 is a bundled BSD-3-Clause framework from https://github.com/ungive/mediaremote-adapter; its license text is in `THIRD_PARTY_LICENSES`. The bundled binary SHA-256 is `91eb19837ca9f2779e476dc8e67d12bc28331dd557c87a19b0e45463c739c2fc`.
+MediaRemoteAdapter v0.7.7 is a bundled BSD-3-Clause framework built from https://github.com/ungive/mediaremote-adapter at commit `e3ff5021eb0875858bd05f48d2e9ba2e962d1cf6`; its license text is in `THIRD_PARTY_LICENSES`. Source and rebuild instructions are in `mediaremote-adapter/SOURCE.md`. The vendored framework SHA-256 before release re-signing is `0296903d9f4217e1440bf7c6bf96e37a07bb37942fdb6188e4b968d29890f950`.
 
-Nodebay's equalizer uses Apple AVFoundation for local audio and Chrome's built-in Web Audio and tab-capture APIs for explicitly enabled browser tabs. It adds no third-party DSP library or redistributed binary. The optional setup interface can invoke a separately installed Homebrew only for the exact companion packages documented below. Homebrew is not bundled, modified, or redistributed by Nodebay.
+Nodebay's equalizer uses Apple AVFoundation for local shelf audio and Core Audio process taps for Spotify, QuickTime Player and identified Chrome audio. The optional browser bridge also contains its separately enabled Web Audio path. It adds no third-party DSP library or redistributed binary. The optional setup interface can invoke a separately installed Homebrew only for the exact companion packages documented below. Homebrew is not bundled, modified, or redistributed by Nodebay.
 
 ## Blender 5.0.1 (a3db93c5b259) (companion, not bundled)
 

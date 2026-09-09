@@ -16,15 +16,11 @@ final class QuickTimeController: MediaControllerProtocol {
     )
     private var refreshTimer: Timer?
     private var refreshInFlight = false
+    private(set) var playbackIssue: String?
 
     init() {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, !self.refreshInFlight else { return }
-            self.refreshInFlight = true
-            Task { [weak self] in
-                await self?.updatePlaybackInfo()
-                self?.refreshInFlight = false
-            }
+            Task { [weak self] in await self?.updatePlaybackInfo() }
         }
         Task { [weak self] in await self?.updatePlaybackInfo() }
     }
@@ -56,8 +52,13 @@ final class QuickTimeController: MediaControllerProtocol {
         !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleIdentifier).isEmpty
     }
 
+    @MainActor
     func updatePlaybackInfo() async {
+        guard !refreshInFlight else { return }
+        refreshInFlight = true
+        defer { refreshInFlight = false }
         guard isActive() else {
+            playbackIssue = nil
             publishUnavailable()
             return
         }
@@ -82,8 +83,9 @@ final class QuickTimeController: MediaControllerProtocol {
         """
 
         do {
-            guard let descriptor = try await AppleScriptHelper.execute(script),
-                  let snapshot = Self.parseSnapshot(descriptor) else {
+            let descriptor = try await AppleScriptHelper.execute(script)
+            playbackIssue = nil
+            guard let descriptor, let snapshot = Self.parseSnapshot(descriptor) else {
                 publishUnavailable()
                 return
             }
@@ -101,6 +103,7 @@ final class QuickTimeController: MediaControllerProtocol {
                 volume: snapshot.volume
             ))
         } catch {
+            playbackIssue = MediaPlaybackIssue.message(for: error, applicationName: "QuickTime Player")
             publishUnavailable()
         }
     }
@@ -408,14 +411,14 @@ final class NodebayLocalAudioController: NSObject, MediaControllerProtocol {
 
 /// Inserts Nodebay's EQ into the audible output of another local process.
 ///
-/// The process tap remains unmuted until the processing engine is running. Once
-/// the engine starts reading, `.mutedWhenTapped` suppresses only the original
-/// process path and Nodebay sends the processed signal to the current output
-/// device. Stopping or failing the engine immediately restores the normal path.
+/// First probe with an unmuted tap and silent Nodebay output. Only after actual
+/// audio arrives does `.mutedWhenTapped` suppress the original process path and
+/// Nodebay route the processed signal. Missing audio or a failed graph restores
+/// normal output and exposes recovery instructions.
 /// Allocation-free five-band peaking equalizer for Core Audio device callbacks.
 /// Coefficients are swapped under a short lock; filter history is owned only by
 /// the realtime callback and is never reset while a slider is moving.
-private final class NodebayRealtimeEqualizer: @unchecked Sendable {
+final class NodebayRealtimeEqualizer: @unchecked Sendable {
     private struct Coefficients {
         let b0: Float
         let b1: Float
@@ -437,6 +440,8 @@ private final class NodebayRealtimeEqualizer: @unchecked Sendable {
     private let sampleRate: Double
     private let parameterLock = NSLock()
     private var parameters: Parameters
+    private var routesOutput = false
+    private var health = NodebayProcessAudioHealth()
     private var states = Array(
         repeating: Array(repeating: State(), count: NodebayEqualizerProfile.frequencies.count),
         count: 16
@@ -454,46 +459,91 @@ private final class NodebayRealtimeEqualizer: @unchecked Sendable {
         parameterLock.unlock()
     }
 
+    func setRoutesOutput(_ enabled: Bool) {
+        parameterLock.lock()
+        routesOutput = enabled
+        parameterLock.unlock()
+    }
+
+    func healthSnapshot() -> NodebayProcessAudioHealth {
+        parameterLock.lock()
+        defer { parameterLock.unlock() }
+        return health
+    }
+
     func process(
         input: UnsafePointer<AudioBufferList>,
         output: UnsafeMutablePointer<AudioBufferList>
     ) {
         parameterLock.lock()
         let snapshot = parameters
+        let audible = routesOutput
         parameterLock.unlock()
 
         let inputs = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
         let outputs = UnsafeMutableAudioBufferListPointer(output)
-        var channelOffset = 0
-        for bufferIndex in 0..<min(inputs.count, outputs.count) {
-            let inputBuffer = inputs[bufferIndex]
-            var outputBuffer = outputs[bufferIndex]
-            guard let inputData = inputBuffer.mData,
-                  let outputData = outputBuffer.mData else { continue }
-            let byteCount = min(Int(inputBuffer.mDataByteSize), Int(outputBuffer.mDataByteSize))
-            let sampleCount = byteCount / MemoryLayout<Float>.size
-            let channelCount = max(1, Int(inputBuffer.mNumberChannels))
-            let source = inputData.assumingMemoryBound(to: Float.self)
-            let destination = outputData.assumingMemoryBound(to: Float.self)
-
-            for sampleIndex in 0..<sampleCount {
-                let channel: Int = Swift.min(states.count - 1, channelOffset + (sampleIndex % channelCount))
-                var value = source[sampleIndex]
-                for bandIndex in snapshot.coefficients.indices {
-                    let coefficient = snapshot.coefficients[bandIndex]
-                    var state = states[channel][bandIndex]
-                    let filtered = coefficient.b0 * value + state.z1
-                    state.z1 = coefficient.b1 * value - coefficient.a1 * filtered + state.z2
-                    state.z2 = coefficient.b2 * value - coefficient.a2 * filtered
-                    states[channel][bandIndex] = state
-                    value = filtered
-                }
-                destination[sampleIndex] = value * snapshot.outputGain
-            }
-            outputBuffer.mDataByteSize = UInt32(byteCount)
-            outputs[bufferIndex] = outputBuffer
-            channelOffset += channelCount
+        // Clear every output, including buffers a malformed input cannot fill.
+        for buffer in outputs {
+            if let data = buffer.mData { memset(data, 0, Int(buffer.mDataByteSize)) }
         }
+        let inputChannels = inputs.reduce(0) { $0 + Int($1.mNumberChannels) }
+        let outputChannels = outputs.reduce(0) { $0 + Int($1.mNumberChannels) }
+        var valid = inputChannels > 0 && inputChannels <= states.count && inputChannels == outputChannels
+        var frames = Int.max
+        for buffer in inputs {
+            let channels = Int(buffer.mNumberChannels)
+            if channels == 0 || buffer.mData == nil { valid = false; continue }
+            frames = min(frames, Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * channels))
+        }
+        for buffer in outputs {
+            let channels = Int(buffer.mNumberChannels)
+            if channels == 0 || buffer.mData == nil { valid = false; continue }
+            frames = min(frames, Int(buffer.mDataByteSize) / (MemoryLayout<Float>.size * channels))
+        }
+        valid = valid && frames > 0 && frames != Int.max
+        var hasSignal = false
+        if valid {
+            // Match channels rather than buffer indices. Devices can expose
+            // one interleaved buffer or separate buffers for each channel.
+            var channel = 0
+            for inputBuffer in inputs {
+                let inputCount = Int(inputBuffer.mNumberChannels)
+                let source = inputBuffer.mData!.assumingMemoryBound(to: Float.self)
+                for localChannel in 0..<inputCount {
+                    var outputChannel = channel
+                    var outputIndex = 0
+                    while outputChannel >= Int(outputs[outputIndex].mNumberChannels) {
+                        outputChannel -= Int(outputs[outputIndex].mNumberChannels)
+                        outputIndex += 1
+                    }
+                    let outputBuffer = outputs[outputIndex]
+                    let outputCount = Int(outputBuffer.mNumberChannels)
+                    let destination = outputBuffer.mData!.assumingMemoryBound(to: Float.self)
+                    for frame in 0..<frames {
+                        var value = source[frame * inputCount + localChannel]
+                        guard value.isFinite else { valid = false; continue }
+                        if abs(value) > 0.0000001 { hasSignal = true }
+                        for bandIndex in snapshot.coefficients.indices {
+                            let coefficient = snapshot.coefficients[bandIndex]
+                            var state = states[channel][bandIndex]
+                            let filtered = coefficient.b0 * value + state.z1
+                            state.z1 = coefficient.b1 * value - coefficient.a1 * filtered + state.z2
+                            state.z2 = coefficient.b2 * value - coefficient.a2 * filtered
+                            states[channel][bandIndex] = state
+                            value = filtered
+                        }
+                        if audible { destination[frame * outputCount + outputChannel] = value * snapshot.outputGain }
+                    }
+                    channel += 1
+                }
+            }
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        parameterLock.lock()
+        health.lastCallback = now
+        health.invalidLayout = !valid
+        if hasSignal && valid { health.lastSignal = now }
+        parameterLock.unlock()
     }
 
     private static func parameters(for profile: NodebayEqualizerProfile, sampleRate: Double) -> Parameters {
@@ -535,6 +585,19 @@ final class NodebayProcessAudioEqualizer {
     private var activeProfile = NodebayEqualizerProfile(gains: [])
     private var activeOutputDeviceID: AudioDeviceID = kAudioObjectUnknown
     private var outputDeviceListener: AudioObjectPropertyListenerBlock?
+    private var healthTimer: DispatchSourceTimer?
+    private var healthGeneration = 0
+    private var healthTicks = 0
+    private var probeStartedAt: TimeInterval = 0
+    private var routesOutput = false
+    private var activeProcessObjectIDs: [AudioObjectID] = []
+    private var activeSampleRate: Double = 0
+    private var tapDescription: CATapDescription?
+    private let statusSubject = CurrentValueSubject<NodebayProcessAudioStatus, Never>(.idle)
+
+    var statusPublisher: AnyPublisher<NodebayProcessAudioStatus, Never> {
+        statusSubject.eraseToAnyPublisher()
+    }
 
     private init() {
         queue.setSpecific(key: queueKey, value: ())
@@ -562,8 +625,7 @@ final class NodebayProcessAudioEqualizer {
             do {
                 try self.startOnQueue(bundleIdentifiers: normalized, profile: profile)
             } catch {
-                NSLog("[NodebayEqualizer] Native process EQ could not start: \(error.localizedDescription)")
-                self.stopOnQueue()
+                self.failOnQueue(error)
             }
         }
     }
@@ -575,6 +637,7 @@ final class NodebayProcessAudioEqualizer {
     @available(macOS 14.2, *)
     private func startOnQueue(bundleIdentifiers: [String], profile: NodebayEqualizerProfile) throws {
         dispatchPrecondition(condition: .onQueue(queue))
+        statusSubject.send(.checking)
         let processObjectIDs = try audioProcessObjectIDs(matching: bundleIdentifiers)
         guard !processObjectIDs.isEmpty else { throw ProcessEqualizerError.noAudioProcess }
         let outputDeviceID = try defaultOutputDeviceID()
@@ -597,7 +660,7 @@ final class NodebayProcessAudioEqualizer {
             stream: 0
         )
         tapDescription.name = "Nodebay Process Equalizer"
-        tapDescription.muteBehavior = .mutedWhenTapped
+        tapDescription.muteBehavior = .unmuted
         tapDescription.isPrivate = true
         tapDescription.isExclusive = false
 
@@ -607,6 +670,7 @@ final class NodebayProcessAudioEqualizer {
             throw ProcessEqualizerError.coreAudio("create process tap", tapStatus)
         }
         tapObjectID = createdTap
+        self.tapDescription = tapDescription
 
         let tapUID = try stringProperty(
             objectID: tapObjectID,
@@ -675,11 +739,15 @@ final class NodebayProcessAudioEqualizer {
         activeBundleIdentifiers = bundleIdentifiers
         activeProfile = profile
         activeOutputDeviceID = outputDeviceID
+        activeProcessObjectIDs = processObjectIDs
+        activeSampleRate = try nominalSampleRate(of: outputDeviceID)
         let startStatus = AudioDeviceStart(aggregateDeviceID, createdIOProc)
         guard startStatus == noErr else {
             throw ProcessEqualizerError.coreAudio("start processing device", startStatus)
         }
         isProcessing = true
+        probeStartedAt = ProcessInfo.processInfo.systemUptime
+        installHealthTimer()
 
         var outputAddress = Self.defaultOutputPropertyAddress
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
@@ -687,16 +755,7 @@ final class NodebayProcessAudioEqualizer {
             self.queue.async {
                 guard let currentOutput = try? self.defaultOutputDeviceID(),
                       currentOutput != self.activeOutputDeviceID else { return }
-                let identifiers = self.activeBundleIdentifiers
-                let profile = self.activeProfile
-                self.stopOnQueue()
-                guard !identifiers.isEmpty else { return }
-                do {
-                    try self.startOnQueue(bundleIdentifiers: identifiers, profile: profile)
-                } catch {
-                    NSLog("[NodebayEqualizer] Audio route recovery failed: \(error.localizedDescription)")
-                    self.stopOnQueue()
-                }
+                self.rebuildOnQueue()
             }
         }
         let listenerStatus = AudioObjectAddPropertyListenerBlock(
@@ -711,12 +770,106 @@ final class NodebayProcessAudioEqualizer {
             NSLog("[NodebayEqualizer] Output-device listener unavailable: \(listenerStatus)")
         }
         NSLog(
-            "[NodebayEqualizer] Native process EQ active (tap %.0f Hz/%u ch, route %.0f Hz/%u ch)",
+            "[NodebayEqualizer] Native process EQ checking input (tap %.0f Hz/%u ch, route %.0f Hz/%u ch)",
             tapFormat.mSampleRate,
             tapFormat.mChannelsPerFrame,
             tapFormat.mSampleRate,
             tapFormat.mChannelsPerFrame
         )
+    }
+
+    @available(macOS 14.2, *)
+    private func installHealthTimer() {
+        healthGeneration += 1
+        let generation = healthGeneration
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 0.1, repeating: 0.25)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.healthGeneration == generation, self.isProcessing,
+                  let processor = self.realtimeEqualizer else { return }
+            do {
+                self.healthTicks += 1
+                // Process IDs change when Spotify/Chrome replace an audio
+                // helper. A sample-rate change can retain the same device ID.
+                if self.healthTicks % 4 == 0 {
+                    let currentOutput = try self.defaultOutputDeviceID()
+                    let processes = try self.audioProcessObjectIDs(matching: self.activeBundleIdentifiers)
+                    let sampleRate = try self.nominalSampleRate(of: currentOutput)
+                    if currentOutput != self.activeOutputDeviceID || processes != self.activeProcessObjectIDs
+                        || sampleRate != self.activeSampleRate {
+                        self.rebuildOnQueue()
+                        return
+                    }
+                }
+                let now = ProcessInfo.processInfo.systemUptime
+                let health = processor.healthSnapshot()
+                switch health.decision(now: now, startedAt: self.probeStartedAt, routed: self.routesOutput) {
+                case .wait: break
+                case .activate:
+                    try self.setTapMuted(true)
+                    processor.setRoutesOutput(true)
+                    self.routesOutput = true
+                    self.statusSubject.send(.active)
+                    NSLog("[NodebayEqualizer] Native process EQ received audio and is routing processed output")
+                case .restore:
+                    processor.setRoutesOutput(false)
+                    try self.setTapMuted(false)
+                    self.routesOutput = false
+                    self.probeStartedAt = now
+                    self.statusSubject.send(.checking)
+                case .fail:
+                    throw health.invalidLayout ? ProcessEqualizerError.invalidTapFormat : ProcessEqualizerError.noAudioReceived
+                }
+            } catch {
+                self.failOnQueue(error)
+            }
+        }
+        healthTimer = timer
+        timer.resume()
+    }
+
+    @available(macOS 14.2, *)
+    private func setTapMuted(_ muted: Bool) throws {
+        guard let tapDescription else { throw ProcessEqualizerError.engineDidNotStart }
+        tapDescription.muteBehavior = muted ? .mutedWhenTapped : .unmuted
+        var description = tapDescription
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioTapPropertyDescription,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectSetPropertyData(tapObjectID, &address, 0, nil,
+            UInt32(MemoryLayout<CATapDescription>.size), &description)
+        guard status == noErr else { throw ProcessEqualizerError.coreAudio("update the audio route", status) }
+    }
+
+    @available(macOS 14.2, *)
+    private func rebuildOnQueue() {
+        let identifiers = activeBundleIdentifiers
+        let profile = activeProfile
+        stopOnQueue()
+        guard !identifiers.isEmpty else { return }
+        do {
+            try startOnQueue(bundleIdentifiers: identifiers, profile: profile)
+        } catch {
+            failOnQueue(error)
+        }
+    }
+
+    private func failOnQueue(_ error: Error) {
+        stopOnQueue()
+        statusSubject.send(.unavailable(error.localizedDescription))
+        NSLog("[NodebayEqualizer] Native process EQ restored normal audio: \(error.localizedDescription)")
+    }
+
+    private func nominalSampleRate(of device: AudioDeviceID) throws -> Double {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var rate: Double = 0
+        var size = UInt32(MemoryLayout<Double>.size)
+        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &rate)
+        guard status == noErr, rate > 0 else { throw ProcessEqualizerError.unstableTapFormat }
+        return rate
     }
 
     private func stopSynchronously() {
@@ -730,6 +883,17 @@ final class NodebayProcessAudioEqualizer {
     private let queueKey = DispatchSpecificKey<Void>()
 
     private func stopOnQueue() {
+        healthGeneration += 1
+        healthTimer?.cancel()
+        healthTimer = nil
+        healthTicks = 0
+        realtimeEqualizer?.setRoutesOutput(false)
+        // Restore passthrough before destroying a graph, even when IO stalled.
+        if #available(macOS 14.2, *), tapObjectID != kAudioObjectUnknown {
+            try? setTapMuted(false)
+        }
+        routesOutput = false
+        statusSubject.send(.idle)
         if let outputDeviceListener {
             var outputAddress = Self.defaultOutputPropertyAddress
             AudioObjectRemovePropertyListenerBlock(
@@ -749,6 +913,8 @@ final class NodebayProcessAudioEqualizer {
         isProcessing = false
         activeBundleIdentifiers = []
         activeOutputDeviceID = kAudioObjectUnknown
+        activeProcessObjectIDs = []
+        activeSampleRate = 0
 
         if aggregateDeviceID != kAudioObjectUnknown {
             let status = AudioHardwareDestroyAggregateDevice(aggregateDeviceID)
@@ -765,6 +931,7 @@ final class NodebayProcessAudioEqualizer {
                 }
             }
             tapObjectID = kAudioObjectUnknown
+            tapDescription = nil
         }
     }
 
@@ -787,16 +954,28 @@ final class NodebayProcessAudioEqualizer {
         guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &objectIDs) == noErr else {
             throw ProcessEqualizerError.cannotEnumerateProcesses
         }
+        let applications = Dictionary(uniqueKeysWithValues: bundleIdentifiers.map { identifier in
+            (identifier, NSRunningApplication.runningApplications(withBundleIdentifier: identifier))
+        })
         return objectIDs.filter { objectID in
-            guard let processBundleID = try? stringProperty(
-                objectID: objectID,
-                selector: kAudioProcessPropertyBundleID,
-                scope: kAudioObjectPropertyScopeGlobal
-            ) else { return false }
+            let processBundleID = try? stringProperty(objectID: objectID,
+                selector: kAudioProcessPropertyBundleID, scope: kAudioObjectPropertyScopeGlobal)
+            var pid: pid_t = 0
+            var pidSize = UInt32(MemoryLayout<pid_t>.size)
+            var pidAddress = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyPID,
+                mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+            let hasPID = AudioObjectGetPropertyData(objectID, &pidAddress, 0, nil, &pidSize, &pid) == noErr
+            guard !hasPID || pid != ProcessInfo.processInfo.processIdentifier else { return false }
+            let app = hasPID ? NSRunningApplication(processIdentifier: pid) : nil
+            let bundlePath = app?.bundleURL?.resolvingSymlinksInPath().standardizedFileURL.path
             return bundleIdentifiers.contains { requested in
-                processBundleID == requested || processBundleID.hasPrefix(requested + ".")
+                let roots = (applications[requested] ?? []).compactMap {
+                    $0.bundleURL?.resolvingSymlinksInPath().standardizedFileURL.path
+                }
+                return NodebayAudioProcessIdentity.matches(bundleID: processBundleID,
+                    bundlePath: bundlePath, requestedID: requested, applicationPaths: roots)
             }
-        }
+        }.sorted()
     }
 
     private func defaultOutputDeviceID() throws -> AudioDeviceID {
@@ -869,6 +1048,7 @@ final class NodebayProcessAudioEqualizer {
 private enum ProcessEqualizerError: LocalizedError {
     case noAudioProcess
     case cannotEnumerateProcesses
+    case noAudioReceived
     case missingOutputUnit
     case invalidTapFormat
     case unstableTapFormat
@@ -878,12 +1058,13 @@ private enum ProcessEqualizerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noAudioProcess: "No active audio process was found for this source."
-        case .cannotEnumerateProcesses: "Nodebay could not inspect the active audio processes."
+        case .cannotEnumerateProcesses: "Nodebay could not inspect the active audio processes. Retry after starting playback."
+        case .noAudioReceived: "No audio received. Start playback on this Mac. If it is already playing, allow Nodebay in System Settings > Privacy & Security > Screen & System Audio Recording, then retry."
         case .missingOutputUnit: "The current output device is unavailable."
         case .invalidTapFormat: "The source audio format is not supported by the current output device."
         case .unstableTapFormat: "The audio route did not become ready in time."
         case .engineDidNotStart: "The audio processing engine did not start."
-        case .coreAudio(let operation, let status): "Core Audio could not \(operation) (\(status))."
+        case .coreAudio(let operation, let status): "Core Audio could not \(operation) (\(status)). Check Nodebay’s System Audio Recording permission and current sound output, then retry."
         }
     }
 }
@@ -895,6 +1076,8 @@ final class NodebayEqualizerManager: ObservableObject {
     @Published private(set) var preset: NodebayEqualizerPreset
     @Published private(set) var customGains: [Float]
     @Published private(set) var isBypassed: Bool
+    @Published private(set) var processAudioStatus: NodebayProcessAudioStatus = .idle
+    private var processStatusSubscription: AnyCancellable?
 
     private let defaults: UserDefaults
 
@@ -907,6 +1090,9 @@ final class NodebayEqualizerManager: ObservableObject {
             ?? [0, 0, 0, 0, 0]
         isBypassed = defaults.object(forKey: "nodebay.equalizer.bypassed") as? Bool ?? false
         applyToLocalPlayer()
+        processStatusSubscription = NodebayProcessAudioEqualizer.shared.statusPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in self?.processAudioStatus = status }
     }
 
     var profile: NodebayEqualizerProfile {
@@ -920,6 +1106,12 @@ final class NodebayEqualizerManager: ObservableObject {
 
     private var isQuickTimeNowPlaying: Bool {
         MusicManager.shared.bundleIdentifier == QuickTimeController.bundleIdentifier
+    }
+
+    private var isSpotifyNowPlaying: Bool {
+        guard let identifier = MusicManager.shared.bundleIdentifier else { return false }
+        return NodebayAudioProcessIdentity.matches(bundleID: identifier, bundlePath: nil,
+            requestedID: "com.spotify.client", applicationPaths: [])
     }
 
     func isAvailable(for source: MusicManager.MediaSourceID) -> Bool {
@@ -938,8 +1130,10 @@ final class NodebayEqualizerManager: ObservableObject {
                     !NSRunningApplication.runningApplications(
                         withBundleIdentifier: QuickTimeController.bundleIdentifier
                     ).isEmpty
+                } else if type == .spotify {
+                    !NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").isEmpty
                 } else if type == .nowPlaying {
-                    isChromeNowPlaying || isQuickTimeNowPlaying
+                    isChromeNowPlaying || isQuickTimeNowPlaying || isSpotifyNowPlaying
                 } else {
                     false
                 }
@@ -960,6 +1154,11 @@ final class NodebayEqualizerManager: ObservableObject {
                 ? "Equalizer processes Chrome audio locally through macOS Core Audio."
                 : "Select an active Chrome media tab first."
         case .controller(let type):
+            if type == .spotify || (type == .nowPlaying && isSpotifyNowPlaying) {
+                return isAvailable(for: source)
+                    ? "Equalizer processes Spotify audio playing on this Mac."
+                    : "Start playback in Spotify on this Mac first."
+            }
             if type == .quickTime {
                 return isAvailable(for: source)
                     ? "Equalizer processes QuickTime audio locally through macOS Core Audio."
@@ -973,6 +1172,43 @@ final class NodebayEqualizerManager: ObservableObject {
             }
             return "Equalizer unavailable for this source."
         }
+    }
+
+    func processingMessage(for source: MusicManager.MediaSourceID) -> String {
+        guard isAvailable(for: source) else { return availabilityMessage(for: source) }
+        if isBypassed { return "Equalizer off. Original audio plays normally." }
+        if MusicManager.shared.activeSourceID == source, !MusicManager.shared.isPlaying {
+            return "Paused. Equalizer resumes when playback starts."
+        }
+        if source == .localAudio { return "Processing this file locally." }
+        switch processAudioStatus {
+        case .idle: return "Start playback on this Mac to use the equalizer."
+        case .checking: return "Checking audio access. Original audio continues playing."
+        case .active:
+            if case .browserTab = source { return "Processing Chrome audio locally, including other audible Chrome tabs." }
+            if source == .controller(.nowPlaying), isChromeNowPlaying {
+                return "Processing Chrome audio locally, including other audible Chrome tabs."
+            }
+            return "Processing audio locally."
+        case .unavailable(let message): return message
+        }
+    }
+
+    func canRetryProcessing(for source: MusicManager.MediaSourceID) -> Bool {
+        guard source != .localAudio, isAvailable(for: source), !isBypassed else { return false }
+        if MusicManager.shared.activeSourceID == source, !MusicManager.shared.isPlaying { return false }
+        if case .unavailable = processAudioStatus { return true }
+        return processAudioStatus == .idle
+    }
+
+    func retryProcessing(for source: MusicManager.MediaSourceID) {
+        NodebayProcessAudioEqualizer.shared.stop()
+        apply(to: source)
+    }
+
+    func openAudioRecordingSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func select(_ newPreset: NodebayEqualizerPreset, source: MusicManager.MediaSourceID) {
@@ -1031,7 +1267,13 @@ final class NodebayEqualizerManager: ObservableObject {
                 bypassed: isBypassed
             )
         case .controller(let type):
-            if type == .quickTime {
+            if type == .spotify || (type == .nowPlaying && isSpotifyNowPlaying) {
+                NodebayProcessAudioEqualizer.shared.apply(
+                    bundleIdentifiers: ["com.spotify.client"],
+                    profile: profile,
+                    bypassed: isBypassed
+                )
+            } else if type == .quickTime {
                 NodebayProcessAudioEqualizer.shared.apply(
                     bundleIdentifiers: [QuickTimeController.bundleIdentifier],
                     profile: profile,

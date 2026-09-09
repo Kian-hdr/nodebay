@@ -3,8 +3,8 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-release_version=${RELEASE_VERSION:-1.2.0}
-build_number=${BUILD_NUMBER:-25}
+release_version=${RELEASE_VERSION:-1.2.1}
+build_number=${BUILD_NUMBER:-26}
 release_tag=${RELEASE_TAG:-nodebay-v$release_version}
 signing_identity=${SIGNING_IDENTITY:--}
 development_team=${DEVELOPMENT_TEAM:-}
@@ -129,6 +129,7 @@ else
         "$app_stage"
 fi
 codesign --verify --deep --strict "$app_stage"
+python3 "$script_dir/verify_runtime_compatibility.py" "$app_stage/Contents" --maximum-macos 15.0
 
 main_arch=$(file "$app_stage/Contents/MacOS/Nodebay")
 helper_arch=$(file "$app_stage/Contents/Resources/markitdown-runtime/markitdown-local")

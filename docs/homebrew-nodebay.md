@@ -2,7 +2,7 @@
 
 Nodebay is distributed as an Apple Silicon cask through `Kian-hdr/homebrew-nodebay`.
 
-The current cask is **1.2.0 (25)**. The version, immutable release URL and final
+The current cask is **1.2.1 (26)**. The version, immutable release URL and final
 DMG SHA-256 are updated together after artifact verification.
 
 ## Installation

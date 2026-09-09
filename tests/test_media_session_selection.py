@@ -18,7 +18,7 @@ class MediaSessionSelectionTests(unittest.TestCase):
                 "-o", str(binary),
             ], check=True, capture_output=True, text=True)
             result = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
-            self.assertEqual(result.stdout.count("PASS "), 7, result.stdout)
+            self.assertEqual(result.stdout.count("PASS "), 8, result.stdout)
 
     def test_now_playing_source_changes_do_not_borrow_metadata(self):
         source = (ROOT / "boringNotch/MediaControllers/NowPlayingController.swift").read_text()
@@ -33,6 +33,7 @@ class MediaSessionSelectionTests(unittest.TestCase):
         isolated = (
             'import Foundation\nfinal class AdapterStateHarness {\n'
             'var playbackState = PlaybackState(bundleIdentifier: "")\n'
+            'var playbackIssue: String?\n'
             'func handleAdapterUpdate' + handler + '}\n'
             'private extension AdapterStateHarness' + helper_and_models
         )
@@ -46,7 +47,7 @@ class MediaSessionSelectionTests(unittest.TestCase):
                 str(ROOT / "tests/NowPlayingStateHarness.swift"), "-o", str(binary),
             ], check=True, capture_output=True, text=True)
             result = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
-            self.assertEqual(result.stdout.count("PASS "), 3, result.stdout)
+            self.assertEqual(result.stdout.count("PASS "), 4, result.stdout)
 
 
 if __name__ == "__main__":

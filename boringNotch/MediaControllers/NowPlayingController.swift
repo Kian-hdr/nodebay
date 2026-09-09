@@ -11,13 +11,17 @@ import Foundation
 
 final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     func updatePlaybackInfo() async {
-        await fetchFavoriteStateIfSupported()
+        // A missed/crashed helper must not require restarting Nodebay. The
+        // stream delivers metadata; favorite lookup is not a discovery refresh.
+        await setupNowPlayingObserver()
     }
 
     // MARK: - Properties
     @Published private(set) var playbackState: PlaybackState = .init(
         bundleIdentifier: ""
     )
+
+    private(set) var playbackIssue: String?
 
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> {
         $playbackState.eraseToAnyPublisher()
@@ -50,9 +54,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             }
         }
         
-        // Update the favorite state locally and fetch updated info
+        // Favorite state is not included in the generic adapter payload.
         try? await Task.sleep(for: .milliseconds(150))
-        await updatePlaybackInfo()
+        await fetchFavoriteStateIfSupported()
     }
 
     private var lastMusicItem:
@@ -65,14 +69,19 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     private let MRMediaRemoteSetShuffleModeFunction: @convention(c) (Int) -> Void
     private let MRMediaRemoteSetRepeatModeFunction: @convention(c) (Int) -> Void
 
+    private let adapterResources: MediaRemoteAdapterResources?
     private var process: Process?
     private var pipeHandler: JSONLinesPipeHandler?
     private var streamTask: Task<Void, Never>?
+    private var restartTask: Task<Void, Never>?
+    private var observerID: UUID?
+    private var restartAttempt = 0
     private let lifecycleLock = NSLock()
     private var isShuttingDown = false
 
     // MARK: - Initialization
-    init?() {
+    init?(adapterResources: MediaRemoteAdapterResources? = .bundled) {
+        self.adapterResources = adapterResources
         guard
             let bundle = CFBundleCreate(
                 kCFAllocatorDefault,
@@ -116,14 +125,18 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
         isShuttingDown = true
         let task = streamTask
+        let restart = restartTask
         let handler = pipeHandler
         let childProcess = process
         streamTask = nil
+        restartTask = nil
+        observerID = nil
         pipeHandler = nil
         process = nil
         lifecycleLock.unlock()
 
         task?.cancel()
+        restart?.cancel()
         if childProcess?.isRunning == true {
             childProcess?.terminate()
         }
@@ -204,48 +217,98 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     
     // MARK: - Setup Methods
     private func setupNowPlayingObserver() async {
-        let process = Process()
-        guard
-            let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
-            let frameworkPath = Bundle.main.privateFrameworksPath?.appending("/MediaRemoteAdapter.framework")
-        else {
-            assertionFailure("Could not find mediaremote-adapter.pl script or framework path")
-            return
+        let reservation: (UUID, Process)? = lifecycleLock.withLock {
+            guard !isShuttingDown, process == nil, restartTask == nil else { return nil }
+            let id = UUID()
+            let child = Process()
+            observerID = id
+            process = child
+            return (id, child)
         }
-        
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        process.arguments = [scriptURL.path, frameworkPath, "stream"]
-        
-        let pipeHandler = JSONLinesPipeHandler()
-        process.standardOutput = await pipeHandler.getPipe()
-        
-        lifecycleLock.lock()
-        guard !isShuttingDown else {
-            lifecycleLock.unlock()
-            Task { await pipeHandler.close() }
-            return
-        }
-        do {
-            try process.run()
-        } catch {
-            lifecycleLock.unlock()
-            assertionFailure("Failed to launch mediaremote-adapter.pl: \(error)")
-            Task { await pipeHandler.close() }
-            return
-        }
+        guard let (id, child) = reservation else { return }
 
-        self.process = process
-        self.pipeHandler = pipeHandler
-        let task = Task { [weak self, pipeHandler] in
-            await pipeHandler.readJSONLines(as: NowPlayingUpdate.self) { [weak self] update in
-                await self?.handleAdapterUpdate(update)
-            }
+        guard let adapterResources,
+              FileManager.default.fileExists(atPath: adapterResources.scriptURL.path),
+              FileManager.default.fileExists(atPath: adapterResources.frameworkURL.appendingPathComponent("MediaRemoteAdapter").path)
+        else {
+            await observerEnded(id: id, canRetry: false)
+            return
         }
-        streamTask = task
-        lifecycleLock.unlock()
+        child.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        // Full snapshots distinguish an omitted field from a field removed by
+        // the media app. They also recover after an interrupted stream.
+        child.arguments = [adapterResources.scriptURL.path, adapterResources.frameworkURL.path,
+                           "stream", "--no-diff", "--allow-missing-title"]
+        child.standardInput = FileHandle.nullDevice
+        child.standardError = FileHandle.nullDevice
+        let handler = JSONLinesPipeHandler()
+        let outputPipe = await handler.getPipe()
+        child.standardOutput = outputPipe
+
+        let launched = lifecycleLock.withLock {
+            guard !isShuttingDown, observerID == id else { return false }
+            do {
+                try child.run()
+                try? outputPipe.fileHandleForWriting.close()
+            } catch {
+                return false
+            }
+            pipeHandler = handler
+            streamTask = Task { [weak self, handler] in
+                await handler.readJSONLines(as: NowPlayingUpdate.self) { [weak self] update in
+                    await self?.handleStreamUpdate(update, id: id)
+                }
+                await handler.close()
+                await self?.observerEnded(id: id, canRetry: true)
+            }
+            return true
+        }
+        if !launched {
+            await handler.close()
+            await observerEnded(id: id, canRetry: true)
+        }
+    }
+
+    private func observerEnded(id: UUID, canRetry: Bool) async {
+        let shouldReport = lifecycleLock.withLock {
+            guard !isShuttingDown, observerID == id else { return false }
+            if process?.isRunning == true { process?.terminate() }
+            process = nil
+            pipeHandler = nil
+            streamTask = nil
+            observerID = nil
+            if canRetry {
+                restartAttempt = min(restartAttempt + 1, 6)
+                let delay = min(pow(2, Double(restartAttempt - 1)), 30)
+                restartTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                    guard let self else { return }
+                    self.lifecycleLock.withLock { self.restartTask = nil }
+                    await self.setupNowPlayingObserver()
+                }
+            }
+            return true
+        }
+        guard shouldReport else { return }
+        await MainActor.run {
+            self.playbackIssue = canRetry
+                ? "System Now Playing disconnected. Nodebay is reconnecting automatically."
+                : "System Now Playing is missing a bundled component. Reinstall the current Nodebay release."
+            self.playbackState = PlaybackState(bundleIdentifier: "")
+        }
     }
 
     // MARK: - Update Methods
+    private func handleStreamUpdate(_ update: NowPlayingUpdate, id: UUID) async {
+        let current = lifecycleLock.withLock {
+            let current = !isShuttingDown && observerID == id
+            if current { restartAttempt = 0 }
+            return current
+        }
+        guard current else { return }
+        await handleAdapterUpdate(update)
+    }
+
     private func handleAdapterUpdate(_ update: NowPlayingUpdate) async {
         let payload = update.payload
         let isDiff = update.diff ?? false
@@ -256,7 +319,10 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             payload.bundleIdentifier ??
             (isDiff ? self.playbackState.bundleIdentifier : "")
         )
-        let diff = isDiff && resolvedBundleIdentifier == self.playbackState.bundleIdentifier
+        let resolvedProcessIdentifier = payload.processIdentifier ?? (isDiff ? playbackState.processIdentifier : nil)
+        let sameOwner = resolvedBundleIdentifier == playbackState.bundleIdentifier
+            && resolvedProcessIdentifier == playbackState.processIdentifier
+        let diff = isDiff && sameOwner
         let captureBundleFallbackIdentifiers: [String]
         if diff {
             captureBundleFallbackIdentifiers =
@@ -325,11 +391,21 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         newPlaybackState.playbackRate = payload.playbackRate ?? (diff ? self.playbackState.playbackRate : 1.0)
         newPlaybackState.isPlaying = payload.playing ?? (diff ? self.playbackState.isPlaying : false)
         newPlaybackState.bundleIdentifier = resolvedBundleIdentifier
+        newPlaybackState.processIdentifier = resolvedProcessIdentifier
+        // Keep a known untitled session when it pauses, but never create one
+        // from a player that merely registers an idle Now Playing client.
+        newPlaybackState.hasUntitledMediaSession = !resolvedBundleIdentifier.isEmpty
+            && newPlaybackState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (newPlaybackState.isPlaying || (sameOwner && playbackState.hasUntitledMediaSession))
         newPlaybackState.audioCaptureBundleIdentifiers = captureBundleIdentifiers
         
         newPlaybackState.volume = payload.volume ?? (diff ? self.playbackState.volume : 0.5)
         
-        self.playbackState = newPlaybackState
+        let snapshot = newPlaybackState
+        await MainActor.run {
+            self.playbackIssue = nil
+            self.playbackState = snapshot
+        }
         
         // Fetch favorite state for supported apps asynchronously
         // await fetchFavoriteStateIfSupported()
@@ -371,6 +447,17 @@ private extension NowPlayingController {
     }
 }
 
+struct MediaRemoteAdapterResources {
+    let scriptURL: URL
+    let frameworkURL: URL
+
+    static var bundled: MediaRemoteAdapterResources? {
+        guard let script = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
+              let frameworks = Bundle.main.privateFrameworksURL else { return nil }
+        return Self(scriptURL: script, frameworkURL: frameworks.appendingPathComponent("MediaRemoteAdapter.framework"))
+    }
+}
+
 struct NowPlayingUpdate: Codable {
     let payload: NowPlayingPayload
     let diff: Bool?
@@ -390,83 +477,63 @@ struct NowPlayingPayload: Codable {
     let playing: Bool?
     let parentApplicationBundleIdentifier: String?
     let bundleIdentifier: String?
+    let processIdentifier: Int32?
     let volume: Double?
 }
 
 actor JSONLinesPipeHandler {
     private let pipe: Pipe
     private let fileHandle: FileHandle
-    private var buffer = ""
-    
+    private let chunks: AsyncStream<Data>
+    private let continuation: AsyncStream<Data>.Continuation
+    private var buffer = Data()
+    private var closed = false
+
     init() {
-        self.pipe = Pipe()
-        self.fileHandle = pipe.fileHandleForReading
-    }
-    
-    func getPipe() -> Pipe {
-        return pipe
-    }
-    
-    func readJSONLines<T: Decodable>(as type: T.Type, onLine: @escaping (T) async -> Void) async {
-        do {
-            try await self.processLines(as: type) { decodedObject in
-                await onLine(decodedObject)
-            }
-        } catch {
-            print("Error processing JSON stream: \(error)")
-        }
-    }
-    
-    private func processLines<T: Decodable>(as type: T.Type, onLine: @escaping (T) async -> Void) async throws {
-        while true {
-            let data = try await readData()
-            guard !data.isEmpty else { break }
-            
-            if let chunk = String(data: data, encoding: .utf8) {
-                buffer.append(chunk)
-                
-                while let range = buffer.range(of: "\n") {
-                    let line = String(buffer[..<range.lowerBound])
-                    buffer = String(buffer[range.upperBound...])
-                    
-                    if !line.isEmpty {
-                        await processJSONLine(line, as: type, onLine: onLine)
-                    }
+        pipe = Pipe()
+        fileHandle = pipe.fileHandleForReading
+        let pair = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(64))
+        chunks = pair.stream
+        continuation = pair.continuation
+        let continuation = pair.continuation
+        fileHandle.readabilityHandler = { handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                continuation.finish()
+            } else {
+                if case .dropped = continuation.yield(data) {
+                    // Lost bytes cannot be decoded reliably. Finish this
+                    // stream so the owner restarts with a full snapshot.
+                    handle.readabilityHandler = nil
+                    continuation.finish()
                 }
             }
         }
     }
-    
-    private func processJSONLine<T: Decodable>(_ line: String, as type: T.Type, onLine: @escaping (T) async -> Void) async {
-        guard let data = line.data(using: .utf8) else {
-            return
-        }
-        do {
-            let decodedObject = try JSONDecoder().decode(T.self, from: data)
-            await onLine(decodedObject)
-        } catch {
-            // Ignore lines that can't be decoded
-        }
-    }
-    
-    private func readData() async throws -> Data {
-        return try await withCheckedThrowingContinuation { continuation in
-            
-            fileHandle.readabilityHandler = { handle in
-                let data = handle.availableData
-                handle.readabilityHandler = nil
-                continuation.resume(returning: data)
+
+    func getPipe() -> Pipe { pipe }
+
+    func readJSONLines<T: Decodable>(as type: T.Type, onLine: @escaping (T) async -> Void) async {
+        for await data in chunks {
+            guard !Task.isCancelled else { break }
+            buffer.append(data)
+            while let newline = buffer.firstIndex(of: 0x0A) {
+                let line = Data(buffer[..<newline])
+                buffer.removeSubrange(...newline)
+                if let decoded = try? JSONDecoder().decode(type, from: line) { await onLine(decoded) }
             }
+            // A malformed helper must not grow the app indefinitely.
+            guard buffer.count <= 16 * 1024 * 1024 else { break }
         }
     }
-    
-    func close() async {
-        do {
-            fileHandle.readabilityHandler = nil
-            try fileHandle.close()
-            try pipe.fileHandleForWriting.close()
-        } catch {
-            print("Error closing pipe handler: \(error)")
-        }
+
+    func close() {
+        guard !closed else { return }
+        closed = true
+        fileHandle.readabilityHandler = nil
+        continuation.finish()
+        try? fileHandle.close()
+        try? pipe.fileHandleForWriting.close()
     }
 }

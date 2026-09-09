@@ -15,6 +15,7 @@ enum RepeatMode: Int, Codable {
 
 struct PlaybackState {
     var bundleIdentifier: String
+    var processIdentifier: Int32?
     var audioCaptureBundleIdentifiers: [String] = []
     var isPlaying: Bool = false
     var title: String = ""
@@ -29,11 +30,12 @@ struct PlaybackState {
     var artwork: Data?
     var volume: Double = 0.5
     var isFavorite: Bool = false
+    var hasUntitledMediaSession: Bool = false
 
     /// A running application alone is not a playable media session. Paused
     /// tracks still have metadata and must remain independently selectable.
     var hasMedia: Bool {
-        isPlaying || duration > 0 || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isPlaying || hasUntitledMediaSession || duration > 0 || !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     func representsSameItem(as other: PlaybackState) -> Bool {
@@ -63,6 +65,8 @@ extension Sequence where Element == String {
 extension PlaybackState: Equatable {
     static func == (lhs: PlaybackState, rhs: PlaybackState) -> Bool {
         return lhs.bundleIdentifier == rhs.bundleIdentifier
+            && lhs.processIdentifier == rhs.processIdentifier
+            && lhs.hasUntitledMediaSession == rhs.hasUntitledMediaSession
             && lhs.effectiveAudioCaptureBundleIdentifiers == rhs.effectiveAudioCaptureBundleIdentifiers
             && lhs.isPlaying == rhs.isPlaying
             && lhs.title == rhs.title

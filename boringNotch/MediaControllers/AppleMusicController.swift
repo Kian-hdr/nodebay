@@ -29,6 +29,8 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     private var notificationTask: Task<Void, Never>?
+    private var refreshInFlight = false
+    private(set) var playbackIssue: String?
     
     // MARK: - Initialization
     init() {
@@ -129,13 +131,32 @@ class AppleMusicController: MediaControllerProtocol {
         await updatePlaybackInfo()
     }
     
+    @MainActor
     func updatePlaybackInfo() async {
-        guard isActive(),
-              let descriptor = try? await fetchPlaybackInfoAsync(),
-              descriptor.numberOfItems >= 11, isActive() else {
+        guard !refreshInFlight else { return }
+        refreshInFlight = true
+        defer { refreshInFlight = false }
+        guard isActive() else {
+            playbackIssue = nil
             playbackState = PlaybackState(bundleIdentifier: "com.apple.Music")
             return
         }
+        let descriptor: NSAppleEventDescriptor
+        do {
+            guard let snapshot = try await fetchPlaybackInfoAsync(),
+                  snapshot.numberOfItems >= 11, isActive() else {
+                playbackIssue = nil
+                playbackState = PlaybackState(bundleIdentifier: "com.apple.Music")
+                return
+            }
+            descriptor = snapshot
+            playbackIssue = nil
+        } catch {
+            playbackIssue = isActive() ? MediaPlaybackIssue.message(for: error, applicationName: "Music") : nil
+            playbackState = PlaybackState(bundleIdentifier: "com.apple.Music")
+            return
+        }
+
         var updatedState = self.playbackState
         
         updatedState.isPlaying = descriptor.atIndex(1)?.booleanValue ?? false
@@ -192,10 +213,14 @@ class AppleMusicController: MediaControllerProtocol {
                 end try
                 
                 set currentVolume to sound volume
-                set favoriteState to favorited of current track
+                set favoriteState to false
+                try
+                    set favoriteState to favorited of current track
+                end try
                 return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatValue, currentVolume, artData, favoriteState}
-            on error
-                return {false, "", "", "", 0, 0, false, 0, 50, "", false}
+            on error errorMessage number errorNumber
+                if errorNumber is -1728 then return {}
+                error errorMessage number errorNumber
             end try
         end tell
         """

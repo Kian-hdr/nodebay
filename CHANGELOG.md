@@ -2,6 +2,16 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
+## [1.2.1] - 2026-09-09
+
+- Update the pinned media adapter to support active untagged audio and shared voice clips without inventing titles.
+- Recover media discovery after startup and helper failures instead of permanently disabling Now Playing after one self-test. Show actionable per-app Automation errors and Refresh Sources.
+- Keep the original 640 × 190 notch size with separate source/metadata, progress and control rows; optional lyrics share the artist row; prevent EQ/download accessories from overlapping custom controls.
+- Add local Spotify EQ with specific process/helper targeting, valid-audio startup checks, truthful status and retry. Preserve ordinary playback while capture is unavailable, and recover when the output device, sample rate or helper changes.
+- Correct interleaved/separate audio-channel processing and restore normal playback on bypass or callback failure.
+- Preserve the PNG compression permission fix: write optimized copies to Nodebay's own persistent folder without requiring write access beside the original.
+- Build the bundled converter from verified Python.org CPython and reject binaries above the advertised macOS15 minimum or linked to developer-local libraries.
+
 ## [1.2.0] - 2026-09-06
 
 - Add opt-in **AI & Quick Chat** settings with Off, Codex CLI and OpenAI API

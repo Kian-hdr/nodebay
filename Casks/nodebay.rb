@@ -1,6 +1,6 @@
 cask "nodebay" do
-  version "1.2.0"
-  sha256 "7acb9b1b966cafe38158d1044088e411d4703a25a38c6041016a5b7f6c719f12"
+  version "1.2.1"
+  sha256 "36dfbedca999208f4808ff10f3f0767743f0b186c82eacf0b3494a4bcec47565"
 
   url "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v#{version}/Nodebay-#{version}-arm64.dmg"
   name "Nodebay"
@@ -14,7 +14,6 @@ cask "nodebay" do
   end
 
   auto_updates true
-
   depends_on arch: :arm64
   depends_on macos: :sequoia
   depends_on formula: "yt-dlp"

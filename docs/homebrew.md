@@ -2,8 +2,7 @@
 
 The official public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed, notarized Apple Silicon GitHub release.
 
-The published cask is **1.2.0 (25)**; **1.2.1 (28)** is being prepared, including optional Quick Chat, available media
-sources and the latest chat and file-drawer fixes.
+The **1.2.1 (28)** cask includes signed in-app updates, optional Quick Chat, available media sources, compact player layout, Spotify EQ recovery and the latest file-drawer fixes.
 
 ```bash
 brew tap Kian-hdr/nodebay

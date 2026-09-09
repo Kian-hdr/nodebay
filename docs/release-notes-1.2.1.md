@@ -1,9 +1,8 @@
 # Nodebay 1.2.1 for Apple Silicon
 
-**UNPUBLISHED release candidate: final installer and publication checks are in progress.**
-Nodebay 1.2.1 fixes media recovery, player spacing, local Spotify equalizer
-routing and converter portability. Apple Silicon and macOS 15 or later remain
-required.
+Nodebay 1.2.1 adds signed in-app updates and fixes media recovery, player spacing,
+local Spotify equalizer routing and converter portability. Apple Silicon and
+macOS 15 or later remain required.
 
 - **Media recovery:** Now Playing starts without depending on a synthetic
   diagnostic player and restarts its helper after a failure. Media settings show
@@ -30,11 +29,28 @@ required.
 - **Image compression:** optimized copies are saved in Nodebay's persistent
   storage, so read-only files and folders no longer require write access beside
   the original. Original files remain unchanged.
+- **In-app updates:** check manually in About Nodebay, or choose automatic
+  checks and downloads. Nodebay verifies its own signed feed and archives, and
+  defers restart while downloads, conversions or drafts are active. Existing
+  1.2.0 installations need one manual/Homebrew upgrade to gain this feature.
+  See [update setup](features/updates.md).
+- **Shelf preservation:** quitting waits for pending shelf saves; overlapping
+  imports and conversions remain active until every operation finishes.
 
-- **In-app updates:** check manually in About Nodebay, or choose automatic checks and downloads. Nodebay verifies its signed feed and archives, and defers restart while downloads, conversions or drafts are active. Existing 1.2.0 installations require one final manual/Homebrew upgrade. See [update setup](features/updates.md).
-- **Shelf preservation:** quitting waits for admitted shelf saves; overlapping imports and conversions remain active until every operation finishes.
+The clean build 28 package and [independent CI](https://github.com/Kian-hdr/nodebay/actions/runs/34404354725)
+passed. The app and DMG are Developer ID signed, Apple-notarized and stapled;
+the final ZIP and read-only DMG layout were verified. The full suite completed
+with two optional tool checks skipped; all 19 final feed checks then passed
+separately with the actual Sparkle tools. Exact results and hashes are in the
+[verification matrix](release-verification-matrix.md).
 
-The earlier build 26 bugfix candidate passed 222 tests and independent CI, and its application was notarized and stapled. Those artifacts are superseded by the updater-enabled build 28. Final source tests, package checks and real installed update acceptance are in progress and recorded in the [verification matrix](release-verification-matrix.md).
+Installed build 27 rejected a bad feed signature and a truncated archive before
+installation. A real OpenAI API validation also passed, and Command-Q during
+the request correctly kept Nodebay running. The complete 27 → 28 download,
+installation and relaunch then passed through the separate testing feed using
+the unchanged production archive. Afterward, the saved Keychain key completed
+another real API validation without re-entry, and all 18 sampled managed files
+remained unchanged. The installed executable matched the final production hash.
 
 Authenticated Spotify playback, live EQ adjustment, bypass and pause/resume recovery passed in the compact installed candidate. Fresh capture-permission grant/denial, output-device switching and execution on a recipient's macOS 15 Mac remain untested. Process EQ handles local Mac audio; it does not equalize Spotify Connect playback on another device. Chrome EQ can affect other audible Chrome tabs.
 

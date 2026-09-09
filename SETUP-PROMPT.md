@@ -59,6 +59,16 @@ to this specific cask. Do not trust an entire tap, suppress quarantine, install
 unrelated upgrades, or run uninstall --zap. If the cask is absent or its URL fails,
 use the verified release route above or report the source-build choice if offered.
 
+Before using in-app updates, confirm the installed release includes them. Nodebay
+1.2.0 and older cannot activate an updater remotely and need one final verified
+manual or Homebrew upgrade. For this migration, use a targeted
+brew upgrade --cask --greedy Kian-hdr/nodebay/nodebay after brew update, because
+the current cask declares auto_updates true. Do not downgrade a newer app already
+installed by Sparkle. For Nodebay 1.2.1 and later, open About Nodebay and Check for
+Updates. Explain the automatic checks/downloads choice and preserve my existing
+explicit preference. Wait for downloads, conversions and drafts to finish before
+an update restart. Do not use --zap or delete Keychain items during updates.
+
 4. Complete setup and verify actual use.
 Open the installed app through Finder or open. Verify its installed version and
 bundle identifier (theboringteam.boringnotch), then inspect its visible interface when UI tools

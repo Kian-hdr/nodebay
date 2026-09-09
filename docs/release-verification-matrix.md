@@ -1,48 +1,67 @@
 # Nodebay release verification
 
-## Nodebay 1.2.1 (26): candidate checks, 2026-09-09
+## Nodebay 1.2.1 (28): updater candidate, 2026-09-09
 
-**Candidate, not yet published.** The integrated Apple Silicon Release build
-succeeded on macOS 26.6.2 with Xcode 26.6. The current source is an uncommitted
-patch based on `b8c9e1148712871f34d5ffe440558189d708d8ad`; this build is not yet
-the final notarized release artifact. The intended version is 1.2.1, build 26,
-with a new immutable tag and download files. Existing 1.2.0 assets remain unchanged.
+**Not published.** Build 28 adds signed in-app updates; build 26 below is superseded and its artifact checks do not establish build 28 acceptance. The original 640 × 190 notch dimensions remain fixed.
+
+| Check | Status | Evidence / limit |
+| --- | --- | --- |
+| Nodebay signing key | Passed | Actual pinned Sparkle 2.9.5 and independent CryptoKit verification agree; both reject modified feed bytes. Private key stays outside source |
+| Updater policy, privacy and branding | Passed | 20 focused tests, including compiled policy behavior for legacy choice, opt-out, configured feed and active-work gates |
+| Shelf persistence and overlapping activity | Passed | Four ordering/recovery tests and two activity cases; native update continuity remains pending |
+| Final source build and full suite | Pending | Integration in progress |
+| Older build 27 to unchanged production build 28 | Pending | Separate testing feed; must exercise actual downloaded signed archive, install, relaunch and retained settings/data |
+| Invalid signature / interrupted download | Pending | Real installed updater acceptance still required |
+| Stable GitHub release, signed feed and Homebrew | Pending | No final artifact or cask publication yet |
+
+## Nodebay 1.2.1 (26): superseded bugfix candidate checks, 2026-09-09
+
+**UNPUBLISHED release candidate.** The clean Apple Silicon Release package was
+built from source commit `2442410e4c3123f732b900e8f7dc8848788f1994` on
+macOS 26.6.2 with Xcode 26.6. The app is signed, Apple-notarized and stapled;
+final ZIP verification passed. DMG notarization, final installation and native
+checks, GitHub publication and the Homebrew lifecycle remain pending.
+The intended version is 1.2.1, build 26, with a new immutable tag and download
+files. Existing 1.2.0 assets remain unchanged.
 
 | Check | Status | Evidence / boundary |
 |---|---|---|
-| Integrated Apple Silicon Release build | Passed | Build log ends `BUILD SUCCEEDED`; application metadata is 1.2.1 (26). Built from the working candidate, not a clean release commit |
-| Complete automated suite | Passed | All 221 tests passed in 56.980 seconds after compact integration, including the native layout overlap regression |
+| Clean Apple Silicon Release package | Passed | Built from clean source commit `2442410e4c3123f732b900e8f7dc8848788f1994`; application metadata is 1.2.1 (26). All 170 packaged Mach-O files contain arm64, require macOS 15.0 or earlier and have no external absolute library dependencies |
+| Complete automated suite | Passed | All 222 tests passed in 53.636 seconds for the release source, including the native layout overlap regression |
 | Media discovery and recovery | Passed focused tests | 22 media/recovery/selection/QuickTime/startup tests; production controller harness covers failed-helper restart, cleared issues, shutdown/deallocation, missing resources, fragmented UTF-8 and closing a silent pipe |
 | Untitled active media | Passed bundled-framework regression | MediaRemoteAdapter v0.7.7, exact source `e3ff5021eb0875858bd05f48d2e9ba2e962d1cf6`; binary metadata harness accepts an active client without a title and rejects missing client/playback keys. Application fixtures prevent borrowing metadata across clients. This does not establish playback in every chat app |
 | Media adapter portability | Passed artifact inspection | Rebuilt framework and diagnostic helper contain arm64 slices with macOS 15.0 minimum and only system-library dependencies. Corresponding source, build instructions and BSD notice are retained in [SOURCE.md](../mediaremote-adapter/SOURCE.md) |
-| Player layout | Passed native SwiftUI geometry regression | Six off-screen native layout cases at three widths, with and without lyrics, keep metadata, timeline and controls separate. The old layout fails the same overlap check. Installed candidate visually verified at the original640×190 size; lyrics share the artist row. Final packaged display checks remain pending |
+| Player layout | Passed native SwiftUI geometry regression | Six off-screen native layout cases at three widths, with and without lyrics, keep metadata, timeline and controls separate. The old layout fails the same overlap check. Installed candidate visually verified at the original 640 × 190 size; lyrics share the artist row. Final packaged display checks remain pending |
 | Equalizer DSP and startup policy | Passed focused tests | 13 EQ tests plus six QuickTime tests. Production DSP processes a 1 kHz signal, applies a live 12 dB cut, handles four interleaved/separate buffer combinations, and keeps the unmuted probe output silent. Zero-filled, nonfinite and incompatible-channel fixtures fail safely |
 | Spotify routing and recovery UI | Passed installed-candidate checks | Specific Spotify/helper matching and late source resolution; actual authenticated Spotify audio reached the active state only after valid nonzero capture. Live bass adjustment, bypass/re-enable and pause/resume recovery succeeded. Fresh permission grant/denial and output-device switching remain untested |
-| Native Spotify playback | Passed installed-candidate checks | User signed in directly. Spotify source, track metadata, Play/Pause and advancing time verified. EQ displayed Processing audio locally; bass0→−6dB→flat, bypass and resume verified. These are native routing/UI observations plus deterministic DSP tests, not physical speaker spectral measurements |
+| Native Spotify playback | Passed installed-candidate checks | User signed in directly. Spotify source, track metadata, Play/Pause and advancing time verified. EQ displayed Processing audio locally; bass 0 → −6 dB → flat, bypass and resume verified. These are native routing/UI observations plus deterministic DSP tests, not physical speaker spectral measurements |
 | PNG/image compression repair | Passed nine production-service tests | Read-only files/folders and symlinks produce independent writable copies in Nodebay storage; tests cover original preservation, collisions, cancellation, optimizer errors and invalid output. The optimizer boundary is stubbed; this is not a new live ImageOptim GUI test |
 | Converter runtime portability | Passed binary checks and current-host execution | Replaced the Homebrew-built Python runtime whose binaries required macOS 26. The verified Python.org CPython 3.13.15 arm64 interpreter targets macOS 11; all 158 frozen runtime Mach-O files pass the macOS 15 maximum, arm64 and external-library checks. Actual execution on macOS 15 remains untested |
 | Compatibility regression guard | Passed seven tests | Real compiled fixtures reject macOS 26-only, Intel-only and developer-local library dependencies; both modern and legacy deployment metadata are parsed. Runtime build, package assembly and final archive verification invoke the guard |
 | Bundled conversion and runtime notices | Passed locally | Nine wrapper tests and real PDF/DOCX conversions; originals preserved and remote URL rejected. Official installer checksum, PSF Developer ID and Apple notarization verified before private extraction. Incorporated-library notices are included; dependency versions remain pinned |
-| Final source commit and independent CI | Pending | Record the reviewed source commit and successful CI run for the release source before reporting the candidate as verified for publication |
-| Final app signing, notarization and Gatekeeper | Pending | Record final main-binary hash, designated requirement, nested signatures/timestamps, entitlements, accepted app submission and staple validation |
-| Final DMG/ZIP and installation | Pending | Record both artifact hashes/sizes; accepted DMG submission, staple and Gatekeeper; ZIP contents and read-only DMG layout; matching installed app, native launch and media/EQ observations |
+| Release-source independent CI | Passed | [Apple Silicon build and verification](https://github.com/Kian-hdr/nodebay/actions/runs/34398399898) completed successfully at 20:08:30 UTC on 2026-09-09 for exact source `2442410e4c3123f732b900e8f7dc8848788f1994`; repository/notices, runtime, local downloader fixture and clean Release build passed |
+| Final app signing, notarization and Gatekeeper | Passed | Developer ID team `HZWY8HT54D`; stable designated requirement, hardened runtime, nested signatures/timestamps and debug-entitlement exclusion passed. App submission `99d7bcb2-140a-46f5-9a10-003e35937b9d` Accepted; staple and Gatekeeper passed. Final main SHA-256 is recorded below |
+| Final ZIP | Passed | Contains only Nodebay.app; all artifact-verifier checks passed, including binary compatibility, release metadata, notices, nested signatures, preview sandbox, Gatekeeper and staple. Final hash and size are recorded below |
+| DMG construction and enclosed app | Passed pre-notarization checks | Signed DMG integrity passed. Read-only mount contains Nodebay.app and an Applications shortcut; enclosed main executable matches the final ZIP app and its signature/staple pass |
+| DMG notarization and final installation | Pending | DMG submission reports the saved Keychain item unavailable after screen lock. Unlock and retry are pending; credentials have not been recreated. DMG acceptance/staple, final hash, Gatekeeper, installation and final packaged native media/EQ checks remain pending |
 | GitHub and Homebrew | Pending | No 1.2.1 publication or cask lifecycle result is claimed. Verify hosted bytes, cask checksum/style/online audit, upgrade and non-zap reinstall, including data/settings preservation |
 
 Release fields to complete from the final artifact and hosted state:
 
 | Field | Current value |
 |---|---|
-| Application source commit | Pending |
+| Application source commit | `2442410e4c3123f732b900e8f7dc8848788f1994` |
 | Release tag and tag commit | Intended `nodebay-v1.2.1`; not created |
-| Successful release-source CI URL | Pending |
-| Final installed main executable SHA-256 | Pending |
-| App notarization submission ID/status | Pending |
-| DMG notarization submission ID/status | Pending |
-| `Nodebay-1.2.1-arm64.dmg` SHA-256 and size | Pending |
-| `Nodebay-1.2.1-arm64.zip` SHA-256 and size | Pending |
+| Successful release-source CI URL | [Run 34398399898](https://github.com/Kian-hdr/nodebay/actions/runs/34398399898), successful for the exact source commit |
+| Final packaged main executable SHA-256 | `3813dbb3d84c3fa783fc3ba265846e32512f41a1def0ba641c4074d62d1914df` |
+| Final installed main executable SHA-256 | Pending installation from the final artifact |
+| App notarization submission ID/status | `99d7bcb2-140a-46f5-9a10-003e35937b9d`, Accepted; app stapled and validated |
+| DMG notarization submission ID/status | Pending Keychain access after unlock; no completed submission claimed |
+| `Nodebay-1.2.1-arm64.dmg` SHA-256 and size | Pending final notarization and stapling |
+| `Nodebay-1.2.1-arm64.zip` SHA-256 and size | `e1a429a6b59355f7365e826adfbdd0c95fd52d69f33b97b1ddeadf1531b3a034`; 87,408,640 bytes |
 | Public release URL and anonymous download comparison | Pending |
 | Homebrew tap commit and lifecycle results | Pending |
-| Final native media/layout/EQ observations and host | Pending |
+| Final native media/layout/EQ observations and host | Pending final packaged installation; earlier installed-candidate checks on macOS 26.6.2 remain distinct |
 
 The Python compatibility finding corrects an earlier packaging assumption:
 1.2.0 converted documents successfully on the developer's macOS 26 Mac, but its

@@ -365,8 +365,7 @@ final class ShelfItemViewModel: ObservableObject {
         batchConversionTask?.cancel()
         isBatchConverting = true
         ShelfStateViewModel.shared.beginConverting([item])
-        batchConversionTask = Task { [weak self] in
-            guard let self else { return }
+        batchConversionTask = Task { [self] in
             var results: [ShelfItem] = []
             var failures: [String] = []
             var savedBytes: Int64 = 0
@@ -438,8 +437,7 @@ final class ShelfItemViewModel: ObservableObject {
         batchConversionTask?.cancel()
         isBatchConverting = true
         ShelfStateViewModel.shared.beginConverting([item])
-        batchConversionTask = Task { [weak self] in
-            guard let self else { return }
+        batchConversionTask = Task { [self] in
             var results: [ShelfItem] = []
             var failures: [String] = []
 
@@ -1066,7 +1064,10 @@ final class ShelfItemViewModel: ObservableObject {
                 let fileURLs = selected.compactMap { $0.fileURL }
                 guard !fileURLs.isEmpty else { break }
 
+                let shelf = ShelfStateViewModel.shared
+                shelf.beginConverting(selected)
                 Task {
+                    defer { shelf.finishConverting(selected) }
                     // Create ZIP in a temporary location while holding access to selected resources
                     if let zipTempURL = await fileURLs.accessSecurityScopedResources(accessor: { urls in
                         await TemporaryFileStorageService.shared.createZip(from: urls)
@@ -1332,7 +1333,10 @@ final class ShelfItemViewModel: ObservableObject {
             
             guard let imageURL = imageURLs.first else { return }
             
+            let shelf = ShelfStateViewModel.shared
+            shelf.beginConverting(selected)
             Task {
+                defer { shelf.finishConverting(selected) }
                 do {
                     let resultURL = try await imageURL.accessSecurityScopedResource { url in
                         try await ImageProcessingService.shared.removeBackground(from: url)
@@ -1362,7 +1366,10 @@ final class ShelfItemViewModel: ObservableObject {
             
             guard !imageURLs.isEmpty else { return }
             
+            let shelf = ShelfStateViewModel.shared
+            shelf.beginConverting(selected)
             Task {
+                defer { shelf.finishConverting(selected) }
                 do {
                     let resultURL = try await imageURLs.accessSecurityScopedResources { urls in
                         try await ImageProcessingService.shared.createPDF(from: urls)
@@ -1570,7 +1577,10 @@ final class ShelfItemViewModel: ObservableObject {
                     removeMetadata: removeMetadata
                 )
                 
+                let shelf = ShelfStateViewModel.shared
+                shelf.beginConverting([item])
                 Task {
+                    defer { shelf.finishConverting([item]) }
                     do {
                         let resultURL = try await imageURL.accessSecurityScopedResource { url in
                             try await ImageProcessingService.shared.convertImage(from: url, options: options)

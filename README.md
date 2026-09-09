@@ -17,14 +17,14 @@ permissions or configuration you need to complete yourself.
 
 ## Current release status
 
-Nodebay **1.2.1 (26)** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
+The **1.2.1 (28) release candidate** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
 available-source media tabs, clearer API-key setup and message bubbles that fit
 their text. It also includes file-drawer fixes and an optional, separately installed
 [Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
 later are required. Quick Chat defaults to Off; API billing is separate from
 ChatGPT subscriptions.
 
-Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.1)
+Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/latest)
 or install through the official Homebrew tap. See the
 [verification matrix](docs/release-verification-matrix.md) for completed checks
 and remaining UI/hardware coverage. The optional Browser Media Bridge requires
@@ -198,7 +198,7 @@ The script asks Xcode to sign the app and XPC service with their target entitlem
 Verify the resulting archive before notarization:
 
 ```bash
-EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=26 \
+EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=28 \
 ./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.1-arm64.zip
 ```
 
@@ -223,7 +223,7 @@ Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the fi
 - Chrome requires the bundled extension to be loaded explicitly; Nodebay cannot silently install or enable it.
 - ImageOptim behavior follows the installed app's preferences. Nodebay reports that status and always protects the source through a copy-first workflow.
 - Physical multi-monitor, clamshell, Spaces, full-screen, Mission Control, and Stage Manager regression checks require the final manual hardware test pass.
-- No Sparkle update feed is configured. Use Homebrew or download a release manually to update.
+- Signed in-app updates are configured for Nodebay's own GitHub feed. Choose automatic checks/downloads or use Check for Updates in About Nodebay. Existing 1.2.0 installations need one final manual or Homebrew upgrade; see [update setup](docs/features/updates.md).
 - Downloader site support depends on the separately installed yt-dlp version and the source service. Automatic mode falls back to video when structured metadata is ambiguous; it does not identify songs from titles alone.
 - Quick Notes accepts up to 1 MiB; rich text falls back to plain text when conversion is unreliable. Its physical hover-paste workflow still needs verification.
 - STL Repair does not detect or repair self-intersections and cannot guarantee printability. Inspect every result before manufacturing.

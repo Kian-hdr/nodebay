@@ -63,10 +63,15 @@ class NodebayBrandingTests(unittest.TestCase):
         for relative_path in required:
             self.assertTrue((ROOT / relative_path).is_file(), relative_path)
 
-    def test_unpublished_build_has_no_sparkle_feed(self) -> None:
+    def test_sparkle_build_defaults_use_nodebay_channel(self) -> None:
         info_plist = (ROOT / "boringNotch/Info.plist").read_text(encoding="utf-8")
-        self.assertNotIn("SUFeedURL", info_plist)
-        self.assertIn("SUEnableAutomaticChecks", info_plist)
+        self.assertIn("$(NODEBAY_UPDATE_FEED_URL)", info_plist)
+        project = (ROOT / "boringNotch.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
+        feed_defaults = [line.strip() for line in project.splitlines()
+                         if "NODEBAY_UPDATE_FEED_URL =" in line]
+        self.assertTrue(feed_defaults)
+        for line in feed_defaults:
+            self.assertIn("https://raw.githubusercontent.com/Kian-hdr/nodebay/updates/stable/appcast.xml", line)
 
     def test_release_workflow_is_manual_and_confirmation_gated(self) -> None:
         workflow = (ROOT / ".github/workflows/nodebay-release.yml").read_text(

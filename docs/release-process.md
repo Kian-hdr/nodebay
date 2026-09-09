@@ -1,6 +1,6 @@
 # Reproducible release process
 
-Nodebay **1.2.1 (26)** is the current release. Real API chat and the requested UI
+Nodebay **1.2.1 (28)** is the release candidate; **1.2.0 (25)** remains public. Real API chat and the requested UI
 checks are recorded in the [verification matrix](release-verification-matrix.md).
 For each new version, follow the sequence below using a new tag and artifact names.
 Never overwrite an existing release's tag or assets. Keep provider claims specific
@@ -12,7 +12,7 @@ to the verified API and restricted CLI paths; App Server streaming remains disab
 
    ```bash
    RELEASE_VERSION=1.2.1 \
-   BUILD_NUMBER=26 \
+   BUILD_NUMBER=28 \
    SIGNING_IDENTITY='Developer ID Application: Kian Konrad Tajbakhsh (HZWY8HT54D)' \
    DEVELOPMENT_TEAM=HZWY8HT54D \
    ./scripts/package_homebrew_arm64.sh
@@ -40,19 +40,20 @@ to the verified API and restricted CLI paths; App Server streaming remains disab
      --wait
    ```
 
-6. Staple and validate the accepted DMG, run Gatekeeper and disk-image verification, mount it read-only, and install and launch the contained app from `/Applications`. Run `EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=26 REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh /path/to/final/Nodebay-1.2.1-arm64.zip` against the final ZIP as well. Record version/build, signature, timestamp, entitlements, exact hashes and notarization submission IDs for this candidate.
+6. Staple and validate the accepted DMG, run Gatekeeper and disk-image verification, mount it read-only, and install and launch the contained app from `/Applications`. Run `EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=28 REQUIRE_NOTARIZED=1 ./scripts/verify_release_artifact.sh /path/to/final/Nodebay-1.2.1-arm64.zip` against the final ZIP as well. Record version/build, signature, timestamp, entitlements, exact hashes and notarization submission IDs for this candidate.
 7. Record both post-stapling SHA-256 values, prepare the cask with the DMG checksum, validate links and notices, and test installation. Synchronize README, SETUP-PROMPT.md, privacy disclosures and release notes with the tested behavior. Keep the candidate marked unpublished until the release exists. Distinguish a same-account reinstall from a clean-account test; never use `--zap` for a data-preserving upgrade test.
 8. Record the exact tag, artifacts, checksums, cask, source commit, tests, screenshots and notices covered by the owner's publication authorization. Existing explicit authorization remains valid for its stated scope.
-9. Once the required verification passes, push the authorized `main` and `dev` updates, create the tag and release, then publish the tap.
+9. Prepare the signed stable feed with `scripts/nodebay_appcast.py prepare` from the final ZIP. Before stable publication, use an older notarized updater-enabled build on the separate testing feed to install and relaunch the exact production ZIP, and verify settings/Keychain identity/managed files, active-work deferral, failed signature and interrupted download behavior. Testing assets must be prereleases marked not latest.
+10. Once the required verification passes, push the authorized `main` and `dev` updates, create the immutable tag and release, then publish the matching tap with `auto_updates true`. Validate the public release/asset/source with `scripts/nodebay_appcast.py publish` in its default read-only mode. Publish the signed stable feed only after validation by adding its explicit `--publish` option and expected previous build. See [updater pipeline](features/updates.md#maintainer-pipeline).
 
-10. Download both public assets again and compare the published checksums. Verify Homebrew upgrade, non-zap uninstall/reinstall, installed signature/staple, launch, data preservation and registration cleanup. Publish the result in the verification matrix without rewriting the release tag or artifact bytes.
+11. Download both public assets again and compare the published checksums. Verify Homebrew upgrade, non-zap uninstall/reinstall, installed signature/staple, launch, data preservation and registration cleanup. Publish the result in the verification matrix without rewriting the release tag or artifact bytes.
 
 The release source tag is the corresponding source for the GPL-3.0 binary. No
 release may contain an unlisted bundled dependency. Longhaul remains a separate
 optional companion: do not bundle its source or binaries, invent an installer
 URL, or imply that Nodebay installs or pairs it automatically.
 
-The existing GitHub release workflow produces a ZIP and does not implement the
+The existing GitHub release workflow is candidate-only, has read-only repository permissions, and does not publish a release. It produces a ZIP and does not implement the
 complete DMG/cask sequence above. Supply the matching version and build inputs
 and verify artifact coverage before using it for a new release; a workflow
 upload alone is not evidence of notarization acceptance or a tested Homebrew

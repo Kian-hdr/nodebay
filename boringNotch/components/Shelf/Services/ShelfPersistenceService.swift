@@ -11,14 +11,16 @@ import Foundation
 @_exported import struct Foundation.URL
 
 
-final class ShelfPersistenceService {
+// The serial IO queue owns both codecs and all access to the persistence file.
+final class ShelfPersistenceService: @unchecked Sendable {
     static let shared = ShelfPersistenceService()
 
     private let fileURL: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let persistenceQueue = DispatchQueue(label: "space.nodebay.shelf-persistence", qos: .utility)
 
-    private init() {
+    private convenience init() {
         let fm = FileManager.default
         let support = try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         let supportRoot = support ?? fm.temporaryDirectory
@@ -27,18 +29,27 @@ final class ShelfPersistenceService {
         let dir = supportRoot.appendingPathComponent("Nodebay", isDirectory: true)
             .appendingPathComponent("Shelf", isDirectory: true)
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        fileURL = dir.appendingPathComponent("items.json")
+        let fileURL = dir.appendingPathComponent("items.json")
         let legacyFileURL = legacyDir.appendingPathComponent("items.json")
         if !fm.fileExists(atPath: fileURL.path), fm.fileExists(atPath: legacyFileURL.path) {
             // Copy, never move or delete, so rollback to Boring Notch is safe.
             try? fm.copyItem(at: legacyFileURL, to: fileURL)
         }
+        self.init(fileURL: fileURL)
+    }
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
         encoder.outputFormatting = [.prettyPrinted]
         decoder.dateDecodingStrategy = .iso8601
         encoder.dateEncodingStrategy = .iso8601
     }
 
     func load() -> [ShelfItem] {
+        persistenceQueue.sync { loadStoredItems() }
+    }
+
+    private func loadStoredItems() -> [ShelfItem] {
         guard let data = try? Data(contentsOf: fileURL) else { return [] }
         
         // Try to decode as array first (normal case)
@@ -79,7 +90,14 @@ final class ShelfPersistenceService {
         }
     }
 
+    /// A final save is also a barrier for every previously admitted async save.
+    /// IO never waits on MainActor, so this can safely run during termination.
+    @MainActor
     func save(_ items: [ShelfItem]) {
+        persistenceQueue.sync { write(items) }
+    }
+
+    private func write(_ items: [ShelfItem]) {
         do {
             let data = try encoder.encode(items)
             try data.write(to: fileURL, options: Data.WritingOptions.atomic)
@@ -88,14 +106,16 @@ final class ShelfPersistenceService {
         }
     }
     
+    @MainActor
     func saveAsync(_ items: [ShelfItem]) async {
-        await Task.detached(priority: .utility) { [fileURL, encoder] in
-            do {
-                let data = try encoder.encode(items)
-                try data.write(to: fileURL, options: Data.WritingOptions.atomic)
-            } catch {
-                print("Failed to save shelf items: \(error.localizedDescription)")
+        // Enqueue before the first suspension on the same actor that captures
+        // shelf snapshots and flushes them. Cancellation does not reorder an
+        // admitted write behind a newer flush or leave a continuation pending.
+        await withCheckedContinuation { continuation in
+            persistenceQueue.async {
+                self.write(items)
+                continuation.resume()
             }
-        }.value
+        }
     }
 }

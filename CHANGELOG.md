@@ -4,6 +4,9 @@ All notable Nodebay changes are recorded here. The project follows semantic vers
 
 ## [1.2.1] - 2026-09-09
 
+- Add signed in-app updates from Nodebay's own feed, manual update checking, explicit automatic-update choices, and deferral while work or drafts are active.
+- Preserve the newest shelf snapshot when quitting and track overlapping imports/conversions until each operation completes.
+
 - Update the pinned media adapter to support active untagged audio and shared voice clips without inventing titles.
 - Recover media discovery after startup and helper failures instead of permanently disabling Now Playing after one self-test. Show actionable per-app Automation errors and Refresh Sources.
 - Keep the original 640 × 190 notch size with separate source/metadata, progress and control rows; optional lyrics share the artist row; prevent EQ/download accessories from overlapping custom controls.

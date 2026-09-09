@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir=${0:A:h}
 project_root=${script_dir:h}
 expected_version=${EXPECTED_VERSION:-1.2.1}
-expected_build=${EXPECTED_BUILD:-26}
+expected_build=${EXPECTED_BUILD:-28}
 artifact=${1:-$project_root/build/nodebay-homebrew-arm64-release/Nodebay-$expected_version-arm64.zip}
 require_notarized=${REQUIRE_NOTARIZED:-0}
 expected_team=${EXPECTED_TEAM:-HZWY8HT54D}

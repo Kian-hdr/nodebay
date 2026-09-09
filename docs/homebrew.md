@@ -2,7 +2,7 @@
 
 The official public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed, notarized Apple Silicon GitHub release.
 
-The current cask is **1.2.1 (26)**, including optional Quick Chat, available media
+The published cask is **1.2.0 (25)**; **1.2.1 (28)** is being prepared, including optional Quick Chat, available media
 sources and the latest chat and file-drawer fixes.
 
 ```bash
@@ -23,3 +23,7 @@ defaults to Off; choose the provider in Nodebay settings and enter any API key
 directly in its secure field. OpenAI API billing is separate from ChatGPT
 subscriptions. Use the [setup prompt](../SETUP-PROMPT.md) for a guided installation
 that preserves existing settings and leaves credentials and permissions to you.
+
+## Updates
+
+Nodebay 1.2.1 includes signed in-app updates. Existing 1.2.0 users need one final verified manual/Homebrew upgrade. For an existing Homebrew installation, run `brew update` then `brew upgrade --cask --greedy Kian-hdr/nodebay/nodebay`; `--greedy` includes this `auto_updates true` cask. Once migrated, open About Nodebay to check manually or change automatic checks and downloads. Preserve an app already newer than the cask and never use `--zap` for an upgrade. See [update setup](features/updates.md).

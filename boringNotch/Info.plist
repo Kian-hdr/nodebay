@@ -11,7 +11,25 @@
 	</dict>
 	<key>SUBundleName</key>
 	<string>Nodebay</string>
+	<key>SUFeedURL</key>
+	<string>$(NODEBAY_UPDATE_FEED_URL)</string>
+	<key>SUPublicEDKey</key>
+	<string>$(NODEBAY_UPDATE_PUBLIC_ED_KEY)</string>
 	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>SUSignedFeedFailureExpirationInterval</key>
+	<integer>0</integer>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+	<key>SUEnableJavaScript</key>
 	<false/>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Nodebay processes audio from the selected media app for its real-time waveform and equalizer. Audio stays on this Mac and is never recorded or uploaded.</string>

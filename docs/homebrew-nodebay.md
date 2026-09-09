@@ -2,7 +2,7 @@
 
 Nodebay is distributed as an Apple Silicon cask through `Kian-hdr/homebrew-nodebay`.
 
-The current cask is **1.2.1 (26)**. The version, immutable release URL and final
+The published cask is **1.2.0 (25)**; **1.2.1 (28)** is being prepared. The version, immutable release URL and final
 DMG SHA-256 are updated together after artifact verification.
 
 ## Installation
@@ -47,3 +47,7 @@ Keychain; they are never part of a cask, artifact or setup file.
 Nodebay deliberately retains the legacy Boring Notch bundle identifier for this first migration-safe release. This preserves preferences, bookmarks, saved shelf state, and Accessibility authorization. The visible app and artifact names are Nodebay. A future bundle-identifier migration requires a signed migration plan and compatibility tests.
 
 Removing Nodebay does not delete original shelf files or downloaded media. Homebrew `zap` data removal is optional and must be initiated explicitly by the user.
+
+## Updates
+
+Nodebay 1.2.1 includes signed in-app updates. Existing 1.2.0 users need one final verified manual/Homebrew upgrade. For an existing Homebrew installation, run `brew update` then `brew upgrade --cask --greedy Kian-hdr/nodebay/nodebay`; `--greedy` includes this `auto_updates true` cask. Once migrated, open About Nodebay to check manually or change automatic checks and downloads. Preserve an app already newer than the cask and never use `--zap` for an upgrade. See [update setup](features/updates.md).

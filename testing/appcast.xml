@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss version="2.0"><channel><title>Nodebay isolated updater verification</title><description>Temporary testing feed fixture. No production updates.</description><link>https://github.com/Kian-hdr/nodebay</link></channel></rss><!-- sparkle-signatures:
+edSignature: Ag+PR6FrIu/LoRoeMx4fS9bBEJU3n4JkGZUxogT31onpYPT9sHLqT18jGExroZBnUa6A5dMoTgdVE8cXv2O8Cg==
+length: 516
+-->

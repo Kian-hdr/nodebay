@@ -17,11 +17,11 @@ permissions or configuration you need to complete yourself.
 
 ## Current release status
 
-The **1.2.1 (28) release candidate** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
+**Nodebay 1.2.1 (28)** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
 available-source media tabs, clearer API-key setup and message bubbles that fit
 their text. It also includes file-drawer fixes and an optional, separately installed
 [Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
-later are required. Quick Chat defaults to Off; API billing is separate from
+later are required. [Signed in-app updates](docs/features/updates.md) provide manual checks and optional automatic downloads; existing 1.2.0 users need one Homebrew or manual upgrade. Quick Chat defaults to Off; API billing is separate from
 ChatGPT subscriptions.
 
 Download the signed release from [GitHub Releases](https://github.com/Kian-hdr/nodebay/releases/latest)

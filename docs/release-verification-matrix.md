@@ -2,27 +2,59 @@
 
 ## Nodebay 1.2.1 (28): updater candidate, 2026-09-09
 
-**Not published.** Build 28 adds signed in-app updates; build 26 below is superseded and its artifact checks do not establish build 28 acceptance. The original 640 × 190 notch dimensions remain fixed.
+**UNPUBLISHED stable release candidate.** Build 28 was packaged from clean source
+`8b2356b72d5f0afa99389041c30164f0cff35bb8`. Its app and DMG are signed,
+Apple-notarized and stapled. The separate testing feed and prerelease passed
+installed build 27 → 28 acceptance; the stable GitHub release, feed and
+Homebrew publication remain pending. Build 26 below is historical and superseded.
+The original 640 × 190 notch dimensions remain fixed.
 
 | Check | Status | Evidence / limit |
 | --- | --- | --- |
+| Clean build and compatibility | Passed | Apple Silicon Release package from the recorded source; 1.2.1 (28). All 170 packaged Mach-O files include arm64, require macOS 15.0 or earlier and have no external absolute library dependencies. Actual execution on macOS 15 is still untested |
+| Automated suite | Passed with disclosed skips | The full run discovered 251 tests and completed in 62.789 seconds with two optional Sparkle-tool checks skipped. A separate final 19-test feed run passed in 1.524 seconds with the actual pinned tools, including two later-added review regressions. This is not a claim of one complete 253-test run |
+| Independent CI | Passed | [Run 34404354725](https://github.com/Kian-hdr/nodebay/actions/runs/34404354725) succeeded for exact source `8b2356b72d5f0afa99389041c30164f0cff35bb8`, completed 2026-09-09 at 21:08:17 UTC |
 | Nodebay signing key | Passed | Actual pinned Sparkle 2.9.5 and independent CryptoKit verification agree; both reject modified feed bytes. Private key stays outside source |
+| Signed feed and publication safeguards | Passed focused tests and local preparation | Actual Sparkle feed generation/signing, public-key verification, monotonic versions, immutable asset URLs, truncated/interrupted transfers, strict item/enclosure interpretation and publishing the exact verified bytes. A disposable Git fixture verifies atomic feed/manifest publication and rejection of concurrent overwrite. Stable hosted feed verification remains pending |
 | Updater policy, privacy and branding | Passed | 20 focused tests, including compiled policy behavior for legacy choice, opt-out, configured feed and active-work gates |
-| Shelf persistence and overlapping activity | Passed | Four ordering/recovery tests and two activity cases; native update continuity remains pending |
-| Final source build and full suite | Pending | Integration in progress |
-| Older build 27 to unchanged production build 28 | Pending | Separate testing feed; must exercise actual downloaded signed archive, install, relaunch and retained settings/data |
-| Invalid signature / interrupted download | Pending | Real installed updater acceptance still required |
-| Stable GitHub release, signed feed and Homebrew | Pending | No final artifact or cask publication yet |
+| Shelf persistence and overlapping activity | Passed | Four ordering/recovery tests and two activity cases; all 18 sampled managed files were unchanged across the native 27 → 28 update |
+| Final app and ZIP | Passed artifact checks | Developer ID team `HZWY8HT54D`, hardened runtime, nested signatures/timestamps, stable designated requirement, preview sandbox, notices and release metadata verified. App notarization Accepted: `45d3c9fc-f9be-4eac-948d-e645d2b6ae02`; stapled app and Gatekeeper passed. Final ZIP contains only Nodebay.app and passed the release verifier |
+| Final DMG | Passed artifact checks | Signed DMG notarization Accepted: `a7d98018-3518-486f-8b5c-dd9b1648c713`; staple and read-only layout verified. Visible contents are Nodebay.app and Applications. Enclosed build 28 matches the final ZIP app and passes nested signatures, staple and Gatekeeper |
+| Invalid feed signature | Passed in installed build 27 | Canonical testing-feed bytes were verified before the native manual check. Sparkle showed an improperly signed feed error before offering/installing an update; installed build and main executable hash remained unchanged. Stable feed was not modified |
+| Truncated archive | Passed in installed build 27 | A valid signed testing feed referenced a separate 1,048,576-byte fixture while retaining the full 87,439,298-byte archive signature/length. The native download was rejected as improperly signed before extraction/installation; build 27 remained unchanged. This is truncated-byte rejection, not a completed native Cancel-button test |
+| Live API and active-work quit guard | Passed in installed build 27 | Validate Connection made a real OpenAI Responses API request using the existing stored key. Command-Q during the request displayed the unfinished-work alert and kept Nodebay running; after Keep Running, validation completed successfully. No key re-entry. Conversion/download overlap remains covered by runtime fixtures |
+| Older build 27 to unchanged production build 28 | Passed on this Mac | Native Check for Updates → Install Update → full download → extraction → Ready to Install → Install and Relaunch completed through the testing feed. Installed version is 1.2.1 (28), using the stable feed; its main executable matches the final production artifact SHA-256 below. Installed signature and staple verified |
+| Post-update API and data continuity | Passed on this Mac | Real OpenAI Responses API validation with gpt-5-mini passed after relaunch using the saved Keychain key, without re-entry. All 18 sampled managed files remained byte-identical, with no additions or removals. Captured preference changes were limited to last-check time, the explicit updater choice and persisting the restored Follow active display setting |
+| Recovery after negative fixture | Passed | The later error at 23:20:51 local time still referenced the cached 1 MiB truncated fixture. A graceful restart and fresh canonical signed-feed check downloaded the full production ZIP and completed the update. Signature requirements remained enabled throughout |
+| Stable GitHub release, signed feed and Homebrew | Pending | Verify published immutable bytes, stable signed feed, cask checksum/audit and real upgrade/non-zap reinstall before marking publication complete |
+
+Final build 28 artifact fields:
+
+| Field | Value / status |
+| --- | --- |
+| Application source | `8b2356b72d5f0afa99389041c30164f0cff35bb8` |
+| Packaged and post-update installed main executable SHA-256 | `c94ab468c691d5b7b967a69c989b54b99aef68208dda63ee2af8e245ba76e4f4` |
+| `Nodebay-1.2.1-arm64.dmg` | SHA-256 `36dfbedca999208f4808ff10f3f0767743f0b186c82eacf0b3494a4bcec47565`; 87,629,372 bytes |
+| `Nodebay-1.2.1-arm64.zip` | SHA-256 `f9e93f4ed002f722c74a695e208b9589edf411f99335fca14822838b2cbebb53`; 87,439,298 bytes |
+| Release tag / stable hosted bytes | Intended `nodebay-v1.2.1`; publication and anonymous comparison pending |
+| Stable signed feed / Homebrew tap commit | Publication and hosted/lifecycle verification pending |
+| Installed update result | Build 27 → 28 download, installation, relaunch, saved-key API validation and 18-file data preservation passed on macOS 26.6.2 |
+
+Native Spotify routing, EQ adjustment, bypass/resume and the compact layout were
+verified in the earlier installed bugfix candidate. Fresh per-Mac capture
+permission grant/denial, recipient macOS 15 execution, output-device switching,
+physical speaker measurements and full accessibility/display coverage remain
+unverified. See [Equalizer](features/equalizer.md) and [Updates](features/updates.md).
 
 ## Nodebay 1.2.1 (26): superseded bugfix candidate checks, 2026-09-09
 
-**UNPUBLISHED release candidate.** The clean Apple Silicon Release package was
+**Historical, superseded and never published.** The clean Apple Silicon Release package was
 built from source commit `2442410e4c3123f732b900e8f7dc8848788f1994` on
 macOS 26.6.2 with Xcode 26.6. The app is signed, Apple-notarized and stapled;
-final ZIP verification passed. DMG notarization, final installation and native
-checks, GitHub publication and the Homebrew lifecycle remain pending.
-The intended version is 1.2.1, build 26, with a new immutable tag and download
-files. Existing 1.2.0 assets remain unchanged.
+final ZIP verification passed. This candidate was superseded by build 28 before
+its DMG and publication sequence was completed. These records describe build 26
+only and must not be used as evidence for the final build 28 artifacts.
+Existing 1.2.0 assets remain unchanged.
 
 | Check | Status | Evidence / boundary |
 |---|---|---|
@@ -43,25 +75,18 @@ files. Existing 1.2.0 assets remain unchanged.
 | Final app signing, notarization and Gatekeeper | Passed | Developer ID team `HZWY8HT54D`; stable designated requirement, hardened runtime, nested signatures/timestamps and debug-entitlement exclusion passed. App submission `99d7bcb2-140a-46f5-9a10-003e35937b9d` Accepted; staple and Gatekeeper passed. Final main SHA-256 is recorded below |
 | Final ZIP | Passed | Contains only Nodebay.app; all artifact-verifier checks passed, including binary compatibility, release metadata, notices, nested signatures, preview sandbox, Gatekeeper and staple. Final hash and size are recorded below |
 | DMG construction and enclosed app | Passed pre-notarization checks | Signed DMG integrity passed. Read-only mount contains Nodebay.app and an Applications shortcut; enclosed main executable matches the final ZIP app and its signature/staple pass |
-| DMG notarization and final installation | Pending | DMG submission reports the saved Keychain item unavailable after screen lock. Unlock and retry are pending; credentials have not been recreated. DMG acceptance/staple, final hash, Gatekeeper, installation and final packaged native media/EQ checks remain pending |
-| GitHub and Homebrew | Pending | No 1.2.1 publication or cask lifecycle result is claimed. Verify hosted bytes, cask checksum/style/online audit, upgrade and non-zap reinstall, including data/settings preservation |
+| DMG notarization and final installation | Not completed for this superseded candidate | DMG submission encountered unavailable Keychain access after screen lock. Release work subsequently continued with updater-enabled build 28 |
+| GitHub and Homebrew | Not published | Build 26 was superseded; see build 28 for current publication and lifecycle status |
 
-Release fields to complete from the final artifact and hosted state:
+Historical build 26 artifact fields:
 
 | Field | Current value |
 |---|---|
 | Application source commit | `2442410e4c3123f732b900e8f7dc8848788f1994` |
-| Release tag and tag commit | Intended `nodebay-v1.2.1`; not created |
 | Successful release-source CI URL | [Run 34398399898](https://github.com/Kian-hdr/nodebay/actions/runs/34398399898), successful for the exact source commit |
 | Final packaged main executable SHA-256 | `3813dbb3d84c3fa783fc3ba265846e32512f41a1def0ba641c4074d62d1914df` |
-| Final installed main executable SHA-256 | Pending installation from the final artifact |
 | App notarization submission ID/status | `99d7bcb2-140a-46f5-9a10-003e35937b9d`, Accepted; app stapled and validated |
-| DMG notarization submission ID/status | Pending Keychain access after unlock; no completed submission claimed |
-| `Nodebay-1.2.1-arm64.dmg` SHA-256 and size | Pending final notarization and stapling |
 | `Nodebay-1.2.1-arm64.zip` SHA-256 and size | `e1a429a6b59355f7365e826adfbdd0c95fd52d69f33b97b1ddeadf1531b3a034`; 87,408,640 bytes |
-| Public release URL and anonymous download comparison | Pending |
-| Homebrew tap commit and lifecycle results | Pending |
-| Final native media/layout/EQ observations and host | Pending final packaged installation; earlier installed-candidate checks on macOS 26.6.2 remain distinct |
 
 The Python compatibility finding corrects an earlier packaging assumption:
 1.2.0 converted documents successfully on the developer's macOS 26 Mac, but its

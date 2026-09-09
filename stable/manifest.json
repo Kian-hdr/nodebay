@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "releases": [
+    {
+      "version": "1.2.1",
+      "build": 28,
+      "channel": "stable",
+      "tag": "nodebay-v1.2.1",
+      "archive_name": "Nodebay-1.2.1-arm64.zip",
+      "url": "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.1/Nodebay-1.2.1-arm64.zip",
+      "length": 87439298,
+      "sha256": "f9e93f4ed002f722c74a695e208b9589edf411f99335fca14822838b2cbebb53",
+      "ed_signature": "/ZpgPXPY9NWi0DwhZ8AZZYLZ2RRj3cJ/Sm+AGvLh1sadaKD+e9iZ4YTp9T3wKBSR2oj/J48OYyMHvZLSZLrdCQ==",
+      "source_commit": "8b2356b72d5f0afa99389041c30164f0cff35bb8",
+      "public_key": "p5wX3wvGOSYWwjHEHmQ09cb4J7TwCTmcf5V+4iNhoDA=",
+      "feed_sha256": "09bc4d5d7d768e97bf736d21b1eea411133670f000ab761dd62d6e05c3cebb84"
+    }
+  ]
+}

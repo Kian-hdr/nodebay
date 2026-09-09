@@ -1,4 +1,4 @@
-name: Nodebay release
+name: Nodebay signed release candidate
 
 on:
   workflow_dispatch:
@@ -15,22 +15,17 @@ on:
         description: Type RELEASE to authorize this workflow run
         required: true
         type: string
-      publish:
-        description: Publish the verified GitHub release
-        required: true
-        default: false
-        type: boolean
 
 concurrency:
   group: nodebay-release
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
-    name: Sign, notarize, verify, and optionally publish
+    name: Sign, notarize, and verify candidate artifacts
     if: ${{ inputs.confirmation == 'RELEASE' }}
     runs-on: macos-26
     timeout-minutes: 90
@@ -123,15 +118,9 @@ jobs:
             build/nodebay-homebrew-arm64-release/Nodebay-${{ inputs.version }}-checksums.txt
           if-no-files-found: error
 
-      - name: Publish GitHub release
-        if: ${{ inputs.publish }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+      - name: Explain candidate handoff
         run: |
-          gh release create "nodebay-v$VERSION" \
-            "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-arm64.zip" \
-            "build/nodebay-homebrew-arm64-release/Nodebay-$VERSION-checksums.txt" \
-            --verify-tag \
-            --title "Nodebay $VERSION for Apple Silicon" \
-            --notes-file "docs/release-notes-$VERSION.md"
+          echo 'Candidate artifacts only; this workflow does not publish a release or update feed.'
+          echo 'Follow docs/release-process.md for final DMG, installed-update acceptance, GitHub and Homebrew checks.'
+          echo 'Prepare and validate the signed feed with scripts/nodebay_appcast.py, then explicitly publish it after immutable release assets are verified.'
+          echo 'Keep Nodebay Ed25519 keys on the local release Mac; no remote updater signing secret is required.'

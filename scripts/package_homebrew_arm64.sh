@@ -4,11 +4,11 @@ set -euo pipefail
 script_dir=${0:A:h}
 project_root=${script_dir:h}
 release_version=${RELEASE_VERSION:-1.2.1}
-build_number=${BUILD_NUMBER:-26}
+build_number=${BUILD_NUMBER:-28}
 release_tag=${RELEASE_TAG:-nodebay-v$release_version}
 signing_identity=${SIGNING_IDENTITY:--}
 development_team=${DEVELOPMENT_TEAM:-}
-build_root="$project_root/build/nodebay-homebrew-arm64-release"
+build_root="${BUILD_ROOT:-$project_root/build/nodebay-homebrew-arm64-release}"
 artifact_name="Nodebay-$release_version-arm64.zip"
 artifact_path="$build_root/$artifact_name"
 
@@ -40,6 +40,11 @@ build_arguments=(
     MARKETING_VERSION="$release_version"
     CURRENT_PROJECT_VERSION="$build_number"
 )
+
+# Test-channel builds override only their own feed; the project default stays stable.
+if [[ -n "${NODEBAY_UPDATE_FEED_URL:-}" ]]; then
+    build_arguments+=(NODEBAY_UPDATE_FEED_URL="$NODEBAY_UPDATE_FEED_URL")
+fi
 
 if [[ "$signing_identity" == "-" ]]; then
     build_arguments+=(CODE_SIGNING_ALLOWED=NO)

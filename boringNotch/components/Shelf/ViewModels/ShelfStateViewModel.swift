@@ -16,8 +16,10 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     @Published var isLoading: Bool = false
+    private var activeLoadCount = 0
     @Published private(set) var convertingItemIDs: Set<ShelfItem.ID> = []
     @Published private(set) var conversionProgress: [ShelfItem.ID: String] = [:]
+    private var conversionCounts: [ShelfItem.ID: Int] = [:]
     @Published private(set) var canUndoRemoval = false
 
     private var lastRemoval: (item: ShelfItem, index: Int)?
@@ -35,14 +37,23 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     func beginConverting(_ items: [ShelfItem]) {
-        convertingItemIDs.formUnion(items.map(\.id))
+        for id in Set(items.map(\.id)) {
+            conversionCounts[id, default: 0] += 1
+        }
+        convertingItemIDs = Set(conversionCounts.keys)
     }
 
     func finishConverting(_ items: [ShelfItem], preservingProgressForFailures: Bool = false) {
-        convertingItemIDs.subtract(items.map(\.id))
-        if !preservingProgressForFailures {
-            for item in items { conversionProgress[item.id] = nil }
+        for id in Set(items.map(\.id)) {
+            guard let count = conversionCounts[id] else { continue }
+            if count > 1 {
+                conversionCounts[id] = count - 1
+            } else {
+                conversionCounts[id] = nil
+                if !preservingProgressForFailures { conversionProgress[id] = nil }
+            }
         }
+        convertingItemIDs = Set(conversionCounts.keys)
     }
 
     func setConversionProgress(_ text: String, for item: ShelfItem) {
@@ -276,12 +287,16 @@ final class ShelfStateViewModel: ObservableObject {
 
     func load(_ providers: [NSItemProvider]) {
         guard !providers.isEmpty else { return }
+        activeLoadCount += 1
         isLoading = true
         Task { [weak self] in
             let dropped = await ShelfDropService.items(from: providers)
             guard let self else { return }
+            defer {
+                self.activeLoadCount -= 1
+                self.isLoading = self.activeLoadCount > 0
+            }
             self.add(dropped)
-            self.isLoading = false
 
             // A dropped HTTP(S) link is routed through the one shared download
             // coordinator. This prevents duplicate jobs when multiple notch

@@ -472,6 +472,10 @@ private enum MediaDownloadPlan {
     private let failurePresenter: ((Error) -> Void)?
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var runTokens: [UUID: UUID] = [:]
+    // Cancellation changes the visible job immediately, but the process may still
+    // be cleaning up. Keep admission until every actual task has returned.
+    private var activeRunTokens: Set<UUID> = []
+    var hasActiveTasks: Bool { !activeRunTokens.isEmpty }
     private var requestedOverrides: [UUID: MediaDownloadFormat] = [:]
     private let persistenceKey = "nodebay.downloader.jobs.v1"
 
@@ -528,10 +532,19 @@ private enum MediaDownloadPlan {
             persist()
             let token = UUID()
             runTokens[item.id] = token
+            activeRunTokens.insert(token)
             tasks[item.id] = Task { [weak self] in
+                guard let self else { return }
+                defer {
+                    self.activeRunTokens.remove(token)
+                    if self.runTokens[item.id] == token {
+                        self.tasks[item.id] = nil
+                        self.runTokens[item.id] = nil
+                    }
+                }
                 await previousTask?.value
-                guard !Task.isCancelled, self?.runTokens[item.id] == token else { return }
-                await self?.run(item: item, token: token)
+                guard !Task.isCancelled, self.runTokens[item.id] == token else { return }
+                await self.run(item: item, token: token)
             }
         }
     }
@@ -540,7 +553,6 @@ private enum MediaDownloadPlan {
     func cancel(_ item: ShelfItem) {
         runTokens[item.id] = nil
         tasks[item.id]?.cancel(); update(item.id) { $0.state = .cancelled; $0.lastError = nil }
-        ShelfStateViewModel.shared.finishConverting([item])
     }
 
     private func restart(_ item: ShelfItem, override: MediaDownloadFormat?) {
@@ -555,7 +567,11 @@ private enum MediaDownloadPlan {
     private func run(item: ShelfItem, token: UUID) async {
         guard case .link(let sourceURL) = item.kind else { return }
         let shelf = ShelfStateViewModel.shared
-        shelf.beginConverting([item]); shelf.setConversionProgress("Inspecting…", for: item)
+        shelf.beginConverting([item])
+        defer {
+            shelf.finishConverting([item], preservingProgressForFailures: jobs[item.id]?.state == .failed)
+        }
+        shelf.setConversionProgress("Inspecting…", for: item)
         update(item.id) { $0.state = .inspecting }
         do {
             let inspection = try await service.inspect(MediaDownloaderService.validatedURL(from: sourceURL.absoluteString))
@@ -578,7 +594,6 @@ private enum MediaDownloadPlan {
             guard let plan = try await choosePlan(for: inspection, override: override) else {
                 guard runTokens[item.id] == token else { return }
                 update(item.id) { $0.state = .cancelled }
-                shelf.finishConverting([item])
                 return
             }
             guard runTokens[item.id] == token else { return }
@@ -622,8 +637,6 @@ private enum MediaDownloadPlan {
             shelf.setConversionProgress("Retry Download", for: item)
             presentFailure(error)
         }
-        let failed = jobs[item.id]?.state == .failed
-        shelf.finishConverting([item], preservingProgressForFailures: failed)
         if runTokens[item.id] == token {
             tasks[item.id] = nil
             runTokens[item.id] = nil

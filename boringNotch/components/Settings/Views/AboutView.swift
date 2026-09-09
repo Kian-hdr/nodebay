@@ -55,6 +55,8 @@ struct About: View {
                     .foregroundStyle(.secondary)
             }
 
+            UpdaterSettingsView(updater: updaterController.updater)
+
             Section("Links") {
                 aboutLink("Nodebay source", systemImage: "chevron.left.forwardslash.chevron.right", url: NodebayBrand.sourceURL)
                 aboutLink("GitHub releases", systemImage: "shippingbox", url: NodebayBrand.releasesURL)

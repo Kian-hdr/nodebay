@@ -65,6 +65,8 @@ Calendar, camera, microphone, Accessibility, Apple Events, and folder access are
 
 ## Updates
 
-Nodebay has no configured Sparkle update feed and never contacts the original Boring Notch appcast. Updates are available through GitHub and Homebrew. A future in-app update channel must be documented before activation.
+Nodebay 1.2.1 adds Sparkle updates from a Nodebay-owned HTTPS feed hosted on GitHub. The feed and downloaded archives require Nodebay's Ed25519 signatures; the application also carries its Developer ID signature. Nodebay never uses the original Boring Notch appcast. A first-run choice controls automatic checks and downloads; manual checking is available in About Nodebay. These choices can be changed later.
+
+An update check sends an ordinary HTTPS request to GitHub's raw-content service, and downloading an update contacts GitHub Releases and its download infrastructure. These services receive normal connection information such as the requesting IP address. Sparkle system profiling and JavaScript release notes are disabled. Update requests do not include your API key, chat messages, shelf contents or original files. See [update setup and migration](docs/features/updates.md). Homebrew remains an alternative update method.
 
 Quick Notes reads copied content only after an explicit paste or New Note action, processes it locally, and retains only the resulting Markdown file. There is no continuous clipboard monitoring or content logging. Markdown Quick Look is sandboxed with no network entitlement and never loads remote resources. STL Repair passes a temporary copy to the separately installed Blender companion with network access denied; originals are never supplied for modification.

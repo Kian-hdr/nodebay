@@ -26,9 +26,7 @@ struct DynamicNotchApp: App {
         self.sparkleUpdaterDelegate = sparkleUpdaterDelegate
         updaterController = SPUStandardUpdaterController(
             startingUpdater: false, updaterDelegate: sparkleUpdaterDelegate, userDriverDelegate: nil)
-        // This fixed Homebrew distribution must not replace itself with an
-        // upstream build that does not yet contain the MarkItDown feature.
-        SoftwareUpdateStore.updater = nil
+        SoftwareUpdateStore.shared.configure(updaterController.updater)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
@@ -42,8 +40,9 @@ struct DynamicNotchApp: App {
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
+            CheckForUpdatesView(updater: updaterController.updater)
             Button("Restart Nodebay") {
-                ApplicationRelauncher.restart()
+                SoftwareUpdateStore.shared.restartIfIdle()
             }
             Button("Quit", role: .destructive) {
                 NSApplication.shared.terminate(self)
@@ -51,6 +50,9 @@ struct DynamicNotchApp: App {
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     DispatchQueue.main.async {
@@ -60,18 +62,6 @@ struct DynamicNotchApp: App {
                 .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
             }
         }
-    }
-}
-
-@MainActor
-enum SoftwareUpdateStore {
-    static var updater: SPUUpdater?
-}
-
-@MainActor
-final class BoringSparkleUpdaterDelegate: NSObject, SPUUpdaterDelegate {
-    func updaterShouldPromptForPermissionToCheck(forUpdates updater: SPUUpdater) -> Bool {
-        false
     }
 }
 
@@ -97,6 +87,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Sparkle can skip its postpone callback when resuming an interrupted
+        // installation. Recheck current work at the actual termination boundary.
+        guard SoftwareUpdateStore.shared.canTerminate() else {
+            SoftwareUpdateStore.shared.showBusyNotice()
+            return .terminateCancel
+        }
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -508,6 +508,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        if !coordinator.firstLaunch {
+            DispatchQueue.main.async { SoftwareUpdateStore.shared.presentMigrationChoiceIfNeeded() }
+        }
         previousScreens = NSScreen.screens
 
         // make sure OSD subsystems are in the right state now that initial

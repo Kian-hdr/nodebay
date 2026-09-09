@@ -110,7 +110,7 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
 @main struct MediaDownloaderHarness {
     @MainActor static func wait(_ coordinator: DownloadCoordinator) async throws {
         for _ in 0..<500 {
-            if !coordinator.jobs.isEmpty && coordinator.jobs.values.allSatisfy({ [.completed, .failed, .cancelled].contains($0.state) }) { return }
+            if !coordinator.hasActiveTasks && !coordinator.jobs.isEmpty && coordinator.jobs.values.allSatisfy({ [.completed, .failed, .cancelled].contains($0.state) }) { return }
             try await Task.sleep(for: .milliseconds(10))
         }
         preconditionFailure("Coordinator timed out")
@@ -210,6 +210,7 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
             let emptyCoordinator = DownloadCoordinator(service: emptyBackend, defaults: defaults,
                 playlistConfirmation: { _ in accepted }, failurePresenter: { _ in })
             emptyCoordinator.add(urls: [empty.url])
+            precondition(emptyCoordinator.hasActiveTasks)
             try await wait(emptyCoordinator)
             let emptyRequests = await emptyBackend.requests
             precondition(emptyRequests.isEmpty)
@@ -243,7 +244,11 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
             if await cancellingBackend.requests.count == 2 { break }
             try await Task.sleep(for: .milliseconds(10))
         }
+        precondition(cancelling.hasActiveTasks)
         cancelling.cancel(cancellingLink)
+        // The visible cancelled state precedes helper cleanup. A relaunch must
+        // remain blocked until that task returns and publishes partial files.
+        precondition(cancelling.hasActiveTasks)
         for _ in 0..<100 {
             if ShelfStateViewModel.shared.items.count == 2 { break }
             try await Task.sleep(for: .milliseconds(10))
@@ -252,6 +257,8 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
         precondition(ShelfStateViewModel.shared.items.count == 2)
         guard case .stack(_, let retained) = ShelfStateViewModel.shared.items[1].kind else { preconditionFailure("Partial results not retained") }
         precondition(retained.count == 1)
+        try await wait(cancelling)
+        precondition(!cancelling.hasActiveTasks)
 
         // Music playlist entries keep the Music URL even when yt-dlp returns a standard URL.
         let entry = MediaDownloaderService.inspectionEntry(from: ["url": video.url.absoluteString], parentURL: URL(string: "https://music.youtube.com/playlist?list=test")!, parent: [:])!
@@ -282,6 +289,7 @@ func fixture(_ address: String, track: String? = nil, artist: String? = nil,
             try await Task.sleep(for: .milliseconds(10))
         }
         overriding.override(link, format: .mp3)
+        precondition(overriding.hasActiveTasks)
         try await wait(overriding)
         let overrideRequests = await delayed.requests
         precondition(overrideRequests.map { $0.1.format } == [.mp4, .mp3])

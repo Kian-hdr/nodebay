@@ -7,8 +7,13 @@
 
 import AppKit
 
+@MainActor
 enum ApplicationRelauncher {
     static func restart() {
+        guard SoftwareUpdateStore.shared.canTerminate() else {
+            SoftwareUpdateStore.shared.showBusyNotice()
+            return
+        }
         guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
 
         let workspace = NSWorkspace.shared

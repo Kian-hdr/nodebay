@@ -214,47 +214,52 @@ struct OnboardingView: View {
 struct SoftwareUpdatePermissionView: View {
     let updater: SPUUpdater?
     let onContinue: () -> Void
+    @ObservedObject private var updates = SoftwareUpdateStore.shared
+    @State private var automaticallyDownload = true
 
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                 .font(.system(size: 64))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundColor(.effectiveAccent)
-
             Text("Keep Nodebay Updated")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Nodebay updates are disabled in this unpublished development build. A signed update feed will be configured before release.")
+                .font(.title).fontWeight(.semibold)
+            Text(updates.isConfigured
+                 ? "Check Nodebay's signed release feed for new versions. Updates install when you quit, and restarting waits for active work and unfinished drafts. You can change this in About Nodebay."
+                 : "In-app updates are unavailable in this build. You can download the current release from GitHub.")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 34)
-
-            Spacer()
-
-            Button("Continue") {
-                disableUnconfiguredUpdates()
-                onContinue()
+            if updates.isConfigured {
+                Toggle("Download updates automatically", isOn: $automaticallyDownload)
+                    .padding(.horizontal, 34)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
-            .padding(.bottom, 24)
+            Spacer()
+            if updates.isConfigured {
+                Button("Enable Automatic Updates") {
+                    updates.recordChoice(automaticChecks: true, automaticDownloads: automaticallyDownload)
+                    onContinue()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                Button("Check Manually") {
+                    updates.recordChoice(automaticChecks: false, automaticDownloads: false)
+                    onContinue()
+                }
+                .padding(.bottom, 24)
+            } else {
+                Button("Continue", action: onContinue)
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .padding(.bottom, 24)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
                 .ignoresSafeArea()
         )
-    }
-
-    private func disableUnconfiguredUpdates() {
-        updater?.automaticallyChecksForUpdates = false
-        updater?.automaticallyDownloadsUpdates = false
-        UserDefaults.standard.set(false, forKey: "SUEnableAutomaticChecks")
-        UserDefaults.standard.set(false, forKey: "SUAutomaticallyUpdate")
     }
 }

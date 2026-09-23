@@ -1,5 +1,38 @@
 # Nodebay release verification
 
+## Published 1.2.2 (29), 2026-09-23
+
+The [1.2.2 release](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2)
+publishes the display, hover, zero-height HUD, Markdown preview and shelf-drop
+changes from source commit `1227ed08c1efb7726d0625f175f1c16deca08a33`.
+The exact source passed 270 local tests (268 passed, two optional Sparkle-tool
+cases skipped); [Apple Silicon CI](https://github.com/Kian-hdr/nodebay/actions/runs/35913510989)
+passed its tests, runtime checks and Release build. The bundled notices and
+repository checks passed.
+
+The final arm64 ZIP and DMG are Developer ID signed, Apple-notarized and stapled.
+Apple accepted ZIP submission `f310ad3b-e1c3-489a-b413-3ea53e17bcb7` and DMG
+submission `12888109-ea78-4a53-926a-5ec874dd0293`. The final ZIP SHA-256 is
+`3620c6918ec144b0a0ca873895983877dd471c34f8bc6b12182febab27c70a36`;
+the DMG is `0a63620920206282bb2f31f2e86600cac8765b62368820d67f65f14d6c162393`.
+Hosted draft downloads matched both checksums; an anonymous public DMG download
+matched as well. The ZIP verifier passed nested signatures, macOS 15 compatibility,
+bundle metadata, bundled notices, preview entitlements, Gatekeeper and stapling.
+
+The DMG was mounted and installed, then the public Homebrew cask passed strict
+online audit and upgraded this Mac from receipt 1.2.1 to 1.2.2. The installed
+app reports 1.2.2 (29), has the same main binary as the DMG, passes signature,
+Gatekeeper and staple checks, and runs as one process from `/Applications`.
+All seven sampled managed files remained byte-identical after the direct and
+Homebrew installs. The signed stable feed is published at commit
+`34b2088d9cc222be04e728a786f317ba51124460` from the final ZIP.
+
+The closed notch was visible in the native screenshot. Physical display
+reconnection, fresh permission grant/denial, a recipient macOS 15 Mac, the
+optional Chrome extension, and a real 1.2.1-to-1.2.2 Sparkle relaunch were not
+retested for this release. The separate local fix records below retain their
+own dated UI and user-confirmation evidence.
+
 ## Local playback-icon clipping repair, 2026-09-10
 
 The latest local 1.2.1 (28) patch preserves the display repair below and fixes a

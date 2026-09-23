@@ -1,7 +1,8 @@
 # Reproducible release process
 
-Nodebay **1.2.2 (29)** is the release candidate; **1.2.1 (28)** remains public. Real API chat and the requested UI
-checks are recorded in the [verification matrix](release-verification-matrix.md).
+Nodebay **1.2.2 (29)** is published on GitHub and Homebrew. Its signed stable
+update feed is live. Real API chat and UI checks are recorded in the
+[verification matrix](release-verification-matrix.md).
 For each new version, follow the sequence below using a new tag and artifact names.
 Never overwrite an existing release's tag or assets. Keep provider claims specific
 to the verified API and restricted CLI paths; App Server streaming remains disabled.

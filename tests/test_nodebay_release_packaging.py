@@ -31,7 +31,8 @@ class NodebayReleasePackagingTests(unittest.TestCase):
             "spctl --assess",
             "NodebayMarkdownPreview.appex",
             "Markdown preview version does not match",
-            "Markdown preview has unexpected network",
+            "Markdown preview requires network.client",
+            "Markdown preview has an unexpected server or writable-file entitlement",
         ):
             self.assertIn(requirement, VERIFY)
 

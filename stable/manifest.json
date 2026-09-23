@@ -15,6 +15,20 @@
       "source_commit": "8b2356b72d5f0afa99389041c30164f0cff35bb8",
       "public_key": "p5wX3wvGOSYWwjHEHmQ09cb4J7TwCTmcf5V+4iNhoDA=",
       "feed_sha256": "09bc4d5d7d768e97bf736d21b1eea411133670f000ab761dd62d6e05c3cebb84"
+    },
+    {
+      "version": "1.2.2",
+      "build": 29,
+      "channel": "stable",
+      "tag": "nodebay-v1.2.2",
+      "archive_name": "Nodebay-1.2.2-arm64.zip",
+      "url": "https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.zip",
+      "length": 89144939,
+      "sha256": "3620c6918ec144b0a0ca873895983877dd471c34f8bc6b12182febab27c70a36",
+      "ed_signature": "KOr+KCOt0mhzMYm49S1WApxH4ClU+VUxgbiQm2c3MH4Jmh+piV42FnTjNkR8opAKyCcGzp41+o2OVljO2qwoDA==",
+      "source_commit": "1227ed08c1efb7726d0625f175f1c16deca08a33",
+      "public_key": "p5wX3wvGOSYWwjHEHmQ09cb4J7TwCTmcf5V+4iNhoDA=",
+      "feed_sha256": "909dce77d9a0772ca2fafa97b90b093745bf0c09c20df30de5cfae49d7f8d826"
     }
   ]
 }

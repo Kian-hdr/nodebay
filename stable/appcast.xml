@@ -4,17 +4,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>Nodebay</title>
         <item>
-            <title>1.2.1</title>
-            <pubDate>Wed, 09 Sep 2026 23:12:02 +0200</pubDate>
-            <link>https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.1</link>
-            <sparkle:version>28</sparkle:version>
-            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <title>1.2.2</title>
+            <pubDate>Wed, 23 Sep 2026 22:05:38 +0200</pubDate>
+            <link>https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2</link>
+            <sparkle:version>29</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.1/Nodebay-1.2.1-arm64.zip" length="87439298" type="application/octet-stream" sparkle:edSignature="/ZpgPXPY9NWi0DwhZ8AZZYLZ2RRj3cJ/Sm+AGvLh1sadaKD+e9iZ4YTp9T3wKBSR2oj/J48OYyMHvZLSZLrdCQ=="></enclosure>
-        <nodebay:release sha256="f9e93f4ed002f722c74a695e208b9589edf411f99335fca14822838b2cbebb53" sourceCommit="8b2356b72d5f0afa99389041c30164f0cff35bb8" channel="stable"></nodebay:release></item>
+            <description>&lt;p&gt;Nodebay 1.2.2 (build 29) improves display placement, notch hover behavior, transient HUD visibility, Markdown previews, and shelf imports.&lt;/p&gt;
+&lt;p&gt;The 640 × 190 open notch now retains its content when display routing or closed-notch height changes. Duplicate notch windows and repeat opening during one pointer visit are prevented. Volume, brightness and backlight HUDs remain visible when the closed-notch height is zero.&lt;/p&gt;
+&lt;p&gt;Markdown Quick Look adds an optional solid reading background, clearer table borders and local Mermaid diagrams. Browser image drops save validated image bytes to persistent shelf copies. The optional browser media bridge still requires explicit local installation and site permission.&lt;/p&gt;
+&lt;p&gt;Requires Apple silicon and macOS 15 or later. Existing 1.2.1 installations can update through Nodebay&amp;#x27;s signed feed or Homebrew. The app remains GPL-3.0 software with upstream Boring Notch attribution and bundled third-party notices.&lt;br&gt;&lt;/p&gt;</description>
+            <enclosure url="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.zip" length="89144939" type="application/octet-stream" sparkle:edSignature="KOr+KCOt0mhzMYm49S1WApxH4ClU+VUxgbiQm2c3MH4Jmh+piV42FnTjNkR8opAKyCcGzp41+o2OVljO2qwoDA=="></enclosure>
+        <nodebay:release sha256="3620c6918ec144b0a0ca873895983877dd471c34f8bc6b12182febab27c70a36" sourceCommit="1227ed08c1efb7726d0625f175f1c16deca08a33" channel="stable"></nodebay:release></item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: 2TqBWpkMUOWMIO65xSWkPow7zZ2xUsM0m5d3ct6wfhYOEjBOQbNTdK8SJCrm9moZLOI6e/tDZfONEEoGr0Y+Aw==
-length: 1499
+edSignature: IUIofycPJsoQ6Ht2feHFi0ixHNxjyvV2WgrlEEekb/ouNoXNFxAPAqpE5yk57+/AfXPq5hGLMYxC61BGKoQ/Cg==
+length: 2569
 -->

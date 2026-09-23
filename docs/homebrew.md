@@ -2,7 +2,9 @@
 
 The official public tap is `Kian-hdr/homebrew-nodebay`. Its cask installs only `Nodebay.app` from the matching signed, notarized Apple Silicon GitHub release.
 
-The **1.2.1 (28)** cask includes signed in-app updates, optional Quick Chat, available media sources, compact player layout, Spotify EQ recovery and the latest file-drawer fixes.
+The **1.2.2 (29)** cask includes signed in-app updates and the display, HUD,
+Markdown preview and shelf-drop improvements, while retaining Quick Chat,
+available media sources, compact player layout and Spotify EQ recovery.
 
 ```bash
 brew tap Kian-hdr/nodebay
@@ -25,4 +27,10 @@ that preserves existing settings and leaves credentials and permissions to you.
 
 ## Updates
 
-Nodebay 1.2.1 includes signed in-app updates. Existing 1.2.0 users need one final verified manual/Homebrew upgrade. For an existing Homebrew installation, run `brew update` then `brew upgrade --cask --greedy Kian-hdr/nodebay/nodebay`; `--greedy` includes this `auto_updates true` cask. Once migrated, open About Nodebay to check manually or change automatic checks and downloads. Preserve an app already newer than the cask and never use `--zap` for an upgrade. See [update setup](features/updates.md).
+Nodebay 1.2.2 includes signed in-app updates. Existing 1.2.0 users need one
+verified manual/Homebrew upgrade to gain the updater. For an existing Homebrew
+installation, run `brew update` then `brew upgrade --cask --greedy
+Kian-hdr/nodebay/nodebay`; `--greedy` includes this `auto_updates true` cask.
+Once migrated, open About Nodebay to check manually or change automatic checks
+and downloads. Preserve an app already newer than the cask and never use
+`--zap` for an upgrade. See [update setup](features/updates.md).

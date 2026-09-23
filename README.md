@@ -205,8 +205,8 @@ The script asks Xcode to sign the app and XPC service with their target entitlem
 Verify the resulting archive before notarization:
 
 ```bash
-EXPECTED_VERSION=1.2.1 EXPECTED_BUILD=28 \
-./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.1-arm64.zip
+EXPECTED_VERSION=1.2.2 EXPECTED_BUILD=29 \
+./scripts/verify_release_artifact.sh build/nodebay-homebrew-arm64-release/Nodebay-1.2.2-arm64.zip
 ```
 
 After notarization and stapling, set `REQUIRE_NOTARIZED=1` to add Gatekeeper and staple validation.

@@ -1,6 +1,6 @@
 # Updating Nodebay
 
-Nodebay 1.2.1 includes signed in-app updates. Open **About Nodebay** and choose **Check for Updates…**. The Software updates section has separate switches for automatic checks and automatic downloads. You can keep checking manually.
+Nodebay 1.2.2 includes signed in-app updates. Open **About Nodebay** and choose **Check for Updates…**. The Software updates section has separate switches for automatic checks and automatic downloads. You can keep checking manually.
 
 The first updater-enabled launch offers this choice. Older Nodebay releases forcibly disabled the updater, so their saved off value cannot reliably distinguish a preference from that old implementation. Nodebay asks once instead of silently changing it; an explicit choice made in this version is preserved.
 

@@ -87,8 +87,12 @@ print -r -- "$preview_entitlements" > "$verify_root/preview-entitlements.plist"
     print -u2 "Markdown preview requires sandbox and read-only file access."
     exit 1
 }
-if print -r -- "$preview_entitlements" | grep -Eq 'com.apple.security.(network.|files.user-selected.read-write)'; then
-    print -u2 "Markdown preview has unexpected network or writable-file entitlements."
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.network.client' "$verify_root/preview-entitlements.plist")" == "true" ]] || {
+    print -u2 "Markdown preview requires network.client for local WebKit diagram rendering."
+    exit 1
+}
+if print -r -- "$preview_entitlements" | grep -Eq 'com.apple.security.(network.server|files.user-selected.read-write)'; then
+    print -u2 "Markdown preview has an unexpected server or writable-file entitlement."
     exit 1
 fi
 for key in CFBundleShortVersionString CFBundleVersion; do

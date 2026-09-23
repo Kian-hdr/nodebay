@@ -5,7 +5,9 @@ import NodebayMarkdown
 
 /// The host owns all window chrome and materials. This controller supplies only document content.
 final class PreviewViewController: NSViewController, QLPreviewingController, NSTextViewDelegate {
-    private let textView = NSTextView()
+    private let textView = MarkdownPreviewTextView()
+    private let diagrams = MarkdownDiagramPresenter()
+    private var renderedContent: NSAttributedString?
     private var generation = UUID()
     private let worker = DispatchQueue(label: "Nodebay.MarkdownPreview", qos: .userInitiated)
 
@@ -24,7 +26,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController, NST
         textView.isAutomaticTextReplacementEnabled = false
         textView.allowsUndo = false
         textView.delegate = self
-        textView.textContainerInset = NSSize(width: 7, height: 5)
+        textView.textContainerInset = NSSize(width: 24, height: 20)
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
         textView.isVerticallyResizable = true
@@ -36,11 +38,18 @@ final class PreviewViewController: NSViewController, QLPreviewingController, NST
         textView.setAccessibilityLabel("Markdown document")
         scroll.documentView = textView
         view = scroll
+        textView.appearanceChanged = { [weak self] in
+            guard let self, let content = self.renderedContent else { return }
+            self.diagrams.display(content, in: self.textView)
+        }
         preferredContentSize = NSSize(width: 760, height: 720)
     }
 
     func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
         loadViewIfNeeded()
+        applyBackgroundPreference()
+        diagrams.cancel()
+        renderedContent = nil
         let request = UUID()
         generation = request
         worker.async { [weak self] in
@@ -53,12 +62,25 @@ final class PreviewViewController: NSViewController, QLPreviewingController, NST
             }
             DispatchQueue.main.async { [weak self] in
                 if let self, self.generation == request {
-                    self.textView.textStorage?.setAttributedString(content)
+                    self.renderedContent = content
+                    self.diagrams.display(content, in: self.textView)
                     self.textView.scrollToBeginningOfDocument(nil)
                 }
                 handler(nil)
             }
         }
+    }
+
+    /// Refresh for every request because Finder may reuse this extension process.
+    func applyBackgroundPreference(defaults: UserDefaults = MarkdownPreviewPreferences.defaults) {
+        guard let scroll = view as? NSScrollView else { return }
+        let solid = (defaults.object(forKey: MarkdownPreviewPreferences.solidBackgroundKey) as? Bool
+            ?? MarkdownPreviewPreferences.defaultSolidBackground)
+            || NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        scroll.backgroundColor = .windowBackgroundColor
+        scroll.drawsBackground = solid
+        // Fill the complete reading area, including short documents.
+        textView.drawsBackground = false
     }
 
     // Keep preview links selectable/copyable, without opening resources from the extension.

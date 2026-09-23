@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        D16000000000000000000001 = {isa = PBXBuildFile; fileRef = D16000000000000000000011; };
+        D16000000000000000000002 = {isa = PBXBuildFile; fileRef = D16000000000000000000012; };
+        D16000000000000000000003 = {isa = PBXBuildFile; fileRef = D16000000000000000000013; };
+        D15000000000000000000001 = {isa = PBXBuildFile; fileRef = D0DEB0150000000000000005; };
 		D14000000000000000000003 /* LonghaulCompanionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14000000000000000000013; };
 		D14000000000000000000002 /* LonghaulCompanionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14000000000000000000012; };
 		D14000000000000000000001 /* LonghaulCompanionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14000000000000000000011; };
@@ -234,6 +238,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+        D16000000000000000000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodebayMarkdownPreview/MermaidDiagramRenderer.swift; sourceTree = SOURCE_ROOT; };
+        D16000000000000000000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodebayMarkdownPreview/MarkdownDiagramPresenter.swift; sourceTree = SOURCE_ROOT; };
+        D16000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = folder; path = NodebayMarkdownPreview/Mermaid; sourceTree = SOURCE_ROOT; };
 		D14000000000000000000013 /* LonghaulCompanionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boringNotch/Longhaul/LonghaulCompanionViews.swift; sourceTree = SOURCE_ROOT; };
 		D14000000000000000000012 /* LonghaulCompanionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boringNotch/Longhaul/LonghaulCompanionClient.swift; sourceTree = SOURCE_ROOT; };
 		D14000000000000000000011 /* LonghaulCompanionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boringNotch/Longhaul/LonghaulCompanionModels.swift; sourceTree = SOURCE_ROOT; };
@@ -729,6 +736,9 @@
 			isa = PBXGroup;
 			children = (
 				D0DEB0140000000000000040,
+                D16000000000000000000011,
+                D16000000000000000000012,
+                D16000000000000000000013,
 				D0DEB0190000000000000009 /* BrowserBridge */,
 				D0DEB0160000000000000006 /* Nodebay.icon */,
 				112B0EB62E30DD0F00562D6C /* mediaremote-adapter */,
@@ -953,7 +963,7 @@
 		D0DEB0440000000000000040 = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D0DEB0740000000000000040;
-			buildPhases = (D0DEB0840000000000000040, D0DEB0640000000000000040, );
+			buildPhases = (D0DEB0840000000000000040, D0DEB0640000000000000040, D15000000000000000000002, );
 			buildRules = ();
 			dependencies = ();
 			name = NodebayMarkdownPreview;
@@ -1078,6 +1088,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+        D15000000000000000000002 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D15000000000000000000001, D16000000000000000000003, ); runOnlyForDeploymentPostprocessing = 0; };
 		11F7484D2EC9AABA00F841DB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1107,7 +1118,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		D0DEB0840000000000000040 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D0DEB0040000000000000040, ); runOnlyForDeploymentPostprocessing = 0; };
+		D0DEB0840000000000000040 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D0DEB0040000000000000040, D16000000000000000000001, D16000000000000000000002, ); runOnlyForDeploymentPostprocessing = 0; };
 		11F7484B2EC9AABA00F841DB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1296,7 +1307,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = NodebayMarkdownPreview/NodebayMarkdownPreview.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_TEAM = HZWY8HT54D;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1304,7 +1315,7 @@
 				INFOPLIST_FILE = NodebayMarkdownPreview/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch.MarkdownPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1318,7 +1329,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = NodebayMarkdownPreview/NodebayMarkdownPreview.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_TEAM = HZWY8HT54D;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1326,7 +1337,7 @@
 				INFOPLIST_FILE = NodebayMarkdownPreview/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks", );
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch.MarkdownPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1342,14 +1353,14 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BoringNotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Nodebay Processing Helper";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch.BoringNotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1367,14 +1378,14 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BoringNotchXPCHelper/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Nodebay Processing Helper";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch.BoringNotchXPCHelper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1522,7 +1533,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"boringNotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1555,7 +1566,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				NODEBAY_UPDATE_FEED_URL = "https://raw.githubusercontent.com/Kian-hdr/nodebay/updates/stable/appcast.xml";
 				NODEBAY_UPDATE_PUBLIC_ED_KEY = "p5wX3wvGOSYWwjHEHmQ09cb4J7TwCTmcf5V+4iNhoDA=";
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch;
@@ -1591,7 +1602,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"boringNotch/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -1623,7 +1634,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				NODEBAY_UPDATE_FEED_URL = "https://raw.githubusercontent.com/Kian-hdr/nodebay/updates/stable/appcast.xml";
 				NODEBAY_UPDATE_PUBLIC_ED_KEY = "p5wX3wvGOSYWwjHEHmQ09cb4J7TwCTmcf5V+4iNhoDA=";
 				PRODUCT_BUNDLE_IDENTIFIER = theboringteam.boringnotch;

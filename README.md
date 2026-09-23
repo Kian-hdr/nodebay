@@ -17,7 +17,8 @@ permissions or configuration you need to complete yourself.
 
 ## Current release status
 
-**Nodebay 1.2.1 (28)** fixes media startup/recovery, player overlap and Spotify EQ. It includes optional [Quick Chat](docs/features/quick-chat.md),
+**Nodebay 1.2.2 (29)** adds display, hover, HUD, Markdown preview, and shelf-drop
+improvements on top of the 1.2.1 media and updater release. It includes optional [Quick Chat](docs/features/quick-chat.md),
 available-source media tabs, clearer API-key setup and message bubbles that fit
 their text. It also includes file-drawer fixes and an optional, separately installed
 [Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
@@ -29,6 +30,12 @@ or install through the official Homebrew tap. See the
 [verification matrix](docs/release-verification-matrix.md) for completed checks
 and remaining UI/hardware coverage. The optional Browser Media Bridge requires
 explicit local installation and is never silently enabled.
+
+## Markdown preview improvements
+
+The current local source adds a solid/glass background preference (solid by default),
+more consistent Markdown spacing, clearer table grids and locally rendered Mermaid
+diagrams. See [Markdown preview](docs/features/markdown-preview.md).
 
 ## Screenshots
 

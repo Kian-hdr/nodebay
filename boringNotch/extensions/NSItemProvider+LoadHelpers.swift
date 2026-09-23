@@ -9,10 +9,30 @@
 import AppKit
 import Foundation
 import UniformTypeIdentifiers
+import ImageIO
 
 struct DroppedFileReference: Sendable {
     let url: URL
     let bookmarkData: Data
+}
+
+/// A provider may finish after the drag ended or never call back. Resolve exactly
+/// once so a broken browser provider cannot keep a shelf import pending forever.
+private final class DroppedImageLoad: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Data?, Never>?
+
+    init(_ continuation: CheckedContinuation<Data?, Never>) { self.continuation = continuation }
+
+    @discardableResult
+    func finish(_ data: Data?) -> Bool {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: data)
+        return pending != nil
+    }
 }
 
 extension NSItemProvider {
@@ -82,50 +102,71 @@ extension NSItemProvider {
         return nil
     }
     
-    /// Loads raw data for the given type identifier
+    /// Browser image drags can advertise both image bytes and the enclosing page URL.
+    /// Consume an explicit image representation before considering the URL.
+    func extractDroppedImage() async -> (data: Data, fileExtension: String)? {
+        let identifiers = registeredTypeIdentifiers.filter {
+            UTType($0)?.conforms(to: .image) == true
+        }
+        for identifier in identifiers {
+            let data: Data? = await withCheckedContinuation { continuation in
+                let completion = DroppedImageLoad(continuation)
+                let progress = loadDataRepresentation(forTypeIdentifier: identifier) { data, error in
+                    completion.finish(error == nil ? data : nil)
+                }
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 10) {
+                    if completion.finish(nil) { progress.cancel() }
+                }
+            }
+            if let data, let ext = Self.validatedImageExtension(for: data) {
+                return (data, ext)
+            }
+        }
+        return nil
+    }
+
+    /// Validate the actual encoded format and dimensions before decoding. Never trust
+    /// the browser's filename or advertised type for a generated shelf file.
+    static func validatedImageExtension(for data: Data) -> String? {
+        guard !data.isEmpty, data.count <= 32 * 1_024 * 1_024,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let identifier = CGImageSourceGetType(source),
+              let type = UTType(identifier as String), type.conforms(to: .image),
+              let ext = type.preferredFilenameExtension,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.doubleValue > 0, height.doubleValue > 0,
+              width.doubleValue * height.doubleValue <= 40_000_000,
+              CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil
+        else { return nil }
+        return ext
+    }
+
+    /// Reads a provider-owned file without changing it. Its lifetime belongs to
+    /// the source application, even when it resides in a temporary directory.
     func loadData() async -> Data? {
-        NSLog(String(describing: self.registeredTypeIdentifiers))
         guard hasItemConformingToTypeIdentifier(UTType.data.identifier) else { return nil }
-        return await withCheckedContinuation { (cont: CheckedContinuation<Data?, Never>) in
+        return await withCheckedContinuation { continuation in
             loadItem(forTypeIdentifier: UTType.data.identifier, options: nil) { item, error in
-                if let error = error {
-                    print("Error loading data for type \(UTType.data.identifier): \(error.localizedDescription)")
-                    cont.resume(returning: nil)
+                guard error == nil else {
+                    continuation.resume(returning: nil)
                     return
                 }
-                if let url = item as? URL, let data = try? Data(contentsOf: url) {
-                    if !url.absoluteString.contains("com.apple.SwiftUI.filePromises") {
-                        cont.resume(returning: nil)
+                if let url = item as? URL, url.isFileURL {
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+                    guard let handle = try? FileHandle(forReadingFrom: url) else {
+                        continuation.resume(returning: nil)
                         return
                     }
-                    self.suggestedName = self.suggestedName ?? url.lastPathComponent
-                    
-                    let fileManager = FileManager.default
-                    let folderURL = url.deletingLastPathComponent()
-
-                    do {
-                        // Delete the file first
-                        try fileManager.removeItem(at: url)
-                        print("Deleted file: \(url.path)")
-
-                        // Check folder contents
-                        let contents = try fileManager.contentsOfDirectory(atPath: folderURL.path)
-                        if contents.isEmpty {
-                            try fileManager.removeItem(at: folderURL)
-                            print("Folder was empty, deleted folder: \(folderURL.path)")
-                        } else {
-                            print("Folder not deleted — it still contains \(contents.count) item(s).")
-                        }
-
-                    } catch {
-                        print("Error: \(error.localizedDescription)")
-                    }
-                    
-                    cont.resume(returning: data)
-                } else if let data = item as? Data {
-                    cont.resume(returning: data)
+                    defer { try? handle.close() }
+                    let data = try? handle.read(upToCount: 32 * 1_024 * 1_024 + 1)
+                    continuation.resume(returning: data.flatMap { $0.count <= 32 * 1_024 * 1_024 ? $0 : nil })
+                } else if let data = item as? Data, data.count <= 32 * 1_024 * 1_024 {
+                    continuation.resume(returning: data)
                 } else {
-                    cont.resume(returning: nil)
+                    continuation.resume(returning: nil)
                 }
             }
         }

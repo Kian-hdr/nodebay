@@ -49,7 +49,7 @@ final class NSScreenUUIDCache {
     private var observer: Any?
     
     private init() {
-        rebuildCache()
+        refresh()
         setupObserver()
     }
     
@@ -65,11 +65,11 @@ final class NSScreenUUIDCache {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.rebuildCache()
+            self?.refresh()
         }
     }
     
-    private func rebuildCache() {
+    func refresh() {
         var newCache: [String: NSScreen] = [:]
         
         for screen in NSScreen.screens {

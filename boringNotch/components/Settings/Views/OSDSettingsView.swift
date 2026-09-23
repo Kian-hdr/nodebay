@@ -166,6 +166,12 @@ struct OSDSettings: View {
                                 await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
                             }
                         }
+                        Button("Preview Volume HUD") {
+                            BoringViewCoordinator.shared.toggleSneakPeek(
+                                status: true, type: .volume, duration: 5,
+                                value: CGFloat(VolumeManager.shared.rawVolume)
+                            )
+                        }
                         Button("Open Accessibility Settings") {
                             MediaKeyInterceptor.shared.openAccessibilitySettings()
                         }

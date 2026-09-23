@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+    <key>NodebayPreviewAppGroup</key><string>$(DEVELOPMENT_TEAM).Nodebay.MarkdownPreview</string>
     <key>CFBundleDisplayName</key><string>Markdown Preview</string>
     <key>NSExtension</key><dict>
         <key>NSExtensionPointIdentifier</key><string>com.apple.quicklook.preview</string>

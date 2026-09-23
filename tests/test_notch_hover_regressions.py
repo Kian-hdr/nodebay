@@ -27,9 +27,11 @@ class NotchHoverRegressionTests(unittest.TestCase):
         helper = source.split("private func closeAfterHoverExit()", 1)[1].split("private func handleHover", 1)[0]
         self.assertLess(helper.index("guard !vm.isMouseHovering()"), helper.index("vm.close()"))
         self.assertIn("withAnimation(StandardAnimations.close)", helper)
-        self.assertIn("!SharingStateManager.shared.preventNotchClose", helper)
-        self.assertEqual(source.count("self.closeAfterHoverExit()"), 3)
-        self.assertIn(".onDisappear { hoverTask?.cancel() }", source)
+        self.assertIn("!preventsHoverClose", helper)
+        self.assertEqual(source.count("self.closeAfterHoverExit()"), 2)
+        disappearance = source.split(".onDisappear {", 1)[1].split("}", 1)[0]
+        self.assertIn("hoverTask?.cancel()", disappearance)
+        self.assertIn("anyDropDebounceTask?.cancel()", disappearance)
 
     def test_drag_activation_uses_closed_notch_region_until_open(self):
         source = (ROOT / "boringNotch/boringNotchApp.swift").read_text()

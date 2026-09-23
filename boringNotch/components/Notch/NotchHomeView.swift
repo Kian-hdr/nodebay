@@ -51,6 +51,22 @@ struct MusicPlayerColumn<Info: View, Timeline: View, Controls: View>: View {
     }
 }
 
+struct MusicControlStrip<Content: View>: View {
+    var minimumWidth: CGFloat
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            content()
+                .frame(minWidth: minimumWidth, minHeight: 40)
+        }
+        // `.hidden` still permits a legacy scrollbar when a mouse is attached.
+        // That scrollbar consumes the bottom of this fixed-height button row.
+        .scrollIndicators(.never)
+        .frame(height: 40)
+    }
+}
+
 struct AlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: BoringViewModel
@@ -283,16 +299,13 @@ struct MusicControlsView: View {
         let accessoriesWidth: CGFloat = musicManager.canDownloadActiveMedia ? 62 : 30
         return HStack(spacing: 8) {
             // Accessories participate in layout so expanded volume/custom slots cannot overlap them.
-            ScrollView(.horizontal) {
+            MusicControlStrip(minimumWidth: max(0, controlsWidth - 5 - accessoriesWidth - 8)) {
                 HStack(spacing: 6) {
                     ForEach(Array(slots.enumerated()), id: \.offset) { _, slot in
                         slotView(for: slot)
                     }
                 }
-                .frame(minWidth: max(0, controlsWidth - 5 - accessoriesWidth - 8), minHeight: 40)
             }
-            .scrollIndicators(.hidden)
-            .frame(height: 40)
             HStack(spacing: 2) {
                 EqualizerControl(isPresented: $showEqualizer)
                 if musicManager.canDownloadActiveMedia {
@@ -726,7 +739,7 @@ private struct MediaSourcePicker: View {
                     }
                     .padding(.horizontal, 2)
                 }
-                .scrollIndicators(.hidden)
+                .scrollIndicators(.never)
                 .frame(height: 20)
                 .onChange(of: musicManager.activeSourceID) { _, selected in
                     proxy.scrollTo(selected)

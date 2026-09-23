@@ -48,7 +48,7 @@ final class BrowserMediaBridge: ObservableObject {
     static let shared = BrowserMediaBridge()
     nonisolated static let nativeHostName = "com.nodebay.browser_bridge"
     nonisolated static let extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"
-    nonisolated static let bridgeVersion = "0.2.0"
+    nonisolated static let bridgeVersion = "0.3.0"
     private static let port: NWEndpoint.Port = 47_321
     private static let maximumBufferedBytes = 1_048_576
 

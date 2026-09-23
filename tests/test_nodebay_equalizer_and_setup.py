@@ -114,7 +114,7 @@ class EqualizerAndSetupTests(unittest.TestCase):
 
     def test_browser_capture_is_explicit_and_per_tab(self):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
-        self.assertEqual(set(manifest["permissions"]), {"nativeMessaging", "offscreen", "tabCapture"})
+        self.assertEqual(set(manifest["permissions"]), {"nativeMessaging", "offscreen", "tabCapture", "scripting"})
         self.assertEqual(manifest["action"]["default_popup"], "popup.html")
         popup = (EXTENSION / "popup.js").read_text()
         background = (EXTENSION / "background.js").read_text()

@@ -15,7 +15,9 @@
 
   function mediaElement() {
     const candidates = [...document.querySelectorAll("video, audio")];
-    return candidates.find((item) => item.duration > 0 || !item.paused) || candidates[0] || null;
+    return candidates.find((item) => !item.paused && !item.ended)
+      || candidates.find((item) => item.readyState > 0 && (item.duration > 0 || item.currentSrc))
+      || null;
   }
 
   function metadata() {
@@ -23,15 +25,19 @@
     const media = mediaElement();
     if (!media) return null;
 
+    const siteName = isMusic ? "YouTube Music" : location.hostname === "www.youtube.com"
+      ? "YouTube" : location.hostname.replace(/^www\./, "");
     const title = isMusic
       ? text("ytmusic-player-bar .title")
-      : text("h1 yt-formatted-string") || document.title.replace(/\s+-\s+YouTube$/, "");
+      : siteName === "YouTube" ? text("h1 yt-formatted-string") || document.title.replace(/\s+-\s+YouTube$/, "")
+      : document.querySelector('meta[property="og:title"]')?.content?.trim() || document.title.trim();
     const artist = isMusic
       ? text("ytmusic-player-bar .byline")
-      : text("#owner #channel-name a") || document.querySelector('meta[name="author"]')?.content || "";
+      : siteName === "YouTube" ? text("#owner #channel-name a") || document.querySelector('meta[name="author"]')?.content || ""
+      : document.querySelector('meta[name="author"]')?.content?.trim() || "";
 
     return {
-      siteName: isMusic ? "YouTube Music" : "YouTube",
+      siteName,
       title,
       artist,
       isPlaying: !media.paused && !media.ended,
@@ -41,8 +47,9 @@
       volume: finite(media.volume, 1),
       isMuted: media.muted,
       canSeek: Number.isFinite(media.duration) && media.duration > 0,
-      canGoNext: Boolean(document.querySelector(".ytp-next-button, .next-button.ytmusic-player-bar")),
-      canGoPrevious: Boolean(document.querySelector(".previous-button.ytmusic-player-bar"))
+      canGoNext: siteName === "YouTube" || isMusic
+        ? Boolean(document.querySelector(".ytp-next-button, .next-button.ytmusic-player-bar")) : false,
+      canGoPrevious: isMusic ? Boolean(document.querySelector(".previous-button.ytmusic-player-bar")) : false
     };
   }
 

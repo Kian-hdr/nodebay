@@ -9,6 +9,37 @@ MediaRemoteAdapter v0.7.7 is a bundled BSD-3-Clause framework built from https:/
 
 Nodebay's equalizer uses Apple AVFoundation for local shelf audio and Core Audio process taps for Spotify, QuickTime Player and identified Chrome audio. The optional browser bridge also contains its separately enabled Web Audio path. It adds no third-party DSP library or redistributed binary. The optional setup interface can invoke a separately installed Homebrew only for the exact companion packages documented below. Homebrew is not bundled, modified, or redistributed by Nodebay.
 
+## Mermaid 12.0.0 (bundled)
+
+- Source: https://github.com/mermaid-js/mermaid
+- License: MIT
+- Unmodified asset SHA-256: `28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073`
+- Runs locally for static Mermaid diagrams; embedded dependency notices are retained.
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2014 - 2022 Knut Sveidqvist
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Blender 5.0.1 (a3db93c5b259) (companion, not bundled)
 
 - Source: https://projects.blender.org/blender/blender/src/tag/v5.0.1

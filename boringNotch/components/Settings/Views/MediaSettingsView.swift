@@ -143,7 +143,7 @@ struct Media: View {
             } header: {
                 Text("Browser Media Tabs")
             } footer: {
-                Text("Optional and local-only. Load the bundled extension in Chrome to expose only YouTube and YouTube Music tabs that contain playable media. Nodebay never receives browser history or cookies.")
+                Text("Optional and local-only. The bundled Chrome extension detects playable YouTube tabs. To switch and control media on other sites, enable them in the extension popup and approve Chrome's permission prompt. Nodebay never receives browser history or cookies.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

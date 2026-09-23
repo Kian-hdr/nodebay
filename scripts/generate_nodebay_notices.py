@@ -121,6 +121,13 @@ def check_offline(manifest: dict, components: dict) -> None:
     verify_adapter()
     if ADAPTER_NOTICE not in text:
         raise SystemExit("MediaRemoteAdapter notice does not match the vendored version, source and binary hash")
+    for library in manifest.get("webLibraries", []):
+        asset = ROOT / library["assetPath"]
+        license_text = (ROOT / library["licensePath"]).read_text(encoding="utf-8").strip()
+        if hashlib.sha256(asset.read_bytes()).hexdigest() != library["sha256"]:
+            raise SystemExit(f"Bundled web library drift: {library['id']}")
+        if f"## {library['name']} {library['version']} (bundled)" not in text or license_text not in text:
+            raise SystemExit(f"Missing bundled web library license: {library['id']}")
     for companion in manifest["companions"]:
         heading = f"## {companion['name']} {companion['version']} (companion, not bundled)"
         if heading not in text or companion["licenseURL"] not in text:
@@ -168,6 +175,15 @@ def main() -> None:
         "Nodebay's equalizer uses Apple AVFoundation for local shelf audio and Core Audio process taps for Spotify, QuickTime Player and identified Chrome audio. The optional browser bridge also contains its separately enabled Web Audio path. It adds no third-party DSP library or redistributed binary. The optional setup interface can invoke a separately installed Homebrew only for the exact companion packages documented below. Homebrew is not bundled, modified, or redistributed by Nodebay.",
         "",
     ]
+    for library in manifest.get("webLibraries", []):
+        license_text = (ROOT / library["licensePath"]).read_text(encoding="utf-8").strip()
+        sections.extend([
+            f"## {library['name']} {library['version']} (bundled)", "",
+            f"- Source: {library['source']}", f"- License: {library['license']}",
+            f"- Unmodified asset SHA-256: `{library['sha256']}`",
+            "- Runs locally for static Mermaid diagrams; embedded dependency notices are retained.",
+            "", "```text", license_text, "```", "",
+        ])
     for companion in manifest["companions"]:
         license_text = license_for(companion, companion["licenseURL"], True)
         sections.extend([

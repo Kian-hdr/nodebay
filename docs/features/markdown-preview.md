@@ -7,24 +7,56 @@ Quick Look path; no keyboard interception was added for this feature.
 
 ## Appearance contract
 
-The reference is Finder's actual `.txt` preview on macOS 26.6.2, not a mockup.
-macOS owns the window, title, controls, materials, resizing, and dismissal.
-The extension supplies a transparent `NSScrollView` and non-editable, selectable
-`NSTextView`. Both have `drawsBackground = false`. A single full-bleed semantic
-`underWindowBackground` material slightly strengthens diffusion over busy
-backgrounds. There is **no opaque or tinted panel, rounded document surface,
-toolbar, or branding**.
+In **Settings → Appearance → Markdown Preview**, turn **Use solid background**
+on for a gray reading surface, or off for the existing Liquid Glass appearance.
+The default for new installs is on; an existing saved choice is preserved. Close and reopen Quick Look after changing the setting.
+The choice is shared with the extension, so it also works when Nodebay is quit.
 
-Kian explicitly requested this restrained contrast adjustment on 2026-09-03
-while preserving the existing translucent design. The material follows window
-activity and system appearance; Reduce Transparency remains system-managed.
-Text uses adaptive AppKit colors and system fonts.
+macOS continues to own the preview window, title, controls, materials, resizing
+and dismissal. The extension supplies a non-editable, selectable `NSTextView`
+in an `NSScrollView`. Glass mode leaves both transparent. Solid mode fills the
+scroll view with adaptive `NSColor.windowBackgroundColor`, including the empty
+area below short documents; the text view stays transparent. The surface follows
+Light/Dark appearance rather than hard-coding a gray value. Reduce Transparency
+uses the solid surface regardless of the preference. The reading area is continuous;
+Apple's private rounded TXT inset layout is not reproduced.
 
-Apple's built-in text renderer has a rounded, opaque document inset. Its private
-layout is not a public Quick Look API, and duplicating it would conflict with the
-approved transparent design. Markdown body text uses the proportional system
-font; code uses the system monospaced font. Headings and paragraph spacing are
-content formatting, not replacement window chrome.
+Both signed targets share only this preference using a TeamID-prefixed macOS
+App Group and `UserDefaults(suiteName:)`. The group identifier is derived from
+`DEVELOPMENT_TEAM` in each target's Info plist and entitlement. No additional document-access entitlement is added. WebKit requires a network-client
+entitlement to start its process even for local files; remote resources remain blocked. Text retains adaptive AppKit
+colors and system fonts; code uses the system monospaced font.
+
+## Reading layout
+
+The native layout uses 24-point side margins, 20-point page insets, 12-point
+separation between independent blocks and 20 points above section headings.
+List siblings remain compact while list exits regain the normal block gap.
+Code preserves deliberate blank lines without adding paragraph spacing to every
+code line. Tables have explicit space before and after their borders.
+This is a native adaptation of GitHub/Obsidian reading rhythm, not their web UI.
+
+## Mermaid diagrams
+
+Fenced `mermaid` blocks render locally as static diagrams among the native text.
+The preview shows text immediately and inserts diagrams as they finish. Diagrams
+use a flat classic style with consistent one-point frames and no shadows or
+layered effects. They fit the available line width when the preview is resized, retain their aspect
+ratio, and refresh for light/dark appearance. Repeated identical diagrams remain
+separate. The main app does not need to be running.
+
+Mermaid 12.0.0 is bundled under MIT with its license and pinned provenance in
+`NodebayMarkdownPreview/Mermaid/`. An isolated, nonpersistent WebKit instance
+runs only this bundled renderer, converts its SVG to a bounded raster image,
+and releases the instance. No document HTML is executed. CSP, network content
+blocking and navigation restrictions prevent external resource loading; generated
+attachments have no active links or scripts.
+
+Up to 12 diagrams are rendered per preview, with 20,000 characters/300 lines,
+200 edges, an 8-second per-diagram timeout and bounded raster output. Invalid,
+over-limit or unsupported diagrams show a concise notice and their original
+source. Configuration directives/frontmatter and embedded HTML/images are not
+supported in previews. Standard Markdown image URLs remain alt text.
 
 ## Rendering and privacy
 
@@ -35,13 +67,17 @@ text attributes and native text tables. No third-party parser is added.
 Supported: headings, paragraphs, emphasis, ordered/unordered/nested lists,
 task checkboxes, blockquotes, links, tables, and fenced code. Code receives
 restrained keyword-weight emphasis, not a full language-specific syntax parser.
-Task checkboxes are read-only text, as expected for a preview.
+Task checkboxes are read-only text, as expected for a preview. Table borders use
+one-point adaptive label color for visibility on both reading surfaces. An explicit
+outer table border keeps the right edge visible while preserving cell wrapping.
 
-Images display their alt text. HTML is never executed. Image URLs, local image
-files, stylesheets, scripts, fonts, and other resources are not loaded. Links
-remain selectable/copyable but do not navigate from the extension. There is no
-WebKit, cloud service, telemetry, or document-content logging. The sandbox has
-read-only user-selected file access and **no network entitlement**.
+Document images display their alt text. Document HTML is never executed, and
+image URLs, local image files and document-provided styles/scripts/fonts are not
+loaded. Links remain selectable/copyable but do not navigate from the extension.
+Only the bundled Mermaid engine uses isolated WebKit as described above.
+There is no cloud service, telemetry or document-content logging. The sandbox has
+read-only user-selected file access. Its network-client entitlement is required by
+WebKit process startup; the bundled renderer blocks remote requests and navigation.
 
 File reading and parsing occur on a private worker queue. The file handle closes
 before presentation. Request identity prevents stale results from replacing newer
@@ -57,8 +93,8 @@ are supported; unsupported encodings and inaccessible files show a concise messa
 The app and extension retain the macOS 15 minimum. Runtime verification on this
 Mac does not establish verification on every supported macOS version.
 The renderer and extension are Nodebay-authored GPL-3.0-or-later source under the
-repository license. AppKit, Foundation, Quartz and Quick Look are operating-system
-frameworks, not redistributed third-party engines. Existing third-party notices
+repository license. AppKit, Foundation, Quartz, WebKit and Quick Look are operating-system
+frameworks, not redistributed engines. Mermaid and its MIT license are bundled. Existing third-party notices
 remain applicable to the rest of the app.
 
 ## Build and tests

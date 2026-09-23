@@ -2,8 +2,14 @@ const NATIVE_HOST = "com.nodebay.browser_bridge";
 const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 let nativePort = null;
 let reconnectTimer = null;
+let allMediaEnabled = false;
+let mediaAccessSync = null;
 const equalizedTabs = new Set();
+const genericMediaTabs = new Set();
 const OFFSCREEN_PATH = "offscreen.html";
+const ALL_MEDIA_PERMISSION = { origins: ["http://*/*", "https://*/*"] };
+const ALL_MEDIA_SCRIPT = "nodebay-all-media";
+const YOUTUBE_URLS = ["https://www.youtube.com/*", "https://music.youtube.com/*"];
 
 async function ensureOffscreenDocument() {
   const offscreenURL = chrome.runtime.getURL(OFFSCREEN_PATH);
@@ -63,10 +69,54 @@ function sendNative(message) {
 }
 
 function supportedURL(url) {
+  if (typeof url !== "string") return false;
+  try { return ["http:", "https:"].includes(new URL(url).protocol); }
+  catch (_error) { return false; }
+}
+
+function isYouTubeURL(url) {
   return typeof url === "string" && (
-    url.startsWith("https://www.youtube.com/") ||
-    url.startsWith("https://music.youtube.com/")
+    url.startsWith("https://www.youtube.com/") || url.startsWith("https://music.youtube.com/")
   );
+}
+
+function syncAllMediaAccess() {
+  if (mediaAccessSync) return mediaAccessSync;
+  mediaAccessSync = performMediaAccessSync().finally(() => { mediaAccessSync = null; });
+  return mediaAccessSync;
+}
+
+async function performMediaAccessSync() {
+  const allowed = await chrome.permissions.contains(ALL_MEDIA_PERMISSION);
+  allMediaEnabled = allowed;
+  const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [ALL_MEDIA_SCRIPT] });
+  if (allowed && registered.length === 0) {
+    await chrome.scripting.registerContentScripts([{
+      id: ALL_MEDIA_SCRIPT,
+      matches: ALL_MEDIA_PERMISSION.origins,
+      excludeMatches: YOUTUBE_URLS,
+      js: ["media.js"],
+      runAt: "document_idle",
+      persistAcrossSessions: true
+    }]);
+  } else if (!allowed && registered.length > 0) {
+    await chrome.scripting.unregisterContentScripts({ ids: [ALL_MEDIA_SCRIPT] });
+  }
+  if (!allowed) {
+    for (const tabID of genericMediaTabs) {
+      sendNative({ type: "tabRemoved", id: `chrome:${tabID}` });
+    }
+    genericMediaTabs.clear();
+  }
+  if (allowed) {
+    const tabs = await chrome.tabs.query({ url: ALL_MEDIA_PERMISSION.origins });
+    await Promise.all(tabs.filter((tab) => Number.isInteger(tab.id) && supportedURL(tab.url) && !isYouTubeURL(tab.url))
+      .map(async (tab) => {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["media.js"] }).catch(() => {});
+        probeTab(tab.id);
+      }));
+  }
+  return allowed;
 }
 
 chrome.runtime.onMessage.addListener((message, sender) => {
@@ -78,7 +128,14 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
   if (message?.type === "nodebay-popup-status") {
     const tabID = message.tabID;
-    return Promise.resolve({ enabled: Number.isInteger(tabID) && equalizedTabs.has(tabID) });
+    return chrome.permissions.contains(ALL_MEDIA_PERMISSION).then((allMediaEnabled) => ({
+      enabled: Number.isInteger(tabID) && equalizedTabs.has(tabID), allMediaEnabled
+    }));
+  }
+
+  if (message?.type === "nodebay-refresh-all-media") {
+    return syncAllMediaAccess().then((enabled) => ({ ok: enabled }))
+      .catch((error) => ({ ok: false, error: error?.message }));
   }
 
   if (message?.type === "nodebay-enable-eq") {
@@ -90,26 +147,40 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   }
 
   if (!sender.tab || !Number.isInteger(sender.tab.id) || !supportedURL(sender.tab.url)) return;
+  if (!isYouTubeURL(sender.tab.url) && !allMediaEnabled) return;
   const id = `chrome:${sender.tab.id}`;
+  if (!isYouTubeURL(sender.tab.url)) genericMediaTabs.add(sender.tab.id);
   if (message?.type === "nodebay-media-state" && message.available === true) {
     sendNative({
       type: "tabState",
       session: {
         ...message.session,
         tabID: sender.tab.id,
-        pageURL: sender.tab.url,
+        pageURL: isYouTubeURL(sender.tab.url) ? sender.tab.url : null,
         eqEnabled: equalizedTabs.has(sender.tab.id)
       }
     });
   } else if (message?.type === "nodebay-media-state" && message.available === false) {
+    genericMediaTabs.delete(sender.tab.id);
     sendNative({ type: "tabRemoved", id });
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabID) => {
-  stopEqualizer(tabID);
+  if (equalizedTabs.has(tabID)) stopEqualizer(tabID);
+  genericMediaTabs.delete(tabID);
   sendNative({ type: "tabRemoved", id: `chrome:${tabID}` });
 });
+
+chrome.tabs.onUpdated.addListener((tabID, changeInfo) => {
+  if (changeInfo.status === "loading" || changeInfo.url) {
+    genericMediaTabs.delete(tabID);
+    sendNative({ type: "tabRemoved", id: `chrome:${tabID}` });
+  }
+});
+
+chrome.permissions.onAdded.addListener(() => { syncAllMediaAccess().catch(() => {}); });
+chrome.permissions.onRemoved.addListener(() => { syncAllMediaAccess().catch(() => {}); });
 
 function probeTab(tabID) {
   if (!Number.isInteger(tabID)) return;
@@ -119,7 +190,7 @@ function probeTab(tabID) {
 async function enableEqualizer(tabID) {
   if (!Number.isInteger(tabID)) return { ok: false, error: "No active tab was selected." };
   const tab = await chrome.tabs.get(tabID).catch(() => null);
-  if (!tab || !supportedURL(tab.url)) {
+  if (!tab || !isYouTubeURL(tab.url)) {
     return { ok: false, error: "Open a YouTube or YouTube Music tab first." };
   }
   if (equalizedTabs.has(tabID)) return { ok: true, enabled: true };
@@ -173,16 +244,16 @@ function handleNativeMessage(message) {
 
 chrome.runtime.onInstalled.addListener(() => {
   connectNative();
-  chrome.tabs.query({
-    url: ["https://www.youtube.com/*", "https://music.youtube.com/*"]
-  }).then((tabs) => {
+  syncAllMediaAccess().catch(() => {});
+  chrome.tabs.query({ url: YOUTUBE_URLS }).then((tabs) => {
     for (const tab of tabs) {
-      if (Number.isInteger(tab.id) && supportedURL(tab.url)) {
+      if (Number.isInteger(tab.id) && isYouTubeURL(tab.url)) {
         chrome.tabs.sendMessage(tab.id, { type: "nodebay-probe" }).catch(() => {});
       }
     }
   });
 });
 
-chrome.runtime.onStartup.addListener(connectNative);
+chrome.runtime.onStartup.addListener(() => { connectNative(); syncAllMediaAccess().catch(() => {}); });
 connectNative();
+syncAllMediaAccess().catch(() => {});

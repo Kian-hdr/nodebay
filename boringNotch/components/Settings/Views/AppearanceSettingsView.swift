@@ -7,10 +7,15 @@
 
 import Defaults
 import SwiftUI
+import NodebayMarkdown
 
 struct Appearance: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Default(.sliderColor) var sliderColor
+
+    @AppStorage(MarkdownPreviewPreferences.solidBackgroundKey,
+                store: MarkdownPreviewPreferences.defaults)
+    private var markdownPreviewSolidBackground = MarkdownPreviewPreferences.defaultSolidBackground
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
@@ -32,6 +37,14 @@ struct Appearance: View {
 
             } header: {
                 Text("General")
+            }
+
+            Section {
+                Toggle("Use solid background", isOn: $markdownPreviewSolidBackground)
+            } header: {
+                Text("Markdown Preview")
+            } footer: {
+                Text("Use a gray reading surface like a TXT preview. Turn off to keep the Liquid Glass appearance. Close and reopen the preview to apply changes.")
             }
 
             Section {

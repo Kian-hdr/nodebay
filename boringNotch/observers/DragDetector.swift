@@ -8,6 +8,15 @@
 import Cocoa
 import UniformTypeIdentifiers
 
+enum NotchDragContent {
+    static func accepts(_ types: [NSPasteboard.PasteboardType]) -> Bool {
+        types.contains { type in
+            type == .fileURL || type == .URL || type == .string ||
+                UTType(type.rawValue)?.conforms(to: .image) == true
+        }
+    }
+}
+
 /// Keeps closed-notch drag activation close to the visible affordance. The
 /// expanded window is much larger than the closed notch and overlaps browser
 /// tab bars, where a small tab-reordering gesture can otherwise look like a
@@ -45,6 +54,7 @@ final class DragDetector {
     private var mouseDraggedMonitor: Any?
     private var mouseUpMonitor: Any?
     private var localDragEndMonitor: Any?
+    private var dragWatchdog: Timer?
 
     private var pasteboardChangeCount: Int = -1
     private var isDragging: Bool = false
@@ -62,15 +72,8 @@ final class DragDetector {
     
     /// Checks if the drag pasteboard contains valid content types that can be dropped on the shelf
     private func hasValidDragContent() -> Bool {
-        let validTypes: [NSPasteboard.PasteboardType] = [
-            .fileURL,
-            NSPasteboard.PasteboardType(UTType.url.identifier),
-            .string
-        ]
         guard let items = dragPasteboard.pasteboardItems, !items.isEmpty else { return false }
-        return items.allSatisfy { item in
-            item.types.contains { validTypes.contains($0) }
-        }
+        return items.contains { NotchDragContent.accepts($0.types) }
     }
 
     func startMonitoring() {
@@ -83,6 +86,7 @@ final class DragDetector {
             self.isDragging = true
             self.isContentDragging = false
             self.hasEnteredNotchRegion = false
+            self.startDragWatchdog()
         }
 
         // Track drag movement and notch region intersection
@@ -90,28 +94,7 @@ final class DragDetector {
             guard let self = self else { return }
             guard self.isDragging else { return }
 
-            // Finder and browsers can populate the drag pasteboard before or
-            // after the first global drag event. Inspect the current types on
-            // every move instead of relying on changeCount timing.
-            if !self.isContentDragging && self.hasValidDragContent() {
-                self.isContentDragging = true
-            }
-
-            // Only process position when content is being dragged
-            if self.isContentDragging {
-                let mouseLocation = NSEvent.mouseLocation
-                self.onDragMove?(mouseLocation)
-                
-                // Track notch region entry/exit
-                let containsMouse = self.notchRegion().contains(mouseLocation)
-                if containsMouse && !self.hasEnteredNotchRegion {
-                    self.hasEnteredNotchRegion = true
-                    self.onDragEntersNotchRegion?()
-                } else if !containsMouse && self.hasEnteredNotchRegion {
-                    self.hasEnteredNotchRegion = false
-                    self.onDragExitsNotchRegion?()
-                }
-            }
+            self.updateDragPosition()
         }
 
         mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp, .keyDown]) { [weak self] event in
@@ -130,7 +113,47 @@ final class DragDetector {
         }
     }
 
+    private func updateDragPosition() {
+        guard isDragging else { return }
+        // The drag pasteboard survives mouse-up. Only a new payload from this
+        // gesture may activate the shelf; window/slider drags must ignore it.
+        if !isContentDragging,
+           dragPasteboard.changeCount != pasteboardChangeCount,
+           hasValidDragContent() {
+            isContentDragging = true
+        }
+        guard isContentDragging else { return }
+        let position = NSEvent.mouseLocation
+        onDragMove?(position)
+        let inside = notchRegion().contains(position)
+        if inside && !hasEnteredNotchRegion {
+            hasEnteredNotchRegion = true
+            onDragEntersNotchRegion?()
+        } else if !inside && hasEnteredNotchRegion {
+            hasEnteredNotchRegion = false
+            onDragExitsNotchRegion?()
+        }
+    }
+
+    /// A source's native tracking loop may consume the final mouse-up or Escape.
+    /// Poll only during a drag so the approach highlight cannot remain latched.
+    private func startDragWatchdog() {
+        dragWatchdog?.invalidate()
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            guard NSEvent.pressedMouseButtons & 1 != 0 else {
+                self.finishDrag()
+                return
+            }
+            self.updateDragPosition()
+        }
+        dragWatchdog = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
     private func finishDrag() {
+        dragWatchdog?.invalidate()
+        dragWatchdog = nil
         let shouldNotifyExit = hasEnteredNotchRegion
         isDragging = false
         isContentDragging = false

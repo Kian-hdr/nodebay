@@ -2,6 +2,22 @@
 
 All notable Nodebay changes are recorded here. The project follows semantic versioning after its first public release.
 
+## [1.2.2] - 2026-09-23
+
+- Keep the full 640 × 190 notch visible when moving between displays, changing
+  notch height, or returning from sleep; prevent duplicate notch windows and
+  repeated hover opening during one pointer visit.
+- Show transient volume, brightness, and backlight HUDs even when the closed
+  notch height is set to zero. Add a volume HUD preview that does not change
+  the actual audio level.
+- Improve Markdown Quick Look spacing and table borders, add an optional solid
+  reading background, and render bundled local Mermaid diagrams with bounded
+  input and no remote resource loading.
+- Recover drag state after missed drop endings and import validated browser
+  image bytes into persistent shelf copies before considering an accompanying URL.
+- Preserve the compact media control row and improve optional browser media
+  discovery. Browser bridge installation and site access remain user controlled.
+
 ## [1.2.1] - 2026-09-09
 
 - Add signed in-app updates from Nodebay's own feed, manual update checking, explicit automatic-update choices, and deferral while work or drafts are active.

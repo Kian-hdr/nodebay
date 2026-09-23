@@ -28,7 +28,7 @@ if (!$socket) {
 }
 
 $socket->autoflush(1);
-write_all($socket, '{"type":"nativeHostConnected","extensionVersion":"0.1.0"}' . "\n");
+write_all($socket, '{"type":"nativeHostConnected","extensionVersion":"0.3.0"}' . "\n");
 
 my $selector = IO::Select->new();
 $selector->add(\*STDIN);

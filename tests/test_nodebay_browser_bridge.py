@@ -29,34 +29,41 @@ def read_exact(stream, count: int) -> bytes:
 
 
 class BrowserBridgeContractTests(unittest.TestCase):
-    def test_extension_permissions_are_limited_to_supported_media_sites(self):
+    def test_extension_permissions_require_explicit_grant_for_other_sites(self):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
-        self.assertEqual(set(manifest["permissions"]), {"nativeMessaging", "offscreen", "tabCapture"})
+        self.assertEqual(set(manifest["permissions"]), {"nativeMessaging", "offscreen", "tabCapture", "scripting"})
         self.assertEqual(
             set(manifest["host_permissions"]),
             {"https://www.youtube.com/*", "https://music.youtube.com/*"},
         )
+        self.assertEqual(set(manifest["optional_host_permissions"]), {"http://*/*", "https://*/*"})
         serialized = json.dumps(manifest)
         self.assertNotIn("<all_urls>", serialized)
         self.assertNotIn('"cookies"', serialized)
         self.assertNotIn('"history"', serialized)
         self.assertNotIn('"tabs"', serialized)
+        background = (EXTENSION / "background.js").read_text()
+        popup = (EXTENSION / "popup.js").read_text()
+        self.assertIn("chrome.permissions.request", popup)
+        self.assertIn("chrome.scripting.registerContentScripts", background)
+        self.assertIn("chrome.scripting.executeScript", background)
+        self.assertIn("chrome.scripting.unregisterContentScripts", background)
 
     def test_extension_and_app_share_the_pinned_identity(self):
         manifest = json.loads((EXTENSION / "manifest.json").read_text())
         bridge = (ROOT / "boringNotch/managers/BrowserMediaBridge.swift").read_text()
         helper = (ROOT / "BoringNotchXPCHelper/BoringNotchXPCHelper.swift").read_text()
-        self.assertEqual(manifest["version"], "0.2.0")
+        self.assertEqual(manifest["version"], "0.3.0")
         self.assertIn('extensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', bridge)
         self.assertIn('browserBridgeExtensionID = "moppfhahpgimiknnknkmchmjljfhhdaf"', helper)
         self.assertIn('nativeHostName = "com.nodebay.browser_bridge"', bridge)
 
-    def test_downloadable_tab_url_is_forwarded_without_broad_browser_permissions(self):
+    def test_only_youtube_tab_url_is_forwarded(self):
         background = (EXTENSION / "background.js").read_text()
         bridge = (ROOT / "boringNotch/managers/BrowserMediaBridge.swift").read_text()
         manager = (ROOT / "boringNotch/managers/MusicManager.swift").read_text()
         home = (ROOT / "boringNotch/components/Notch/NotchHomeView.swift").read_text()
-        self.assertIn("pageURL: sender.tab.url", background)
+        self.assertIn("pageURL: isYouTubeURL(sender.tab.url) ? sender.tab.url : null", background)
         self.assertIn("let pageURL: URL?", bridge)
         self.assertIn("activeDownloadableURL", manager)
         self.assertIn("resolveChromeYouTubeURL", manager)
@@ -97,9 +104,10 @@ class BrowserBridgeContractTests(unittest.TestCase):
     def test_extension_exposes_no_arbitrary_command_channel(self):
         background = (EXTENSION / "background.js").read_text()
         content = (EXTENSION / "media.js").read_text()
-        for forbidden in ("eval(", "new Function", "child_process", "executeScript"):
+        for forbidden in ("eval(", "new Function", "child_process"):
             self.assertNotIn(forbidden, background)
             self.assertNotIn(forbidden, content)
+        self.assertIn('files: ["media.js"]', background)
         self.assertIn('const allowedActions = new Set(["play", "pause", "togglePlay", "seek", "setVolume", "next", "previous"]);', background)
 
     def test_native_host_round_trip_uses_chrome_framing_and_loopback(self):
@@ -131,7 +139,7 @@ class BrowserBridgeContractTests(unittest.TestCase):
             env=environment,
         )
         try:
-            hello = {"type": "hello", "extensionVersion": "0.2.0"}
+            hello = {"type": "hello", "extensionVersion": "0.3.0"}
             process.stdin.write(native_frame(hello))
             process.stdin.flush()
 

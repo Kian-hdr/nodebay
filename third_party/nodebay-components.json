@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "webLibraries": [{"id":"mermaid","name":"Mermaid","version":"12.0.0","source":"https://github.com/mermaid-js/mermaid","license":"MIT","bundled":true,"assetPath":"NodebayMarkdownPreview/Mermaid/mermaid.min.js","licensePath":"NodebayMarkdownPreview/Mermaid/LICENSE","sha256":"28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073"}],
   "companions": [
     {"id":"stl-repair","name":"Blender","version":"5.0.1 (a3db93c5b259)","source":"https://projects.blender.org/blender/blender/src/tag/v5.0.1","license":"GPL-2.0-or-later; separate companion, not redistributed. Blender Foundation copyright. Nodebay adapter is GPL-3.0.","licenseURL":"https://raw.githubusercontent.com/blender/blender/v5.0.1/doc/license/GPL-license.txt","bundled":false},
     {"id":"yt-dlp","name":"yt-dlp","version":"2026.08.19","source":"https://github.com/yt-dlp/yt-dlp","license":"Unlicense core; distribution-dependent third-party licenses; PyInstaller builds are GPLv3+","licenseURL":"https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.08.19/LICENSE","bundled":false},

@@ -31,10 +31,12 @@ class BoringViewModel: NSObject, ObservableObject {
     @Published var isHoveringCalendar: Bool = false
     @Published var isBatteryPopoverActive: Bool = false
 
-    @Published var screenUUID: String?
+    @Published private(set) var screenUUID: String?
 
-    @Published var notchSize: CGSize = getClosedNotchSize()
-    @Published var closedNotchSize: CGSize = getClosedNotchSize()
+    // Open/closed state owns the displayed size. A display refresh must never
+    // leave an open notch with the closed display's much smaller content budget.
+    var notchSize: CGSize { notchState == .open ? openNotchSize : closedNotchSize }
+    @Published private(set) var closedNotchSize: CGSize = getClosedNotchSize()
     
     let webcamManager = WebcamManager.shared
     @Published var isCameraExpanded: Bool = false
@@ -55,8 +57,7 @@ class BoringViewModel: NSObject, ObservableObject {
         super.init()
         
         self.screenUUID = screenUUID
-        notchSize = getClosedNotchSize(screenUUID: screenUUID)
-        closedNotchSize = notchSize
+        closedNotchSize = getClosedNotchSize(screenUUID: screenUUID)
 
         Publishers.CombineLatest3($dropZoneTargeting, $dragDetectorTargeting, $generalDropTargeting)
             .map { shelf, drag, general in
@@ -66,6 +67,21 @@ class BoringViewModel: NSObject, ObservableObject {
             .store(in: &cancellables)
         
         setupDetectorObserver()
+    }
+
+    func refreshDisplayGeometry(screenUUID: String?) {
+        let previousScreen = self.screenUUID ?? "default"
+        self.screenUUID = screenUUID
+        closedNotchSize = getClosedNotchSize(screenUUID: screenUUID)
+
+        let currentScreen = screenUUID ?? "default"
+        if notchState == .open {
+            // Move visibility without briefly marking the conversation closed.
+            QuickChatCoordinator.shared.screen(currentScreen, open: true)
+            if previousScreen != currentScreen {
+                QuickChatCoordinator.shared.screen(previousScreen, open: false)
+            }
+        }
     }
     
     private func setupDetectorObserver() {
@@ -181,15 +197,15 @@ class BoringViewModel: NSObject, ObservableObject {
         }
     }
     
-    func isMouseHovering(position: NSPoint = NSEvent.mouseLocation) -> Bool {
+    func isMouseHovering(position: NSPoint = NSEvent.mouseLocation, expanded: Bool = false) -> Bool {
         let screenFrame = getScreenFrame(screenUUID)
         if let frame = screenFrame {
-            
-            let baseY = frame.maxY - notchSize.height
-            let baseX = frame.midX - notchSize.width / 2
+            let size = expanded ? openNotchSize : notchSize
+            let baseY = frame.maxY - size.height
+            let baseX = frame.midX - size.width / 2
             
             return position.y >= baseY && position.y <= frame.maxY
-                && position.x >= baseX && position.x <= baseX + notchSize.width
+                && position.x >= baseX && position.x <= baseX + size.width
         }
         
         return false
@@ -197,7 +213,7 @@ class BoringViewModel: NSObject, ObservableObject {
 
     @discardableResult
     func open() -> Bool {
-        guard !coordinator.firstLaunch else { return false }
+        guard !coordinator.firstLaunch, notchState == .closed else { return false }
 
         let chat = QuickChatCoordinator.shared
         if notchState != .open && chat.openScreens.isEmpty {
@@ -212,7 +228,6 @@ class BoringViewModel: NSObject, ObservableObject {
         chat.screen(screenUUID ?? "default", open: true)
 
         ShelfStateViewModel.shared.dismissRemovalNotice()
-        self.notchSize = openNotchSize
         self.notchState = .open
         
         // Force music information update when notch is opened
@@ -222,13 +237,13 @@ class BoringViewModel: NSObject, ObservableObject {
     }
 
     func close() {
+        guard notchState == .open else { return }
         // Do not close while a share picker or sharing service is active
         if SharingStateManager.shared.preventNotchClose {
             return
         }
         ShelfStateViewModel.shared.dismissRemovalNotice()
-        self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
-        self.closedNotchSize = self.notchSize
+        self.closedNotchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.notchState = .closed
         QuickChatCoordinator.shared.screen(screenUUID ?? "default", open: false)
         self.isBatteryPopoverActive = false
@@ -257,5 +272,69 @@ class BoringViewModel: NSObject, ObservableObject {
                 close()
             }
         }
+    }
+}
+
+/// Monotonic-time policy shared by pointer reconciliation and its regression
+/// harness. A protected interaction or pointer reentry starts a fresh grace
+/// period, so finishing a menu/popover/drag cannot immediately collapse the UI.
+struct NotchHoverDismissal {
+    private var outsideSince: TimeInterval?
+    var gracePeriod: TimeInterval = 0.2
+
+    mutating func shouldClose(now: TimeInterval, pointerInside: Bool, interactionActive: Bool) -> Bool {
+        guard !pointerInside && !interactionActive else {
+            outsideSince = nil
+            return false
+        }
+        guard let outsideSince else {
+            self.outsideSince = now
+            return false
+        }
+        return now - outsideSince >= gracePeriod
+    }
+}
+
+/// One hover opening per real pointer visit. SwiftUI tracking areas can emit
+/// multiple enter/exit callbacks while the notch changes shape; only pointer
+/// samples outside the expanded region rearm the next visit.
+struct NotchHoverActivation {
+    private var insideSince: TimeInterval?
+    private var outsideSince: TimeInterval?
+    private var armed = true
+    var exitGracePeriod: TimeInterval = 0.2
+
+    mutating func markOpened() {
+        armed = false
+        insideSince = nil
+        outsideSince = nil
+    }
+
+    mutating func shouldOpen(
+        now: TimeInterval,
+        insideClosedRegion: Bool,
+        insideExpandedRegion: Bool,
+        enabled: Bool,
+        dwell: TimeInterval
+    ) -> Bool {
+        if insideExpandedRegion {
+            outsideSince = nil
+        } else if !armed {
+            if outsideSince == nil { outsideSince = now }
+            if now - (outsideSince ?? now) >= exitGracePeriod {
+                armed = true
+                outsideSince = nil
+            }
+        }
+
+        guard enabled, armed, insideClosedRegion else {
+            insideSince = nil
+            return false
+        }
+        if insideSince == nil { insideSince = now }
+        guard now - (insideSince ?? now) >= dwell else { return false }
+        armed = false
+        insideSince = nil
+        return true
     }
 }

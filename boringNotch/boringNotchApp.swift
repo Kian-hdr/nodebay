@@ -8,6 +8,7 @@
 import AVFoundation
 import Combine
 import Defaults
+import Darwin
 import KeyboardShortcuts
 import Sparkle
 import SwiftUI
@@ -66,6 +67,7 @@ struct DynamicNotchApp: App {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var instanceLockFD: Int32 = -1
     var statusItem: NSStatusItem?
     var windows: [String: NSWindow] = [:] // UUID -> NSWindow
     var viewModels: [String: BoringViewModel] = [:] // UUID -> BoringViewModel
@@ -76,14 +78,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var whatsNewWindow: NSWindow?
     var timer: Timer?
     var closeNotchTask: Task<Void, Never>?
-    private var previousScreens: [NSScreen]?
+    private var screenConfigurationTask: DispatchWorkItem?
     private var onboardingWindowController: NSWindowController?
     private var screenLockedObserver: Any?
     private var screenUnlockedObserver: Any?
     private var isScreenLocked: Bool = false
-    private var windowScreenDidChangeObserver: Any?
     private let dragRouter = NotchDragRoutingCoordinator()
     private var observers: [Any] = []
+    private var workspaceObservers: [Any] = []
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -123,7 +125,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
+        workspaceObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        workspaceObservers.removeAll()
         timer?.invalidate()
+        screenConfigurationTask?.cancel()
+        if instanceLockFD >= 0 {
+            flock(instanceLockFD, LOCK_UN)
+            close(instanceLockFD)
+            instanceLockFD = -1
+        }
     }
 
     @MainActor
@@ -186,20 +196,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let shouldCleanupMulti = shouldInvert ? !Defaults[.showOnAllDisplays] : Defaults[.showOnAllDisplays]
         
         if shouldCleanupMulti {
-            windows.values.forEach { window in
+            windows.forEach { uuid, window in
                 window.close()
                 NotchSpaceManager.shared.notchSpace.windows.remove(window)
+                QuickChatCoordinator.shared.screen(uuid, open: false)
             }
             windows.removeAll()
+            viewModels.values.forEach { $0.destroy() }
             viewModels.removeAll()
         } else if let window = window {
             window.close()
             NotchSpaceManager.shared.notchSpace.windows.remove(window)
-            if let obs = windowScreenDidChangeObserver {
-                NotificationCenter.default.removeObserver(obs)
-                windowScreenDidChangeObserver = nil
-            }
             self.window = nil
+            QuickChatCoordinator.shared.screen(vm.screenUUID ?? "default", open: false)
         }
 
         // ensure OSD integration reflects the current window state
@@ -302,15 +311,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
 
-        // Observe when the window's screen changes so we can update drag detectors
-        windowScreenDidChangeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeScreenNotification,
-            object: window,
-            queue: .main) { [weak self] _ in
-                Task { @MainActor in
-                    self?.setupDragDetectors()
-                }
-        }
         return window
     }
 
@@ -321,15 +321,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let screenFrame = screen.frame
-        window.setFrameOrigin(
-            NSPoint(
-                x: screenFrame.origin.x + (screenFrame.width / 2) - window.frame.width / 2,
-                y: screenFrame.origin.y + screenFrame.height - window.frame.height
-            ))
+        window.setFrame(
+            NSRect(
+                x: screenFrame.midX - windowSize.width / 2,
+                y: screenFrame.maxY - windowSize.height,
+                width: windowSize.width,
+                height: windowSize.height
+            ), display: true)
         window.alphaValue = 1
     }
 
+    private func acquireInstanceLock() -> Bool {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return false
+        }
+        let directory = caches.appendingPathComponent("Nodebay", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            return false
+        }
+        let path = directory.appendingPathComponent("instance.lock").path
+        let fd = Darwin.open(path, O_CREAT | O_RDWR | O_NOFOLLOW, S_IRUSR | S_IWUSR)
+        guard fd >= 0 else { return false }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+            Darwin.close(fd)
+            return false
+        }
+        instanceLockFD = fd
+        return true
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Launching a copied build directly bypasses Launch Services' normal
+        // activation of the running app. Only one process may own notch windows.
+        guard acquireInstanceLock() else {
+            NSApplication.shared.terminate(nil)
+            return
+        }
         migrateDisplayPlacementPreferenceIfNeeded()
 
         NotificationCenter.default.addObserver(
@@ -338,6 +367,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+
+        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
+            workspaceObservers.append(NSWorkspace.shared.notificationCenter.addObserver(
+                forName: name, object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.screenConfigurationDidChange()
+            })
+        }
+
+        // One owned observer covers every notch window without accumulating
+        // orphaned observer tokens as external displays reconnect.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeScreenNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let changedWindow = notification.object as? BoringNotchSkyLightWindow else { return }
+            Task { @MainActor in
+                guard let self,
+                      self.window === changedWindow || self.windows.values.contains(where: { $0 === changedWindow }) else { return }
+                self.setupDragDetectors()
+            }
+        })
 
         observers.append(NotificationCenter.default.addObserver(
             forName: Notification.Name.selectedScreenChanged, object: nil, queue: nil
@@ -511,8 +561,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !coordinator.firstLaunch {
             DispatchQueue.main.async { SoftwareUpdateStore.shared.presentMigrationChoiceIfNeeded() }
         }
-        previousScreens = NSScreen.screens
-
         // make sure OSD subsystems are in the right state now that initial
         // notch windows have been created/cleaned up
         coordinator.applyOSDSources()
@@ -568,29 +616,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func screenConfigurationDidChange() {
-        let currentScreens = NSScreen.screens
-
-        let screensChanged =
-            currentScreens.count != previousScreens?.count
-            || Set(currentScreens.compactMap { $0.displayUUID })
-                != Set(previousScreens?.compactMap { $0.displayUUID } ?? [])
-            || Set(currentScreens.map { $0.frame }) != Set(previousScreens?.map { $0.frame } ?? [])
-
-        previousScreens = currentScreens
-
-        if screensChanged {
-            DispatchQueue.main.async { [weak self] in
-                // Sync notch height with real value if mode is matchRealNotchSize
-                syncNotchHeightIfNeeded()
-                
-                self?.cleanupWindows()
-                self?.adjustWindowPosition()
-                self?.setupDragDetectors()
-            }
+        // Display notifications also cover scale, safe area and arrangement
+        // changes with unchanged display IDs. Read fresh geometry after the
+        // notification batch, and retain unaffected hosting views and drafts.
+        screenConfigurationTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.screenConfigurationTask = nil
+            NSScreenUUIDCache.shared.refresh()
+            syncNotchHeightIfNeeded()
+            self.adjustWindowPosition()
+            self.setupDragDetectors()
         }
+        screenConfigurationTask = task
+        DispatchQueue.main.async(execute: task)
     }
 
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {
+        guard !isScreenLocked || Defaults[.showOnLockScreen] else { return }
+        // A reconfiguration can briefly report no screens. Hide the existing
+        // surfaces until the next update instead of destroying their state.
+        guard !NSScreen.screens.isEmpty else {
+            window?.alphaValue = 0
+            windows.values.forEach { $0.alphaValue = 0 }
+            return
+        }
+        // Display-mode notifications may be coalesced or arrive after a new
+        // window is created. Retire the other mode's windows before positioning.
+        if (Defaults[.showOnAllDisplays] && window != nil)
+            || (!Defaults[.showOnAllDisplays] && !windows.isEmpty) {
+            cleanupWindows(shouldInvert: true)
+        }
         if Defaults[.showOnAllDisplays] {
             let currentScreenUUIDs = Set(NSScreen.screens.compactMap { $0.displayUUID })
 
@@ -599,7 +655,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let window = windows[uuid] {
                     window.close()
                     NotchSpaceManager.shared.notchSpace.windows.remove(window)
+                    QuickChatCoordinator.shared.screen(uuid, open: false)
                     windows.removeValue(forKey: uuid)
+                    viewModels[uuid]?.destroy()
                     viewModels.removeValue(forKey: uuid)
                 }
             }
@@ -617,11 +675,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 if let window = windows[uuid], let viewModel = viewModels[uuid] {
+                    viewModel.refreshDisplayGeometry(screenUUID: uuid)
                     positionWindow(window, on: screen, changeAlpha: changeAlpha)
-
-                    if viewModel.notchState == .closed {
-                        viewModel.close()
-                    }
                 }
             }
         } else {
@@ -637,8 +692,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
-            vm.screenUUID = selectedScreen.displayUUID
-            vm.notchSize = getClosedNotchSize(screenUUID: selectedScreen.displayUUID)
+            vm.refreshDisplayGeometry(screenUUID: selectedScreen.displayUUID)
 
             if window == nil {
                 window = createBoringNotchWindow(for: selectedScreen, with: vm)
@@ -646,11 +700,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             if let window = window {
                 positionWindow(window, on: selectedScreen, changeAlpha: changeAlpha)
-
-                if vm.notchState == .closed {
-                    vm.close()
-                }
             }
+        }
+
+        // AppKit retains ordered windows even if our bookkeeping loses one.
+        // A stale notch window still receives hover/scroll events and makes one
+        // gesture appear to open or close twice on the same display.
+        let ownedWindows: [NSWindow] = Defaults[.showOnAllDisplays]
+            ? Array(windows.values) : window.map { [$0] } ?? []
+        for staleWindow in NSApp.windows where staleWindow is BoringNotchSkyLightWindow
+            && !ownedWindows.contains(where: { $0 === staleWindow }) {
+            staleWindow.close()
+            NotchSpaceManager.shared.notchSpace.windows.remove(staleWindow)
         }
 
         // windows might have been added/removed during the earlier logic –

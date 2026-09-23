@@ -39,7 +39,9 @@ class NodebayDownloaderDisplayRoutingTests(unittest.TestCase):
         self.assertIn("ApprovedProcessProgressParser", XPC)
 
     def test_drag_types_accept_extra_representations(self):
-        self.assertIn("item.types.contains", DRAG)
+        self.assertIn("NotchDragContent.accepts($0.types)", DRAG)
+        self.assertIn("types.contains", DRAG)
+        self.assertIn("dragPasteboard.changeCount != pasteboardChangeCount", DRAG)
         self.assertNotIn("item.types.allSatisfy", DRAG)
 
     def test_display_routing_uses_uuid_and_dynamic_window_frame(self):

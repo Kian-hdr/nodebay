@@ -31,6 +31,34 @@ struct ShelfDropService {
     }
     
     private static func processProvider(_ provider: NSItemProvider) async -> [ShelfItem] {
+        // Finder file references remain references. Browser images, however, must
+        // win over accompanying webpage URLs and become durable local copies.
+        if !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+           let image = await provider.extractDroppedImage() {
+            let suggested = provider.suggestedName ?? "Dropped Image"
+            let stem = URL(fileURLWithPath: suggested).deletingPathExtension().lastPathComponent
+            let name = String(stem.prefix(120)) + "." + image.fileExtension
+            if let output = try? NodebayManagedFileStorage.uniqueOutputURL(for: .media, suggestedName: name) {
+                do {
+                    try image.data.write(to: output, options: .atomic)
+                    if let bookmark = createBookmark(for: output) {
+                        return [await ShelfItem(kind: .file(bookmark: bookmark), isTemporary: false)]
+                    }
+                } catch {
+                    NSLog("Nodebay could not save a dropped image (%@)", (error as NSError).domain)
+                }
+                NodebayManagedFileStorage.removeFailedOutput(at: output, category: .media)
+            }
+            return []
+        }
+
+        // Explicit image content that failed validation must not re-enter the
+        // generic data path and become an unchecked file (or a misleading link).
+        if !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+           provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            return []
+        }
+
         if let droppedFile = await provider.extractDroppedFileReference() {
             let bookmark = Bookmark(data: droppedFile.bookmarkData)
             if let accessibleURL = bookmark.resolvedURL {

@@ -26,6 +26,8 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
+    @State private var hoverActivation = NotchHoverActivation()
+    @State private var trackedMenus = Set<ObjectIdentifier>()
     @State private var anyDropDebounceTask: Task<Void, Never>?
     @State private var dropNavigationOrigin: DropNavigationOrigin?
 
@@ -120,7 +122,20 @@ struct ContentView: View {
     // instead of fully hiding it. This preserves layout while avoiding visual artifacts.
     private var isNotchHeightZero: Bool { vm.effectiveClosedNotchHeight == 0 }
 
-    private var displayClosedNotchHeight: CGFloat { isNotchHeightZero ? 10 : vm.effectiveClosedNotchHeight }
+    private var isTransientSystemHUD: Bool {
+        guard vm.notchState == .closed,
+              Defaults[.osdReplacement],
+              coordinator.shouldShowSneakPeek(on: vm.screenUUID) else { return false }
+        switch coordinator.sneakPeekState(for: vm.screenUUID).type {
+        case .volume, .brightness, .backlight: return true
+        default: return false
+        }
+    }
+
+    private var displayClosedNotchHeight: CGFloat {
+        if isTransientSystemHUD { return max(38, vm.effectiveClosedNotchHeight) }
+        return isNotchHeightZero ? 10 : vm.effectiveClosedNotchHeight
+    }
 
     var body: some View {
         // Calculate scale based on gesture progress only
@@ -153,7 +168,7 @@ struct ContentView: View {
                             ? .black.opacity(0.7) : .clear, radius: 6
                     )
                     // Removed conditional bottom padding when using custom 0 notch to keep layout stable
-                    .opacity((isNotchHeightZero && vm.notchState == .closed) ? 0.01 : 1)
+                    .opacity((isNotchHeightZero && vm.notchState == .closed && !isTransientSystemHUD) ? 0.01 : 1)
                 
                 mainLayout
                     .frame(height: vm.notchState == .open ? vm.notchSize.height : nil, alignment: .top)
@@ -164,7 +179,7 @@ struct ContentView: View {
                     }
                     .contentShape(Rectangle())
                     .onDrop(
-                        of: [.fileURL, .url, .utf8PlainText, .plainText, .data],
+                        of: [.fileURL, .url, .utf8PlainText, .plainText, .data, .image],
                         delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting) { providers in
                             guard !providers.isEmpty else { return false }
                             vm.dropEvent = true
@@ -172,9 +187,6 @@ struct ContentView: View {
                             return true
                         }
                     )
-                    .onHover { hovering in
-                        handleHover(hovering)
-                    }
                     .onTapGesture {
                         doOpen()
                     }
@@ -193,34 +205,27 @@ struct ContentView: View {
                         handlePreviousTrackGesture(translation: translation, phase: phase)
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
-                        if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
+                        if vm.notchState == .open && !vm.isBatteryPopoverActive {
                             hoverTask?.cancel()
                             hoverTask = Task {
                                 try? await Task.sleep(for: .milliseconds(100))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if self.vm.notchState == .open && !self.isHovering && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+                                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
                                         self.closeAfterHoverExit()
                                     }
                                 }
                             }
                         }
                     }
-                    .onChange(of: vm.notchState) { _, newState in
-                        if newState == .closed && isHovering {
-                            withAnimation {
-                                isHovering = false
-                            }
-                        }
-                    }
                     .onChange(of: vm.isBatteryPopoverActive) {
-                        if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
+                        if !vm.isBatteryPopoverActive && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
                             hoverTask?.cancel()
                             hoverTask = Task {
                                 try? await Task.sleep(for: .milliseconds(100))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if !self.vm.isBatteryPopoverActive && !self.isHovering && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
+                                    if !self.vm.isBatteryPopoverActive && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
                                         self.closeAfterHoverExit()
                                     }
                                 }
@@ -260,7 +265,74 @@ struct ContentView: View {
         .animation(.smooth, value: gestureProgress)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
-        .onDisappear { hoverTask?.cancel() }
+        .task(id: vm.notchState) {
+            // Poll the real pointer for both opening and dismissal. Tracking
+            // areas on the resizing notch can emit duplicate enter/exit events.
+            var dismissal = NotchHoverDismissal()
+            var dragRelease = NotchHoverDismissal()
+            let observedState = vm.notchState
+            if observedState == .open { hoverActivation.markOpened() }
+            while !Task.isCancelled && vm.notchState == observedState {
+                do { try await Task.sleep(for: .milliseconds(50)) }
+                catch { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                let hovering = vm.isMouseHovering()
+                let wasHovering = isHovering
+                if wasHovering != hovering {
+                    withAnimation(animationSpring) { isHovering = hovering }
+                    if hovering && coordinator.currentView == .chat {
+                        QuickChatCoordinator.shared.userActivity()
+                    }
+                    if hovering && observedState == .closed && Defaults[.enableHaptics] {
+                        haptics.toggle()
+                    }
+                }
+                if observedState == .closed {
+                    if hoverActivation.shouldOpen(
+                        now: now,
+                        insideClosedRegion: hovering,
+                        insideExpandedRegion: vm.isMouseHovering(expanded: true),
+                        enabled: Defaults[.openNotchOnHover]
+                            && !coordinator.firstLaunch
+                            && !coordinator.shouldShowSneakPeek(on: vm.screenUUID),
+                        dwell: Defaults[.minimumHoverDuration]
+                    ) {
+                        _ = doOpen()
+                    }
+                    continue
+                }
+                // A cancelled/native drag can miss all three target exits.
+                // Allow the native drop callback to run before clearing them.
+                if dragRelease.shouldClose(now: now, pointerInside: false,
+                                           interactionActive: NSEvent.pressedMouseButtons != 0) {
+                    if vm.dragDetectorTargeting { vm.dragDetectorTargeting = false }
+                    if vm.generalDropTargeting { vm.generalDropTargeting = false }
+                    if vm.dropZoneTargeting { vm.dropZoneTargeting = false }
+                }
+                if dismissal.shouldClose(
+                    now: now,
+                    pointerInside: hovering,
+                    interactionActive: preventsHoverClose
+                ) {
+                    closeAfterHoverExit()
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)) { notification in
+            if let menu = notification.object as? NSMenu {
+                trackedMenus.insert(ObjectIdentifier(menu))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSMenu.didEndTrackingNotification)) { notification in
+            if let menu = notification.object as? NSMenu {
+                trackedMenus.remove(ObjectIdentifier(menu))
+            }
+        }
+        .onDisappear {
+            trackedMenus.removeAll()
+            hoverTask?.cancel()
+            anyDropDebounceTask?.cancel()
+        }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
 
@@ -601,6 +673,13 @@ struct ContentView: View {
 
     // MARK: - Hover Management
 
+    private var preventsHoverClose: Bool {
+        coordinator.firstLaunch || coordinator.helloAnimationRunning
+            || vm.isBatteryPopoverActive || vm.isRequestingAuthorization
+            || SharingStateManager.shared.preventNotchClose
+            || !trackedMenus.isEmpty || NSEvent.pressedMouseButtons != 0
+    }
+
     private func closeAfterHoverExit() {
         // Native text/scroll views can invalidate a SwiftUI tracking area. Check
         // the real pointer again when the delayed exit fires, not the stale flag.
@@ -610,50 +689,8 @@ struct ContentView: View {
         }
         withAnimation(StandardAnimations.close) {
             isHovering = false
-            if vm.notchState == .open && !vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+            if vm.notchState == .open && !preventsHoverClose {
                 vm.close()
-            }
-        }
-    }
-
-    private func handleHover(_ hovering: Bool) {
-        if coordinator.firstLaunch { return }
-        hoverTask?.cancel()
-        
-        if hovering {
-            if coordinator.currentView == .chat { QuickChatCoordinator.shared.userActivity() }
-            withAnimation(animationSpring) {
-                isHovering = true
-            }
-            
-            if vm.notchState == .closed && Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
-            
-            guard vm.notchState == .closed,
-                  !coordinator.shouldShowSneakPeek(on: vm.screenUUID),
-                  Defaults[.openNotchOnHover] else { return }
-            
-            hoverTask = Task {
-                try? await Task.sleep(for: .seconds(Defaults[.minimumHoverDuration]))
-                guard !Task.isCancelled else { return }
-                
-                await MainActor.run {
-                    guard self.vm.notchState == .closed,
-                          self.isHovering,
-                          !self.coordinator.shouldShowSneakPeek(on: self.vm.screenUUID) else { return }
-                    
-                    self.doOpen()
-                }
-            }
-        } else {
-            hoverTask = Task {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard !Task.isCancelled else { return }
-                
-                await MainActor.run {
-                    self.closeAfterHoverExit()
-                }
             }
         }
     }
@@ -823,7 +860,7 @@ struct GeneralDropTargetDelegate: DropDelegate {
     let onDrop: ([NSItemProvider]) -> Bool
 
     private static let acceptedTypes: [UTType] = [
-        .fileURL, .url, .utf8PlainText, .plainText, .data,
+        .fileURL, .url, .utf8PlainText, .plainText, .data, .image,
     ]
 
     func validateDrop(info: DropInfo) -> Bool {

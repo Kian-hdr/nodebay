@@ -1,5 +1,66 @@
 # Nodebay release verification
 
+## Local playback-icon clipping repair, 2026-09-10
+
+The latest local 1.2.1 (28) patch preserves the display repair below and fixes a
+second compact-layout defect. A legacy macOS horizontal scrollbar could override
+`.scrollIndicators(.hidden)` and reduce the 40-point playback viewport to 23 points,
+clipping the buttons. The reusable control strip and source picker now use
+`.scrollIndicators(.never)`; the notch stays **640 × 190**.
+
+The full 264-test suite passed with no skips in 64.756 seconds. The native harness
+uses the actual control strip and HoverButton: six player-column cases and four
+legacy/overlay scroller cases at 360/180-point widths passed. The old `.hidden`
+variant reproduces the 17-point viewport loss; the fixed strip retains all 40
+points and its overflowing content still scrolls. No system preferences are
+changed by these tests.
+
+The installed app shows complete playback icons and no scrollbar on the connected
+LC34G55T external monitor, including after Main display rerouting and restoring
+Follow active display. All 19 managed files and captured preferences are unchanged.
+Installed executable SHA-256:
+`e6daf967f018215ee0bd96ec4cecf6885dae8d1295c49cffb9b74f5ff01a049a`.
+Developer ID signing passed; Apple notarization accepted
+`d250195b-1248-40ca-8a94-be9ef4263d9d`. The public release, cask and update feed remain
+unchanged. Physical input-device reconnection and the wider display matrix have
+not been rerun.
+
+## Local external-display repair, 2026-09-10
+
+A signed local patch of 1.2.1 (28) is installed on the development Mac. The public
+GitHub/Homebrew release and updater feed remain unchanged. Source is the
+`fix/display-reconfiguration` worktree, based on `8147acb`.
+
+Display repositioning previously wrote closed-notch dimensions into an open
+model, reducing its tab content budget to zero. The displayed size now derives
+from open/closed state: an open notch remains **640 × 190**. Display notifications
+refresh geometry after each notification batch, retaining existing hosting views
+and retiring only disconnected displays. Geometry refresh no longer calls the
+navigation-changing close operation. Wake events use the same reconciliation;
+obsolete drag callbacks and display observers are cleaned up.
+
+- **Automated:** all 264 tests passed, no skips, in 68.704 seconds. Eleven compiled
+  display regressions execute production geometry and routing methods with
+  deterministic window/service doubles. They reproduce the released baseline's
+  clipped state and unnecessary host replacement, then cover routing, unlock,
+  scale/arrangement changes, zero-screen recovery, retained identities and canvas
+  size restoration.
+- **Native:** the installed release was visibly clipped on an LC34G55T external
+  display, 3440 × 1440 points at scale 1. The patched app renders the full notch
+  and remains open with visible content after Main display routing, closed-height
+  changes from 0 to 15 and back to 0, and restoring Follow active display.
+  No Mac restart was used. Physical cable reconnect, sleep/wake and multi-monitor
+  acceptance remain untested; those transitions have automated coverage.
+- **Preservation:** all 19 managed files and every captured preference remained
+  unchanged. The verified runtime, frameworks, XPC helper and preview extension
+  were retained byte-for-byte; dynamic library references match. All 170 Mach-O
+  files passed the arm64/macOS 15 compatibility check. The local bundle includes
+  the corresponding source patch alongside its existing license notices.
+- **Artifact:** installed main executable SHA-256
+  `d75d9e20e51d251eac26433b3a0d1102c85ca5705963f6d2945735553d1935d1`.
+  Developer ID signed; Apple notarization accepted
+  `adb93f85-2576-422e-9420-176bf4dd2f54`.
+
 ## Nodebay 1.2.1 (28): published release, 2026-09-09
 
 **GitHub release published at 21:29:13 UTC; the matching Homebrew cask and stable feed are public.** Build 28 was packaged from clean source
@@ -262,3 +323,18 @@ Checked on 2026-09-02 on Apple Silicon, macOS 26.6.2, and Xcode 26.6. `Passed` m
 | Large-batch memory and crash test | Not run | Requires dedicated stress fixtures and an Instruments pass |
 
 The primary release artifact is `Nodebay-1.0.0-arm64.dmg`, size 86,731,065 bytes, SHA-256 `e33c60cbcf7aa2b80780b8f8c285e051fa94afe21f0b8db7cdaea9d8e0d4e772`. It is Developer ID signed, Apple-notarized, stapled, Gatekeeper accepted, disk-image verified, mounted, installed, and launched. The installed application reports Nodebay 1.0.0 build 21 and preserves the migration-safe bundle identifier `theboringteam.boringnotch` so existing preferences and permissions survive the update.
+
+
+## Local hover and browser-image repair, 2026-09-19
+
+Local installation only; public 1.2.1 assets/feed/cask remain unchanged.
+
+- Reproduced the existing app stuck expanded with a blue drop target while the actual pointer was outside and no mouse button was pressed.
+- Added expanded-view pointer reconciliation, drag release cleanup, and fresh-pasteboard gating. Active sharing, popovers, menus, authorization, onboarding and held mouse buttons preserve interaction.
+- Browser image representations take precedence over accompanying links, are decoded/validated, then saved as persistent collision-safe copies. Invalid image payloads cannot bypass validation through generic data. Provider-owned files remain untouched; stalled image loads time out.
+- Signed arm64 Release build and installed deep strict signature passed, retaining macOS 15 minimum and signing identity. Existing 705 resource/framework/helper/preview files were preserved byte-identically. Local app retains version 1.2.1 (28); this binary has not been separately notarized or published.
+- Real Chrome JPEG payload (1,076,860 bytes) passed production image import replay and byte-identical persistence in the isolated harness. This is not evidence of a completed physical Chrome-to-notch gesture.
+- Native post-install screenshot showed the closed notch. Full physical hover/drag acceptance is pending user confirmation because automation did not reliably deliver the pointer gesture. Other display/OS/accessibility matrices were not rerun.
+- Existing 22 managed content files remained byte-identical. The shelf index was rewritten on launch and still contains the two existing entries; its bytes are not claimed identical.
+
+Final suite: 269 run, 267 passed, two optional tool skips, zero failures (104.222 seconds).

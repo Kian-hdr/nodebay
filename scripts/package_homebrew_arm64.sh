@@ -3,8 +3,8 @@ set -euo pipefail
 
 script_dir=${0:A:h}
 project_root=${script_dir:h}
-release_version=${RELEASE_VERSION:-1.2.1}
-build_number=${BUILD_NUMBER:-28}
+release_version=${RELEASE_VERSION:-1.2.2}
+build_number=${BUILD_NUMBER:-29}
 release_tag=${RELEASE_TAG:-nodebay-v$release_version}
 signing_identity=${SIGNING_IDENTITY:--}
 development_team=${DEVELOPMENT_TEAM:-}

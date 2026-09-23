@@ -25,12 +25,18 @@ app reports 1.2.2 (29), has the same main binary as the DMG, passes signature,
 Gatekeeper and staple checks, and runs as one process from `/Applications`.
 All seven sampled managed files remained byte-identical after the direct and
 Homebrew installs. The signed stable feed is published at commit
-`34b2088d9cc222be04e728a786f317ba51124460` from the final ZIP.
+`34b2088d9cc222be04e728a786f317ba51124460` from the final ZIP; the hosted
+HTTPS feed and anonymously downloaded archive passed independent signature,
+length, hash, source/tag and release-metadata checks. A native check from the
+public 1.2.1 (28) app found 1.2.2, downloaded the signed release ZIP, installed
+and relaunched 1.2.2 (29). The installed main binary matched the final release
+app, all seven sampled managed files remained byte-identical, and a follow-up
+native check reported “You’re up to date.”
 
 The closed notch was visible in the native screenshot. Physical display
-reconnection, fresh permission grant/denial, a recipient macOS 15 Mac, the
-optional Chrome extension, and a real 1.2.1-to-1.2.2 Sparkle relaunch were not
-retested for this release. The separate local fix records below retain their
+reconnection, fresh permission grant/denial, a recipient macOS 15 Mac and the
+optional Chrome extension were not retested for this release. The separate
+local fix records below retain their
 own dated UI and user-confirmation evidence.
 
 ## Local playback-icon clipping repair, 2026-09-10

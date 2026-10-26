@@ -8,8 +8,17 @@
 import Foundation
 import AppKit
 
-class AudioPlayer {
+final class AudioPlayer: NSObject, NSSoundDelegate {
+    private var sound: NSSound?
+
     func play(fileName: String, fileExtension: String) {
-        NSSound(contentsOf:Bundle.main.url(forResource: fileName, withExtension: fileExtension)!, byReference: false)?.play()
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: fileExtension),
+              let sound = NSSound(contentsOf: url, byReference: false) else { return }
+        sound.delegate = self
+        self.sound = sound
+        sound.play()
+    }
+    func sound(_ sound: NSSound, didFinishPlaying flag: Bool) {
+        if self.sound === sound { self.sound = nil }
     }
 }

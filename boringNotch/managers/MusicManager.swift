@@ -867,7 +867,11 @@ class MusicManager: ObservableObject {
             }
         }
 
-        self.timestampDate = state.lastUpdated
+        // Only rebase extrapolation when a timeline input changes. Bundle changes
+        // also rebase Nodebay's explicit cross-app source selection.
+        if timeChanged || playbackRateChanged || activePlaybackChanged || activeBundleChanged {
+            self.timestampDate = state.lastUpdated
+        }
     }
 
     func toggleFavoriteTrack() {

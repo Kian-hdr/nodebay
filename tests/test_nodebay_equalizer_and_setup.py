@@ -167,9 +167,21 @@ class EqualizerAndSetupTests(unittest.TestCase):
     def test_browser_resume_reapplies_after_capture_timeout(self):
         source = MUSIC.read_text()
         source_enum = source.split("    enum MediaSourceID:", 1)[1].split("    struct MediaSourceChoice:", 1)[0]
-        refresh = source.split("        if (activeBundleChanged || activePlaybackChanged)", 1)[1].split(
-            "        self.timestampDate = state.lastUpdated", 1
-        )[0]
+        dispatch = source.split("        if (activeBundleChanged || activePlaybackChanged)", 1)[1]
+        # Select the complete production dispatch block, not a later timestamp
+        # statement whose own control flow may change independently.
+        depth = 0
+        closing = None
+        for index, character in enumerate(dispatch):
+            if character == "{":
+                depth += 1
+            elif character == "}":
+                depth -= 1
+                if depth == 0:
+                    closing = index + 1
+                    break
+        self.assertIsNotNone(closing, "Production EQ dispatch must have a complete block")
+        refresh = dispatch[:closing]
         # Execute the production dispatch block with a recording EQ endpoint.
         # No provider, audio route, application or UI is launched by this test.
         harness = """
@@ -228,8 +240,9 @@ class EqualizerAndSetupTests(unittest.TestCase):
             extracted = pathlib.Path(directory) / "Resume.swift"
             extracted.write_text(harness)
             executable = pathlib.Path(directory) / "browser-resume"
-            subprocess.run(["swiftc", str(CORE), str(extracted), "-o", str(executable)],
-                           check=True, capture_output=True, text=True)
+            compiled = subprocess.run(["swiftc", str(CORE), str(extracted), "-o", str(executable)],
+                                      capture_output=True, text=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
             result = subprocess.run([str(executable)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("refresh checks passed", result.stdout)

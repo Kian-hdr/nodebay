@@ -2,7 +2,7 @@
 
 <p align="center">A native utility bay for your Mac’s notch.</p>
 
-<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="72"></p>
+<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="96"></p>
 
 <h2 align="center">Download</h2>
 

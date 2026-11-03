@@ -4,11 +4,15 @@
 
 Nodebay is a native, local-first macOS utility bay for MacBook displays with a physical notch and external displays with a virtual top-center notch. It combines media controls, a persistent file shelf, safe file stacks, document conversion, local media downloads, image-copy compression, calendar tools, system HUD replacement, and display-aware placement.
 
-<!-- direct-downloads -->
-[![Download macOS DMG · Apple silicon](https://img.shields.io/badge/Download%20macOS%20DMG%20%C2%B7%20Apple%20silicon-24292F?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg) [![Install with Homebrew](https://img.shields.io/badge/Install%20with%20Homebrew-8A4B20?style=for-the-badge&logo=homebrew&logoColor=white)](#installation)
+## Download
 
-[Download macOS DMG · Apple silicon](https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg) · [Homebrew instructions](#installation) · [Release nodebay-v1.2.2](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2)
-<!-- /direct-downloads -->
+<p>
+<a href="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg"><img src="docs/assets/downloads/download_1.svg" width="240" height="48" alt="Download for macOS"></a>
+</p>
+
+[DMG · Apple silicon · v1.2.2](https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg)
+
+[Install with Homebrew](#installation) · [Release notes](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2)
 
 Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch) at exact commit [`44dd999f70493da48209c99e9f873c47f2e55c83`](https://github.com/TheBoredTeam/boring.notch/commit/44dd999f70493da48209c99e9f873c47f2e55c83). The original project and contributors remain credited. Nodebay is GPL-3.0 software and is not affiliated with or endorsed by Microsoft, YouTube, ImageOptim, Spotify, Apple, or the other service and engine providers it can work with.
 

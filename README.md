@@ -1,18 +1,18 @@
-# Nodebay
+<h1 align="center">Nodebay</h1>
 
-A native utility bay for your Mac’s notch.
+<p align="center">A native utility bay for your Mac’s notch.</p>
 
-<img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="72">
+<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="72"></p>
 
-## Download
+<h2 align="center">Download</h2>
 
-<p>
+<p align="center">
 <a href="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg"><img src="docs/assets/downloads/download_1.svg" width="240" height="48" alt="Download for macOS"></a>
 </p>
 
-[DMG · Apple silicon · v1.2.2](https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg)
+<p align="center"><a href="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg">DMG · Apple silicon · v1.2.2</a></p>
 
-[Install with Homebrew](#installation) · [Release notes](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2)
+<p align="center"><a href="#installation">Install with Homebrew</a> · <a href="https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2">Release notes</a></p>
 
 Nodebay is a native, local-first macOS utility bay for MacBook displays with a physical notch and external displays with a virtual top-center notch. It combines media controls, a persistent file shelf, safe file stacks, document conversion, local media downloads, image-copy compression, calendar tools, system HUD replacement, and display-aware placement.
 

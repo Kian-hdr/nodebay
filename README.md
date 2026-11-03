@@ -1,8 +1,8 @@
-<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="160"></p>
-<h1 align="center">Nodebay</h1>
-<p align="center"><strong>The utility bay in your Mac's notch.</strong></p>
+# Nodebay
 
-Nodebay is a native, local-first macOS utility bay for MacBook displays with a physical notch and external displays with a virtual top-center notch. It combines media controls, a persistent file shelf, safe file stacks, document conversion, local media downloads, image-copy compression, calendar tools, system HUD replacement, and display-aware placement.
+A native utility bay for your Mac’s notch.
+
+<img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="72">
 
 ## Download
 
@@ -13,6 +13,8 @@ Nodebay is a native, local-first macOS utility bay for MacBook displays with a p
 [DMG · Apple silicon · v1.2.2](https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg)
 
 [Install with Homebrew](#installation) · [Release notes](https://github.com/Kian-hdr/nodebay/releases/tag/nodebay-v1.2.2)
+
+Nodebay is a native, local-first macOS utility bay for MacBook displays with a physical notch and external displays with a virtual top-center notch. It combines media controls, a persistent file shelf, safe file stacks, document conversion, local media downloads, image-copy compression, calendar tools, system HUD replacement, and display-aware placement.
 
 Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch) at exact commit [`44dd999f70493da48209c99e9f873c47f2e55c83`](https://github.com/TheBoredTeam/boring.notch/commit/44dd999f70493da48209c99e9f873c47f2e55c83). The original project and contributors remain credited. Nodebay is GPL-3.0 software and is not affiliated with or endorsed by Microsoft, YouTube, ImageOptim, Spotify, Apple, or the other service and engine providers it can work with.
 

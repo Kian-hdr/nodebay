@@ -65,7 +65,7 @@ def validate_local_links() -> None:
 
 def validate_identity() -> None:
     required_text = {
-        "README.md": ["The utility bay in your Mac's notch.", "Kian Konrad Tajbakhsh", "44dd999f70493da48209c99e9f873c47f2e55c83"],
+        "README.md": ["A native utility bay for your Mac’s notch.", "Kian Konrad Tajbakhsh", "44dd999f70493da48209c99e9f873c47f2e55c83"],
         "ACKNOWLEDGEMENTS.md": ["based on", "Boring Notch"],
         "THIRD_PARTY_NOTICES.md": ["Microsoft MarkItDown 0.1.7", "MediaRemoteAdapter"],
     }

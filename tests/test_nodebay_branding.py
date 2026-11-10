@@ -98,13 +98,13 @@ class NodebayBrandingTests(unittest.TestCase):
         self.assertIn("CommandGroup(replacing: .appSettings)", app_source)
         self.assertIn('Button("Settings…")', app_source)
 
-    def test_creator_credit_uses_full_name(self) -> None:
+    def test_creator_credit_uses_public_name(self) -> None:
         bundle_info = (ROOT / "boringNotch/extensions/BundleInfos.swift").read_text(
             encoding="utf-8"
         )
-        self.assertIn('creator = "Kian Konrad Tajbakhsh"', bundle_info)
+        self.assertIn('creator = "Kian Konrad"', bundle_info)
         self.assertIn(
-            'copyright = "Copyright © 2026 Kian Konrad Tajbakhsh."',
+            'copyright = "Copyright © 2026 Kian Konrad."',
             bundle_info,
         )
 

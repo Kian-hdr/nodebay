@@ -18,7 +18,7 @@ Nodebay is a native, local-first macOS utility bay for MacBook displays with a p
 
 Nodebay is based on [Boring Notch](https://github.com/TheBoredTeam/boring.notch) at exact commit [`44dd999f70493da48209c99e9f873c47f2e55c83`](https://github.com/TheBoredTeam/boring.notch/commit/44dd999f70493da48209c99e9f873c47f2e55c83). The original project and contributors remain credited. Nodebay is GPL-3.0 software and is not affiliated with or endorsed by Microsoft, YouTube, ImageOptim, Spotify, Apple, or the other service and engine providers it can work with.
 
-Created by **Kian Konrad Tajbakhsh**.
+Created by **Kian Konrad**.
 
 ## Set up with your AI agent
 

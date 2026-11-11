@@ -1,10 +1,13 @@
-<h1 align="center">Nodebay</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/README_Wordmark_Dark.svg">
+    <img src="docs/assets/README_Wordmark_Light.svg" width="140" height="42" alt="Nodebay">
+  </picture>
+</p>
 
 <p align="center">A native utility bay for your Mac’s notch.</p>
 
 <p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="96"></p>
-
-<h2 align="center">Download</h2>
 
 <p align="center">
 <a href="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg"><img src="docs/assets/downloads/download_1.svg" width="240" height="48" alt="Download for macOS"></a>

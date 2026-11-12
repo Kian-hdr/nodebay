@@ -7,7 +7,13 @@
 
 <p align="center">A native utility bay for your Mac’s notch.</p>
 
-<p align="center"><img src="Design/NodebayIcon/Nodebay-AppIcon-1024.png" alt="Nodebay icon" width="96"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Design/NodebayIcon/Nodebay%20Exports/Nodebay-iOS-Dark-1024x1024%401x.png">
+    <source media="(prefers-color-scheme: light)" srcset="Design/NodebayIcon/Nodebay%20Exports/Nodebay-iOS-Default-1024x1024%401x.png">
+    <img src="Design/NodebayIcon/Nodebay%20Exports/Nodebay-iOS-Default-1024x1024%401x.png" width="96" alt="Nodebay icon">
+  </picture>
+</p>
 
 <p align="center">
 <a href="https://github.com/Kian-hdr/nodebay/releases/download/nodebay-v1.2.2/Nodebay-1.2.2-arm64.dmg"><img src="docs/assets/downloads/download_1.svg" width="240" height="48" alt="Download for macOS"></a>

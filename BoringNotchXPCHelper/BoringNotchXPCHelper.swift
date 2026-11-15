@@ -12,11 +12,10 @@ import Security
 
 class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
 
-    func longhaulExchange(_ data: Data, with reply: @escaping (Data) -> Void) {
-        guard NodebayLonghaulRelay.trusted(connection), NodebayLonghaulRelay.validControl(data) else {
-            reply(NodebayLonghaulRelay.unavailable); return
-        }
-        NodebayLonghaulRelay.exchange(data, reply: reply)
+    // Preserve the existing XPC selector for older clients without contacting
+    // the retired desktop companion.
+    func longhaulExchange(_: Data, with reply: @escaping (Data) -> Void) {
+        reply(NodebayLonghaulRelay.unavailable)
     }
 
     private let quickChatWorker = QuickChatWorker()

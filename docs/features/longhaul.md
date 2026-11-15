@@ -1,5 +1,7 @@
 # Longhaul companion
 
+The desktop companion was retired on November 16, 2026. Current source no longer starts the companion connection, shows its controls, or relays requests. Longhaul Headless operates independently. The notes below document earlier releases.
+
 Implemented locally. Control-location negotiation passed focused model, client,
 relay and layout checks and bounded signed native routing checks on 2026-09-06.
 Previous direct-toggle verification is recorded separately below. No public

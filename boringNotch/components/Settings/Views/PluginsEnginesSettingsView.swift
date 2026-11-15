@@ -32,7 +32,6 @@ struct PluginsEnginesSettingsView: View {
             switch selectedArea {
             case .overview:
                 FeatureSetupSection()
-                LonghaulCompanionSettingsSection()
 
                 ForEach(registry.providers) { provider in
                     EngineProviderSection(provider: provider, diagnostic: registry.diagnostics[provider.id], configure: provider.id == "stl-repair" ? { selectedArea = .models } : nil)

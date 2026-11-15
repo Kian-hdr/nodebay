@@ -236,7 +236,6 @@ class BoringViewCoordinator: ObservableObject {
 
         Task { @MainActor in
             helloAnimationRunning = firstLaunch
-            LonghaulCompanionClient.shared.start()
 
             if Defaults[.osdReplacement] {
                 await MediaKeyInterceptor.shared.start(promptIfNeeded: false)

@@ -37,8 +37,7 @@ Before public distribution, verify the final cask checksum and download URL, not
 
 MarkItDown is bundled. The cask declares yt-dlp and FFmpeg as separate Homebrew formula dependencies. ImageOptim remains a separately installed companion application. Nodebay does not bundle or modify those three companions.
 
-Codex CLI and Longhaul are optional separate integrations and are not installed
-by the cask. There is no public Longhaul installer configured. API credentials
+The optional Codex CLI is installed separately. The Longhaul desktop companion has been retired. API credentials
 are configured by the user in Nodebay's secure settings and saved in macOS
 Keychain; they are never part of a cask, artifact or setup file.
 

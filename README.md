@@ -41,8 +41,7 @@ permissions or configuration you need to complete yourself.
 **Nodebay 1.2.2 (29)** adds display, hover, HUD, Markdown preview, and shelf-drop
 improvements on top of the 1.2.1 media and updater release. It includes optional [Quick Chat](docs/features/quick-chat.md),
 available-source media tabs, clearer API-key setup and message bubbles that fit
-their text. It also includes file-drawer fixes and an optional, separately installed
-[Longhaul companion](docs/features/longhaul.md). Apple Silicon and macOS 15 or
+their text. It also includes file-drawer fixes. Apple Silicon and macOS 15 or
 later are required. [Signed in-app updates](docs/features/updates.md) provide manual checks and optional automatic downloads; existing 1.2.0 users need one Homebrew or manual upgrade. Quick Chat defaults to Off; API billing is separate from
 ChatGPT subscriptions.
 
@@ -105,7 +104,6 @@ The following capabilities are implemented in the current source. Automated chec
 - A real five-band equalizer for local shelf audio, Spotify, QuickTime Player and identified Chrome audio; external apps require System Audio Recording permission on each Mac. Apple Music and unidentified System Now Playing sources remain unsupported.
 - XPC-isolated engine execution with structured arguments, strict executable allowlisting, bounded logs, timeouts, and cancellation
 - [Quick Chat](docs/features/quick-chat.md) provides temporary conversations through an explicitly selected OpenAI provider, with compact message bubbles that fit their text and optional separately consented Knowledge Folder excerpts
-- an optional [Longhaul companion](docs/features/longhaul.md) shows acknowledged automation state; it requires a separate compatible app and explicit pairing, and no public Longhaul installer is available
 
 ## File safety
 
@@ -257,7 +255,6 @@ Nodebay keeps the legacy `theboringteam.boringnotch` bundle identifier in the fi
 - STL Repair does not detect or repair self-intersections and cannot guarantee printability. Inspect every result before manufacturing.
 - Markdown preview accepts files up to 2 MiB; larger formatted input uses bounded plain-text fallback. Images appear as alt text, links can be copied but do not navigate, and syntax emphasis is intentionally restrained. Finder preview has been exercised on macOS 26.6.2, not every supported macOS version.
 - Quick Chat delivers complete replies, not token streaming. Native API connection and synthetic chat tests passed. The historical App Server isolation issue concerns that disabled streaming route; final release validation is tracked separately in the verification matrix. Provider retention is separate from Nodebay's temporary local transcript.
-- The optional Longhaul integration does not install Longhaul, pair automatically, or guarantee an active sleep assertion, closed-lid operation or an unlocked desktop. Its sun icon means automatic protection is enabled, not that a job is currently protected.
 
 ## Icon source
 

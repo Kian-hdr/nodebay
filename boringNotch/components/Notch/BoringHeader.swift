@@ -14,7 +14,6 @@ struct BoringHeader: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @ObservedObject private var chat = QuickChatCoordinator.shared
-    @ObservedObject private var longhaul = LonghaulCompanionClient.shared
     var body: some View {
         HStack(spacing: 0) {
             HStack {
@@ -49,9 +48,6 @@ struct BoringHeader: View {
                         )
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
-                        if longhaul.showsNotchControl {
-                            LonghaulNotchButton()
-                        }
                         if coordinator.currentView == .chat {
                             QuickChatHeaderActions()
                         }

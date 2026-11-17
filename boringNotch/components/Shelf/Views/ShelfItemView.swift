@@ -68,14 +68,10 @@ struct ShelfItemView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .frame(width: 105, height: 88)
-                    .offset(y: showsActionButton ? 0 : 13)
+                    .frame(width: 105, height: showsActionButton ? 88 : 114)
 
                     if showsActionButton {
                         conversionButton
-                    } else {
-                        Color.clear
-                            .frame(height: 20)
                     }
                 }
                 .frame(width: 105, height: 114, alignment: .top)
@@ -148,11 +144,7 @@ struct ShelfItemView: View {
     }
 
     private func showQuickLookForSelection() {
-        let selectedItems = selection.selectedItems(in: shelfState.items)
-        let previewItems = selectedItems.contains(where: { $0.id == item.id })
-            ? selectedItems
-            : [item]
-        let urls = previewItems
+        let urls = selection.selectedItems(in: shelfState.items)
             .flatMap(\.flattenedItems)
             .compactMap(\.fileURL)
         guard !urls.isEmpty else { return }
@@ -595,6 +587,8 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         private var filePromiseDelegates: [TemporaryFilePromiseDelegate] = []
 
         override var acceptsFirstResponder: Bool { true }
+        override var needsPanelToBecomeKey: Bool { true }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         private func becomeShelfFirstResponder() {
             if let notchWindow = window as? BoringNotchWindow {
@@ -617,9 +611,15 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             onClick?(event, self)
         }
 
+        override func mouseUp(with event: NSEvent) {
+            mouseDownEvent = nil
+            super.mouseUp(with: event)
+        }
+
         override func keyDown(with event: NSEvent) {
             let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
             if event.keyCode == 49,
+               !event.isARepeat,
                event.modifierFlags.intersection(disallowedModifiers).isEmpty {
                 onQuickLook?()
                 return

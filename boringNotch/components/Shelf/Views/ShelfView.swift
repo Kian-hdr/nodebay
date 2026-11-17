@@ -119,17 +119,11 @@ struct ShelfView: View {
     private func updateQuickLookSelection() {
         guard quickLookService.isQuickLookOpen && !selection.selectedIDs.isEmpty else { return }
         
-        let selectedItems = selection.selectedItems(in: tvm.items)
-        let urls: [URL] = selectedItems.compactMap { item in
-            if let fileURL = item.fileURL {
-                return fileURL
-            }
-            if case .link(let url) = item.kind {
-                return url
-            }
-            return nil
-        }
-        
+        let urls = selection.selectedItems(in: tvm.items)
+            .flatMap(\.flattenedItems)
+            .compactMap(\.fileURL)
+
+
         if !urls.isEmpty {
             quickLookService.updateSelection(urls: urls)
         }
@@ -145,6 +139,13 @@ struct ShelfView: View {
                     : Color.white.opacity(0.1),
                 style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10])
             )
+            .background {
+                // Keep deselection behind the tile and action controls.
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture { selection.clear() }
+            }
             .overlay {
                 content
                     .padding()
@@ -196,8 +197,6 @@ struct ShelfView: View {
             .transaction { transaction in
                 transaction.animation = vm.animation
             }
-            .contentShape(Rectangle())
-            .onTapGesture { selection.clear() }
     }
 
     private var addLinkPopover: some View {

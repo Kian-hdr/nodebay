@@ -6,97 +6,86 @@
 //
 
 import Foundation
-import UniformTypeIdentifiers
 import SwiftUI
 import QuickLookUI
 import AppKit
 
 @MainActor
 final class QuickLookService: ObservableObject {
-    @Published var urls: [URL] = []
-    @Published var selectedURL: URL?
-
-    @Published var isQuickLookOpen: Bool = false
-
-    private var previewPanel: QLPreviewPanel?
-    private var accessingURLs: [URL] = []
-    private var previewPanelObserver: Any?
-
-    func show(urls: [URL], selectFirst: Bool = true, slideshow: Bool = false) {
-        guard !urls.isEmpty else { return }
-        stopAccessingCurrentURLs()
-        accessingURLs = urls.filter { url in
-            if url.isFileURL {
-                return url.startAccessingSecurityScopedResource()
+    @Published private(set) var urls: [URL] = []
+    @Published var selectedURL: URL? {
+        didSet {
+            // SwiftUI clears the selection when the system preview is dismissed.
+            if selectedURL == nil, isQuickLookOpen {
+                endPreview()
             }
+        }
+    }
+    @Published private(set) var isQuickLookOpen = false
+
+    private weak var previewPanel: QLPreviewPanel?
+    private var scopedURLs: [URL] = []
+
+    func show(urls: [URL], selectFirst: Bool = true) {
+        var newScopes: [URL] = []
+        let readableURLs = urls.filter { url in
+            guard url.isFileURL else { return true }
+            let scoped = url.startAccessingSecurityScopedResource()
+            guard FileManager.default.isReadableFile(atPath: url.path) else {
+                if scoped { url.stopAccessingSecurityScopedResource() }
+                return false
+            }
+            if scoped { newScopes.append(url) }
             return true
         }
-        self.urls = accessingURLs
-        self.isQuickLookOpen = true
-        
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(50))
-            if selectFirst {
-                self.selectedURL = accessingURLs.first
-            }
+        guard !readableURLs.isEmpty else { return }
+
+        // Maintain access during a selection change, including files present in both lists.
+        let previousScopes = scopedURLs
+        scopedURLs = newScopes
+        urlsDidChange(to: readableURLs, selectFirst: selectFirst)
+        previousScopes.forEach { $0.stopAccessingSecurityScopedResource() }
+    }
+
+    private func urlsDidChange(to readableURLs: [URL], selectFirst: Bool) {
+        if previewPanel == nil, let panel = QLPreviewPanel.shared() {
+            previewPanel = panel
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(previewPanelWillClose(_:)),
+                name: NSWindow.willCloseNotification, object: panel
+            )
         }
-        
-        // Observe the shared Quick Look preview panel closing so we can relinquish security scope
-        let panel = QLPreviewPanel.shared()
-        // Remove any existing observer for previous panel
-        if let prev = previewPanel {
-            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: prev)
-        }
-        previewPanel = panel
-        NotificationCenter.default.addObserver(self, selector: #selector(previewPanelWillClose(_:)), name: NSWindow.willCloseNotification, object: panel)
+        urls = readableURLs
+        isQuickLookOpen = true
+        if selectFirst { selectedURL = readableURLs.first }
     }
 
     func hide() {
-        stopAccessingCurrentURLs()
-        selectedURL = nil
-        urls.removeAll()
+        let panel = previewPanel
+        endPreview()
+        if panel?.isVisible == true { panel?.orderOut(nil) }
+    }
+
+    private func endPreview() {
+        if let panel = previewPanel {
+            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: panel)
+            previewPanel = nil
+        }
         isQuickLookOpen = false
-        if let panel = previewPanel, panel.isVisible {
-            panel.orderOut(nil)
-        }
-        if let panel = previewPanel {
-            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: panel)
-            previewPanel = nil
-        }
+        if selectedURL != nil { selectedURL = nil }
+        urls.removeAll()
+        scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() }
+        scopedURLs.removeAll()
     }
-    
-    private func stopAccessingCurrentURLs() {
-        NSLog("Stopping access to \(accessingURLs.count) URLs")
-        for url in accessingURLs where url.isFileURL {
-            url.stopAccessingSecurityScopedResource()
-        }
-        accessingURLs.removeAll()
-        // If Quick Look panel was closed externally, also remove observer and clear reference
-        if let panel = previewPanel {
-            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: panel)
-            previewPanel = nil
-        }
-    }
-    
+
     func updateSelection(urls: [URL]) {
         guard isQuickLookOpen else { return }
-        show(urls: urls, selectFirst: true)
+        show(urls: urls)
     }
-}
 
-extension QuickLookService {
     @objc private func previewPanelWillClose(_ notification: Notification) {
         guard let panel = notification.object as? QLPreviewPanel, panel === previewPanel else { return }
-        // Ensure cleanup happens on main actor
-        Task { @MainActor in
-            stopAccessingCurrentURLs()
-            selectedURL = nil
-            urls.removeAll()
-            isQuickLookOpen = false
-            // Remove observer and clear reference
-            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: panel)
-            previewPanel = nil
-        }
+        endPreview()
     }
 }
 
